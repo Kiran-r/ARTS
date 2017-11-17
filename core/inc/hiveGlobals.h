@@ -24,7 +24,7 @@ struct hiveRuntimeShared
     struct hiveDeque ** workerDeque;
     struct hiveDeque ** workerNodeDeque;
     struct hiveDeque ** receiverDeque;
-    struct hiveDeque ** receiverNodeDeque;    
+    struct hiveDeque ** receiverNodeDeque;
     struct hiveRouteTable ** routeTable;
     struct hiveRouteTable * remoteRouteTable;
     volatile bool ** localSpin;
@@ -73,8 +73,7 @@ struct hiveRuntimePrivate
     int edtFree;
     int localCounting;
     hiveArrayList * counterList;
-    struct drand48_data drand_buf;
-    int seed;
+    unsigned short drand_buf[3];
 };
 
 extern struct hiveRuntimeShared hiveNodeInfo;
@@ -87,7 +86,7 @@ extern bool hiveGlobalIWillPrint;
 extern u64 hiveGuidMin;
 extern u64 hiveGuidMax;
 
-#define MASTER_PRINTF(...) if (hiveGlobalRankId==hiveGlobalMasterRankId) PRINTF(__VA_ARGS__) 
+#define MASTER_PRINTF(...) if (hiveGlobalRankId==hiveGlobalMasterRankId) PRINTF(__VA_ARGS__)
 #define ONCE_PRINTF(...) if(hiveGlobalIWillPrint == true) PRINTF(__VA_ARGS__)
 
 #endif

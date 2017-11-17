@@ -92,24 +92,24 @@ void hiveRuntimeGlobalCleanup()
 void hiveThreadZeroNodeStart()
 {
     hiveStartInspector(1);
-    
-    if(initPerNode) 
+
+    if(initPerNode)
     {
         globalGuidOn = 1;
         initPerNode(hiveGlobalRankId, mainArgc, mainArgv);
-        if(!hiveGlobalRankId) 
+        if(!hiveGlobalRankId)
             setGuidGeneratorAfterParallelStart();
         globalGuidOn = 0;
     }
-    
+
     hiveStartInspector(2);
     HIVESTARTCOUNTING(2);
     hiveAtomicSub(&hiveNodeInfo.readyToParallelStart, 1U);
     while(hiveNodeInfo.readyToParallelStart){ }
 
-    if(initPerWorker && hiveThreadInfo.worker) 
+    if(initPerWorker && hiveThreadInfo.worker)
         initPerWorker(hiveGlobalRankId, hiveThreadInfo.groupId, mainArgc, mainArgv);
-    
+
     hiveAtomicSub(&hiveNodeInfo.readyToInspect, 1U);
     while(hiveNodeInfo.readyToInspect){ }
     HIVESTARTCOUNTING(3);
@@ -128,7 +128,7 @@ void hiveRuntimePrivateInit(struct threadMask * unit, struct hiveConfig  * confi
         hiveNodeInfo.workerNodeDeque[unit->groupPos] = hiveNodeInfo.nodeDeque[unit->id];
         hiveNodeInfo.routeTable[unit->id] = hiveThreadInfo.myRouteTable =  hiveRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
     }
-    
+
     if(unit->networkSend || unit->networkReceive)
     {
         if(unit->networkSend)
@@ -166,7 +166,7 @@ void hiveRuntimePrivateInit(struct threadMask * unit, struct hiveConfig  * confi
                 //PRINTF("%d %d %d %d\n", start, size, unit->groupPos, rem);
                 hiveRemotSetThreadInboundQueues(start, start+size);
             }
-            
+
         }
     }
     hiveNodeInfo.localSpin[unit->id] = &hiveThreadInfo.alive;
@@ -196,16 +196,17 @@ void hiveRuntimePrivateInit(struct threadMask * unit, struct hiveConfig  * confi
         hiveAtomicSub(&hiveNodeInfo.readyToParallelStart, 1U);
         while(hiveNodeInfo.readyToParallelStart){ };
 
-        if(initPerWorker && hiveThreadInfo.worker) 
+        if(initPerWorker && hiveThreadInfo.worker)
             initPerWorker(hiveGlobalRankId, hiveThreadInfo.groupId, mainArgc, mainArgv);
-        
+
         hiveAtomicSub(&hiveNodeInfo.readyToInspect, 1U);
         while(hiveNodeInfo.readyToInspect) { };
         hiveAtomicSub(&hiveNodeInfo.readyToExecute, 1U);
         while(hiveNodeInfo.readyToExecute) { };
     }
-    hiveThreadInfo.seed = 1202107158 + unit->id * 1999;
-    srand48_r (hiveThreadInfo.seed, &hiveThreadInfo.drand_buf);
+    hiveThreadInfo.drand_buf[0] = 1202107158 + unit->id * 1999;
+    hiveThreadInfo.drand_buf[1] = 0;
+    hiveThreadInfo.drand_buf[2] = 0;
 }
 
 void hiveRuntimePrivateCleanup()
@@ -241,20 +242,20 @@ void hiveHandleRemoteStolenEdt(struct hiveEdt *edt)
 
 void hiveHandleReadyEdt(struct hiveEdt * edt)
 {
-    HIVECOUNTERTIMERSTART(handleReadyEdt);       
+    HIVECOUNTERTIMERSTART(handleReadyEdt);
     acquireDbs(edt);
     if(hiveAtomicSub(&edt->depcNeeded,1U) == 0)
     {
         hiveDequePushFront(hiveThreadInfo.myDeque, edt, 0);
     }
-    
+
     HIVECOUNTERTIMERENDINCREMENT(handleReadyEdt);
 }
 
 static inline void hiveRunEdt(void *edtPacket)
 {
     HIVECOUNTERTIMERSTART(fireEdt);
-    
+
     struct hiveEdt *edt = edtPacket;
     u32 depc = edt->depc;
     hiveEdtDep_t * depv = (hiveEdtDep_t *)(((u64 *)(edt + 1)) + edt->paramc);
@@ -262,35 +263,35 @@ static inline void hiveRunEdt(void *edtPacket)
     hiveEdt_t func = edt->funcPtr;
     u32 paramc = edt->paramc;
     u64 *paramv = (u64 *)(edt + 1);
-    
+
     prepDbs(depc, depv);
-    
+
     hiveSetThreadLocalEdtInfo(edt);
     HIVECOUNTERTIMERSTART(edtCounter);
-    
+
     hiveGuid_t result = func(paramc, paramv, depc, depv);
-    
+
     HIVECOUNTERTIMERENDINCREMENT(edtCounter);
     hiveUpdatePerformanceMetric(hiveEdtThroughput, hiveThread, 1, false);
     hiveThreadInfo.currentEdtGuid = NULL_GUID;
-    
+
     if(edt->outputEvent != NULL_GUID)
         hiveEventSatisfySlot(edt->outputEvent, result, HIVE_EVENT_LATCH_DECR_SLOT);
-    
+
     releaseDbs(depc, depv);
     hiveEdtDelete(edtPacket);
-    
+
     HIVECOUNTERTIMERENDINCREMENT(fireEdt);
 }
 
-inline unsigned int hiveRuntimeStealAnyMultipleEdt( unsigned int amount, void ** returnList ) 
-{ 
+inline unsigned int hiveRuntimeStealAnyMultipleEdt( unsigned int amount, void ** returnList )
+{
     struct hiveEdt *edt = NULL;
     unsigned int i;
     unsigned int count = 0;
     bool done = false;
     for (i=0; i<hiveNodeInfo.workerThreadCount && !done; i++)
-    {   
+    {
         do
         {
             edt = hiveDequePopBack(hiveNodeInfo.workerDeque[i]);
@@ -311,7 +312,7 @@ inline struct hiveEdt * hiveRuntimeStealFromNetwork()
     unsigned int index = hiveThreadInfo.threadId;
     struct hiveEdt *edt = NULL;
     for (unsigned int i=0; i<hiveNodeInfo.receiverThreadCount; i++)
-    {   
+    {
         index = (index + 1) % hiveNodeInfo.receiverThreadCount;
         if( edt = hiveDequePopBack(hiveNodeInfo.receiverNodeDeque[index]))
             break;
@@ -324,10 +325,10 @@ inline struct hiveEdt * hiveRuntimeStealFromNetwork()
 inline struct hiveEdt * hiveRuntimeStealFromWorker()
 {
     struct hiveEdt *edt = NULL;
-    long unsigned int stealLoc; 
+    long unsigned int stealLoc;
     do
     {
-        mrand48_r (&hiveThreadInfo.drand_buf, &stealLoc);
+        stealLoc = jrand48(hiveThreadInfo.drand_buf);
         stealLoc = stealLoc % hiveNodeInfo.totalThreadCount;
     } while(stealLoc == hiveThreadInfo.threadId);
 
@@ -368,7 +369,7 @@ bool hiveNetworkBeforeStealSchedulerLoop()
                 edtFound = hiveRuntimeStealFromWorker();
         }
     }
-    
+
     if(edtFound)
     {
         hiveRunEdt(edtFound);
@@ -388,7 +389,7 @@ bool hiveDefaultSchedulerLoop()
                 edtFound = hiveRuntimeStealFromNetwork();
         }
     }
-    
+
     if(edtFound)
     {
         hiveRunEdt(edtFound);
@@ -405,7 +406,7 @@ static inline bool lockNetwork( volatile unsigned int * lock)
         if(hiveAtomicCswap( lock, 0U, hiveThreadInfo.threadId+1U ) == 0U)
             return true;
     }
-    
+
     return false;
 }
 
@@ -432,7 +433,7 @@ int hiveRuntimeLoop()
             else
                 hiveRemoteAsyncSend();
         }
-    } 
+    }
     else if(hiveThreadInfo.worker)
     {
         while(hiveThreadInfo.alive)

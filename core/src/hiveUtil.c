@@ -73,8 +73,7 @@ void hiveStopLocalNode()
 
 u64 threadSafeRandom()
 {
-    long int temp = 0;
-    mrand48_r (&hiveThreadInfo.drand_buf, &temp);
+    long int temp = jrand48(hiveThreadInfo.drand_buf);
     return (u64) temp;
 }
 
@@ -97,7 +96,7 @@ u64 threadSafeRandom()
 //    return mmap((caddr_t)0, sbuf.st_size, PROT_READ, MAP_SHARED, fd, 0);
 //}
 //
-//void hiveParallelStartRead(hiveGuid_t * arrayOfGuids, unsigned int numberOfGuids, 
+//void hiveParallelStartRead(hiveGuid_t * arrayOfGuids, unsigned int numberOfGuids,
 //             hiveRecordReader_t reader, char * pathToFile)
 //{
 //    unsigned int blocksPerNode = 0;
@@ -112,7 +111,7 @@ u64 threadSafeRandom()
 //                    fseek(file, 0, SEEK_SET);
 //                else
 //                    file = fopen(pathToFile, "r");
-//                
+//
 //                if(file)
 //                {
 //                    void * dbTempPtr = NULL;
@@ -142,7 +141,7 @@ u64 threadSafeRandom()
 //        fclose(file);
 //}
 //
-//void ocrParallelStartReadFixedSizeMMAP(ocrGuid_t * arrayOfGuids, unsigned int numberOfGuids, 
+//void ocrParallelStartReadFixedSizeMMAP(ocrGuid_t * arrayOfGuids, unsigned int numberOfGuids,
 //                              unsigned int size, ocrRecordReader_t reader, char * pathToFile)
 //{
 //    unsigned int blocksPerNode = 0;
@@ -178,7 +177,7 @@ u64 threadSafeRandom()
 //    file = fopen(pathToFile, "r");
 //    char buffer[MAX_BUFFER_LENGTH];
 //    unsigned int localDbArrayLength=0;
-//    
+//
 //    for(unsigned int i=0; i<numberOfGuids; i++)
 //    {
 //        if(ocrIsGuidLocalExt(arrayOfGuids[i]))
@@ -225,7 +224,7 @@ u64 threadSafeRandom()
 //                    reader(buffer, i, &dbSize, &temp, localDbArrayMap+i*mapperLength);
 //                else
 //                    reader(NULL, i, &dbSize, &temp, localDbArrayMap+i*mapperLength);
-//                 
+//
 //                firstRead = false;
 //            }
 //        }
@@ -257,7 +256,7 @@ u64 threadSafeRandom()
 //    ocrFree(localDbArrayMap);
 //}
 //
-//void ocrParallelStartReadFixedSize(ocrGuid_t * arrayOfGuids, unsigned int numberOfGuids, 
+//void ocrParallelStartReadFixedSize(ocrGuid_t * arrayOfGuids, unsigned int numberOfGuids,
 //                              unsigned int size, ocrRecordReader_t reader, char * pathToFile)
 //{
 //    unsigned int blocksPerNode = 0;

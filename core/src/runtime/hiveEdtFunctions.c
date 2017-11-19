@@ -25,7 +25,7 @@ void hiveSetThreadLocalEdtInfo(struct hiveEdt * edt)
     currentEdt = edt;
 }
 
-inline bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int edtSpace, hiveGuid_t eventGuid, hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, hiveGuid_t * depv)
+bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int edtSpace, hiveGuid_t eventGuid, hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, hiveGuid_t * depv)
 {
     struct hiveEdt *edt;
     HIVESETMEMSHOTTYPE(hiveEdtMemorySize);
@@ -51,7 +51,7 @@ inline bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigne
 
         if(paramc)
             memcpy((u64*) (edt+1), paramv, sizeof(u64) * paramc);
-        
+
         if(eventGuid != NULL_GUID)
         {
             edt->outputEvent = eventGuid;
@@ -78,7 +78,7 @@ inline bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigne
                     hiveHandleReadyEdt((void*)edt);
             }
         }
-        
+
         if(depv != NULL)
         {
             hiveEdtDep_t * edtDep = (hiveEdtDep_t *)((u64*) (edt+1) + paramc);
@@ -90,13 +90,13 @@ inline bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigne
     return false;
 }
 
-inline bool hiveEventCreateInternal(hiveGuid_t * guid, unsigned int route, hiveEventTypes_t eventType, unsigned int dependentCount, unsigned int latchCount, bool destroyOnFire)
-{   
+bool hiveEventCreateInternal(hiveGuid_t * guid, unsigned int route, hiveEventTypes_t eventType, unsigned int dependentCount, unsigned int latchCount, bool destroyOnFire)
+{
     unsigned int eventSize = sizeof (struct hiveEvent) + sizeof (struct hiveDependent) * dependentCount;
     HIVESETMEMSHOTTYPE(hiveEventMemorySize);
     void * eventPacket = hiveCalloc(eventSize);
     HIVESETMEMSHOTTYPE(hiveDefaultMemorySize);
-    
+
     if(eventSize)
     {
         struct hiveEvent *event = eventPacket;
@@ -134,7 +134,7 @@ hiveGuid_t hiveEdtCreate(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 
 {
     HIVEEDTCOUNTERTIMERSTART(edtCreateCounter);
     unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64) + depc * sizeof(hiveEdtDep_t);
-    hiveGuid_t guid = NULL_GUID;   
+    hiveGuid_t guid = NULL_GUID;
     hiveEdtCreateInternal(&guid, route, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, depv);
     HIVEEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return guid;
@@ -144,7 +144,7 @@ hiveGuid_t hiveEdtCreateWithGuid(hiveEdt_t funcPtr, hiveGuid_t guid, u32 paramc,
 {
     HIVEEDTCOUNTERTIMERSTART(edtCreateCounter);
     unsigned int route = hiveGuidGetRank(guid);
-    unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64) + depc * sizeof(hiveEdtDep_t);   
+    unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64) + depc * sizeof(hiveEdtDep_t);
     bool ret = hiveEdtCreateInternal(&guid, route, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, depv);
     HIVEEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return (ret) ? guid : NULL_GUID;
@@ -165,7 +165,7 @@ hiveGuid_t hiveEdtCreateWithEvent(hiveEdt_t funcPtr, unsigned int route, u32 par
     return guid;
 }
 
-inline void hiveEdtFree(struct hiveEdt * edt)
+void hiveEdtFree(struct hiveEdt * edt)
 {
     hiveThreadInfo.edtFree = 1;
     hiveFree(edt);
@@ -175,7 +175,7 @@ inline void hiveEdtFree(struct hiveEdt * edt)
 inline void hiveEdtDelete(struct hiveEdt * edt)
 {
     hiveRouteTableRemoveItem(edt->currentEdt);
-    hiveEdtFree(edt); 
+    hiveEdtFree(edt);
 }
 
 void hiveEdtDestroy(hiveGuid_t guid)
@@ -221,7 +221,7 @@ hiveGuid_t hiveEventCreateLatchWithGuid(hiveGuid_t guid, unsigned int latchCount
     return (ret) ? guid : NULL_GUID;
 }
 
-inline void hiveEventFree(struct hiveEvent * event)
+void hiveEventFree(struct hiveEvent * event)
 {
     struct hiveDependentList * trail, * current = event->dependent.next;
     while(current)
@@ -286,7 +286,7 @@ void hiveEventSatisfySlot(hiveGuid_t eventGuid, hiveGuid_t dataGuid, u32 slot)
         hiveOutOfOrderEventSatisfySlot(currentEdt->currentEdt, eventGuid, dataGuid, slot);
         return;
     }
-    
+
     struct hiveEvent * event = (struct hiveEvent *) hiveRouteTableLookupItem(eventGuid);
     if(!event)
     {
@@ -307,7 +307,7 @@ void hiveEventSatisfySlot(hiveGuid_t eventGuid, hiveGuid_t dataGuid, u32 slot)
             PRINTF("HIVE_EVENT_LATCH_T already fired guid: %lu data: %lu slot: %u\n", eventGuid, dataGuid, slot);
             hiveDebugGenerateSegFault();
         }
-        
+
         unsigned int res;
         if(slot == HIVE_EVENT_LATCH_INCR_SLOT)
         {
@@ -401,7 +401,7 @@ void hiveEventSatisfySlot(hiveGuid_t eventGuid, hiveGuid_t dataGuid, u32 slot)
 void hiveEventSatisfy(hiveGuid_t eventGuid, hiveGuid_t dataGuid)
 {
     HIVEEDTCOUNTERTIMERSTART(signalEventCounter);
-    //Memory Model Stuff -> we delay until all writes are propogated 
+    //Memory Model Stuff -> we delay until all writes are propogated
     if(currentEdt && currentEdt->invalidateCount > 0)
     {
         hiveOutOfOrderEventSatisfy(currentEdt->currentEdt, eventGuid, dataGuid);
@@ -573,7 +573,7 @@ void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hive
         }
     }
     else if(hiveGuidGetType(destination) == HIVE_EVENT)
-    { 
+    {
         struct hiveDependentList *dependentList = &event->dependent;
         struct hiveDependent *dependent;
         unsigned int position = hiveAtomicFetchAdd(&event->dependentCount, 1U);
@@ -620,10 +620,10 @@ void hiveAddLocalEventCallback(hiveGuid_t source, eventCallback_t callback)
         dependent->slot = 0;
         COMPILER_DO_NOT_REORDER_WRITES_BETWEEN_THIS_POINT();
         dependent->doneWriting = true;
-        
+
         unsigned int destroyEvent = (event->destroyOnFire != -1) ? hiveAtomicSub(&event->destroyOnFire, 1U) : 1;
         if(event->fired)
-        { 
+        {
             while(event->pos == 0);
             if(event->pos - 1 <= position)
             {
@@ -742,4 +742,3 @@ bool hiveIsEventFiredExt(hiveGuid_t event)
 //    }
 //    return guid;
 //}
-        

@@ -16,12 +16,12 @@
 #include <string.h>
 #define DPRINTF( ... )
 
-inline void hiveDbCreateInternal(hiveGuid_t guid, void *addr, u64 size, u64 packetSize)
+void hiveDbCreateInternal(hiveGuid_t guid, void *addr, u64 size, u64 packetSize)
 {
     struct hiveHeader *header = (struct hiveHeader*)addr;
     header->type = HIVE_DB;
     header->size = packetSize;
-    
+
     struct hiveDb * dbRes = (struct hiveDb *)header;
     dbRes->guid = guid;
     dbRes->dbList = hiveNewDbList();
@@ -32,7 +32,7 @@ hiveGuid_t hiveDbCreate(void **addr, u64 size)
     HIVEEDTCOUNTERTIMERSTART(dbCreateCounter);
     hiveGuid_t guid = NULL_GUID;
     unsigned int dbSize = size + sizeof(struct hiveDb);
-    
+
     HIVESETMEMSHOTTYPE(hiveDbMemorySize);
     void * ptr = hiveMalloc(dbSize);
     HIVESETMEMSHOTTYPE(hiveDefaultMemorySize);
@@ -52,7 +52,7 @@ void * hiveDbCreateWithGuid(hiveGuid_t guid, u64 size)
 {
     HIVEEDTCOUNTERTIMERSTART(dbCreateCounter);
     unsigned int dbSize = size + sizeof(struct hiveDb);
-    
+
     HIVESETMEMSHOTTYPE(hiveDbMemorySize);
     void * ptr = hiveMalloc(dbSize);
     HIVESETMEMSHOTTYPE(hiveDefaultMemorySize);
@@ -75,7 +75,7 @@ void * hiveDbCreateWithGuid(hiveGuid_t guid, u64 size)
     return ptr;
 }
 
-inline void * hiveDbResizePtr(struct hiveDb * dbRes, unsigned int size, bool copy)
+void * hiveDbResizePtr(struct hiveDb * dbRes, unsigned int size, bool copy)
 {
     if(dbRes)
     {
@@ -84,7 +84,7 @@ inline void * hiveDbResizePtr(struct hiveDb * dbRes, unsigned int size, bool cop
         HIVESETMEMSHOTTYPE(hiveDbMemorySize);
         struct hiveDb *  ptr = hiveCalloc(size + sizeof(struct hiveDb));
         HIVESETMEMSHOTTYPE(hiveDefaultMemorySize);
-        if(ptr) 
+        if(ptr)
         {
             if(copy)
                 memcpy(ptr, dbRes, oldSize);
@@ -188,9 +188,9 @@ void hiveDbCleanLocalOnlyExt(hiveGuid_t guid)
 
 /**********************DB MEMORY MODEL*************************************/
 
-//Side Effects:/ edt depcNeeded will be incremented, ptr will be updated, 
+//Side Effects:/ edt depcNeeded will be incremented, ptr will be updated,
 //  and launches out of order handleReadyEdt
-//Returns false on out of order and true otherwise 
+//Returns false on out of order and true otherwise
 void acquireDbs(struct hiveEdt * edt)
 {
     hiveEdtDep_t * depv = (hiveEdtDep_t *)(((u64 *)(edt + 1)) + edt->paramc);
@@ -203,9 +203,9 @@ void acquireDbs(struct hiveEdt * edt)
             struct hiveDb * dbFound = NULL;
             int owner = hiveGuidGetRank(depv[i].guid);
             switch(depv[i].mode)
-            {  
+            {
                 case DB_MODE_NON_COHERENT_READ:
-                case DB_MODE_CDAG_WRITE:    
+                case DB_MODE_CDAG_WRITE:
                     if(owner == hiveGlobalRankId) //Owner Rank
                     {
                         int validRank = -1;
@@ -250,7 +250,7 @@ void acquireDbs(struct hiveEdt * edt)
                             dbFound = dbTemp;
                             hiveAtomicSub(&edt->depcNeeded, 1U);
                         }
-                        
+
                         if(depv[i].mode == DB_MODE_CDAG_WRITE)
                         {
                             //We can't aggregate read requests for cdag write
@@ -265,14 +265,14 @@ void acquireDbs(struct hiveEdt * edt)
                         }
                     }
                     break;
-                    
+
                 case DB_MODE_NON_COHERENT_WRITE:
                 case DB_MODE_SINGLE_VALUE:
                 default:
                     hiveAtomicSub(&edt->depcNeeded, 1U);
-                    break;  
+                    break;
             }
-            
+
             if(dbFound)
             {
                 depv[i].ptr = dbFound + 1;
@@ -289,8 +289,8 @@ void prepDbs(unsigned int depc, hiveEdtDep_t * depv)
 {
     for(unsigned int i=0; i<depc; i++)
     {
-        if(   depv[i].guid != NULL_GUID && 
-            ( depv[i].mode == DB_MODE_CDAG_WRITE || 
+        if(   depv[i].guid != NULL_GUID &&
+            ( depv[i].mode == DB_MODE_CDAG_WRITE ||
               depv[i].mode == DB_MODE_EXCLUSIVE_WRITE) )
         {
             hiveRemoteUpdateRouteTable(depv[i].guid, -1);
@@ -299,11 +299,11 @@ void prepDbs(unsigned int depc, hiveEdtDep_t * depv)
 }
 
 void releaseDbs(unsigned int depc, hiveEdtDep_t * depv)
-{   
+{
     for(int i=0; i<depc; i++)
     {
-        if(   depv[i].guid != NULL_GUID && 
-            ( depv[i].mode == DB_MODE_CDAG_WRITE || 
+        if(   depv[i].guid != NULL_GUID &&
+            ( depv[i].mode == DB_MODE_CDAG_WRITE ||
               depv[i].mode == DB_MODE_EXCLUSIVE_WRITE ))
         {
             //Signal we finished and progress frontier
@@ -311,7 +311,7 @@ void releaseDbs(unsigned int depc, hiveEdtDep_t * depv)
             {
                 struct hiveDb * db = ((struct hiveDb *)depv[i].ptr - 1);
                 hiveProgressFrontier(db, hiveGlobalRankId);
-                
+
             }
             else
             {
@@ -342,7 +342,7 @@ bool hiveAddDbDuplicate(struct hiveDb * db, unsigned int rank, struct hiveEdt * 
         case DB_MODE_NON_COHERENT_WRITE:
         case DB_MODE_SINGLE_VALUE:
         default:
-            break;  
+            break;
     }
     return hivePushDbToList(db->dbList, rank, write, exclusive, hiveGuidGetRank(db->guid) == rank, false, edt, slot, mode);
 }

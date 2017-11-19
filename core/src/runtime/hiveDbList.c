@@ -15,7 +15,7 @@
 #define writeSet     0x80000000
 #define exclusiveSet 0x40000000
 
-inline void frontierLock(volatile unsigned int * lock)
+void frontierLock(volatile unsigned int * lock)
 {
     unsigned int local, temp;
     while(1)
@@ -32,13 +32,13 @@ inline void frontierLock(volatile unsigned int * lock)
     }
 }
 
-inline void frontierUnlock(volatile unsigned int * lock)
+void frontierUnlock(volatile unsigned int * lock)
 {
     unsigned int mask = writeSet | exclusiveSet;
     hiveAtomicFetchAnd(lock, mask);
 }
 
-inline bool frontierAddReadLock(volatile unsigned int * lock)
+bool frontierAddReadLock(volatile unsigned int * lock)
 {
     unsigned int local, temp;
     while(1)
@@ -58,7 +58,7 @@ inline bool frontierAddReadLock(volatile unsigned int * lock)
 }
 
 //Returns true if there is no write in the frontier, false if there is
-inline bool frontierAddWriteLock(volatile unsigned int * lock)
+bool frontierAddWriteLock(volatile unsigned int * lock)
 {
     unsigned int local, temp;
     while(1)
@@ -79,7 +79,7 @@ inline bool frontierAddWriteLock(volatile unsigned int * lock)
     }
 }
 
-inline bool frontierAddExclusiveLock(volatile unsigned int * lock)
+bool frontierAddExclusiveLock(volatile unsigned int * lock)
 {
     unsigned int local, temp;
     while(1)
@@ -101,7 +101,7 @@ inline bool frontierAddExclusiveLock(volatile unsigned int * lock)
     }
 }
 
-inline void readerLock(volatile unsigned int * reader, volatile unsigned int * writer)
+void readerLock(volatile unsigned int * reader, volatile unsigned int * writer)
 {
     while(1)
     {
@@ -113,19 +113,19 @@ inline void readerLock(volatile unsigned int * reader, volatile unsigned int * w
     }
 }
 
-inline void readerUnlock(volatile unsigned int * reader)
+void readerUnlock(volatile unsigned int * reader)
 {
     hiveAtomicSub(reader, 1U);
 }
 
-inline void writerLock(volatile unsigned int * reader, volatile unsigned int * writer)
+void writerLock(volatile unsigned int * reader, volatile unsigned int * writer)
 {
     while(hiveAtomicCswap(writer, 0U, 1U) == 0U);
     while(*reader);
     return;
 }
 
-inline bool nonBlockingWriteLock(volatile unsigned int * reader, volatile unsigned int * writer)
+bool nonBlockingWriteLock(volatile unsigned int * reader, volatile unsigned int * writer)
 {
     if(hiveAtomicCswap(writer, 0U, 1U) == 0U)
     {
@@ -138,18 +138,18 @@ inline bool nonBlockingWriteLock(volatile unsigned int * reader, volatile unsign
     }
 }
 
-inline void writerUnlock(volatile unsigned int * writer)
+void writerUnlock(volatile unsigned int * writer)
 {
     hiveAtomicSwap(writer, 0U);
 }
 
-inline struct hiveDbElement * hiveNewDbElement()
+struct hiveDbElement * hiveNewDbElement()
 {
-    struct hiveDbElement * ret = (struct hiveDbElement*) hiveCalloc(sizeof(struct hiveDbElement));  
+    struct hiveDbElement * ret = (struct hiveDbElement*) hiveCalloc(sizeof(struct hiveDbElement));
     return ret;
 }
 
-inline struct hiveDbFrontier * hiveNewDbFrontier()
+struct hiveDbFrontier * hiveNewDbFrontier()
 {
     struct hiveDbFrontier * ret = (struct hiveDbFrontier*) hiveCalloc(sizeof(struct hiveDbFrontier));
     return ret;
@@ -163,7 +163,7 @@ struct hiveDbList * hiveNewDbList()
     return ret;
 }
 
-inline void hiveDeleteDbElement(struct hiveDbElement * head)
+void hiveDeleteDbElement(struct hiveDbElement * head)
 {
     struct hiveDbElement * trail;
     struct hiveDbElement * current;
@@ -175,7 +175,7 @@ inline void hiveDeleteDbElement(struct hiveDbElement * head)
     }
 }
 
-inline void hiveDeleteLocalDelayedEdt(struct hiveLocalDelayedEdt * head)
+void hiveDeleteLocalDelayedEdt(struct hiveLocalDelayedEdt * head)
 {
     struct hiveLocalDelayedEdt * trail;
     struct hiveLocalDelayedEdt * current;
@@ -187,7 +187,7 @@ inline void hiveDeleteLocalDelayedEdt(struct hiveLocalDelayedEdt * head)
     }
 }
 
-inline void hiveDeleteDbFrontier(struct hiveDbFrontier * frontier)
+void hiveDeleteDbFrontier(struct hiveDbFrontier * frontier)
 {
     if(frontier->list.next)
         hiveDeleteDbElement(frontier->list.next);
@@ -196,8 +196,8 @@ inline void hiveDeleteDbFrontier(struct hiveDbFrontier * frontier)
     hiveFree(frontier);
 }
 
-inline bool hivePushDbToElement(struct hiveDbElement * head, unsigned int position, unsigned int data)
-{   
+bool hivePushDbToElement(struct hiveDbElement * head, unsigned int position, unsigned int data)
+{
     unsigned int j = 0;
     for(struct hiveDbElement * current=head; current; current=current->next)
     {
@@ -220,9 +220,11 @@ inline bool hivePushDbToElement(struct hiveDbElement * head, unsigned int positi
         if(!current->next)
             current->next = hiveNewDbElement();
     }
+    // Need to mark unreachable
+    return false;
 }
 
-inline void hivePushDelayedEdt(struct hiveLocalDelayedEdt * head, unsigned int position, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
+void hivePushDelayedEdt(struct hiveLocalDelayedEdt * head, unsigned int position, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
 {
     unsigned int numElements = position / DBSPERELEMENT;
     unsigned int elementPos = position % DBSPERELEMENT;
@@ -238,7 +240,7 @@ inline void hivePushDelayedEdt(struct hiveLocalDelayedEdt * head, unsigned int p
     current->mode[elementPos] = mode;
 }
 
-inline bool hivePushDbToFrontier(struct hiveDbFrontier * frontier, unsigned int data, bool write, bool exclusive, bool local, bool bypass, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
+bool hivePushDbToFrontier(struct hiveDbFrontier * frontier, unsigned int data, bool write, bool exclusive, bool local, bool bypass, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
 {
     if(exclusive && !frontierAddExclusiveLock(&frontier->lock))
     {
@@ -248,7 +250,7 @@ inline bool hivePushDbToFrontier(struct hiveDbFrontier * frontier, unsigned int 
     else if(write && !frontierAddWriteLock(&frontier->lock))
     {
         PRINTF("Failed hivePushDbToFrontier 2\n");
-        return false;        
+        return false;
     }
     else if(!exclusive && !write && !frontierAddReadLock(&frontier->lock))
     {
@@ -263,7 +265,7 @@ inline bool hivePushDbToFrontier(struct hiveDbFrontier * frontier, unsigned int 
     }
     if(hivePushDbToElement(&frontier->list, frontier->position, data))
         frontier->position++;
-    
+
     if(exclusive)
     {
         frontier->exNode = data;
@@ -275,7 +277,7 @@ inline bool hivePushDbToFrontier(struct hiveDbFrontier * frontier, unsigned int 
     {
         hivePushDelayedEdt(&frontier->localDelayed, frontier->localPosition++, edt, slot, mode);
     }
-    
+
     frontierUnlock(&frontier->lock);
     return true;
 }
@@ -340,6 +342,8 @@ struct hiveDbFrontierIterator * hiveDbFrontierIterCreate(struct hiveDbFrontier *
         iter->frontier = frontier;
         iter->currentElement = &frontier->list;
     }
+    // Need to mark unreachable
+    return NULL;
 }
 
 unsigned int hiveDbFrontierIterSize(struct hiveDbFrontierIterator * iter)
@@ -390,10 +394,10 @@ struct hiveDbFrontierIterator * hiveCloseFrontier(struct hiveDbList * dbList)
     readerUnlock(&dbList->reader);
     PRINTF("CLOSED FRONTIER * %p\n", frontier);
     return iter;
-    
+
 }
 
-inline void hiveSignalFrontierRemote(struct hiveDbFrontier * frontier, struct hiveDb * db, unsigned int getFrom)
+void hiveSignalFrontierRemote(struct hiveDbFrontier * frontier, struct hiveDb * db, unsigned int getFrom)
 {
     frontierLock(&frontier->lock);
     struct hiveDbFrontierIterator * iter = hiveDbFrontierIterCreate(frontier);
@@ -405,10 +409,10 @@ inline void hiveSignalFrontierRemote(struct hiveDbFrontier * frontier, struct hi
             if(node != hiveGlobalRankId)
             {
                 hiveRemoteDbForward(node, getFrom, db->guid, DB_MODE_NON_COHERENT_READ); //Don't care about mode
-            }                
+            }
         }
     }
-    
+
     if(frontier->exNode)
     {
         //Send the exclusive here...
@@ -425,7 +429,7 @@ inline void hiveSignalFrontierRemote(struct hiveDbFrontier * frontier, struct hi
             struct hiveEdt * edt = current->edt[pos];
             unsigned int slot = current->slot[pos];
             hiveOutOfOrderHandleRemoteDbRequest(ooList, data, edt, slot);
-           
+
             if(pos+1 == DBSPERELEMENT)
                 current = current->next;
         }
@@ -433,7 +437,7 @@ inline void hiveSignalFrontierRemote(struct hiveDbFrontier * frontier, struct hi
     frontierUnlock(&frontier->lock);
 }
 
-inline void hiveSignalFrontierLocal(struct hiveDbFrontier * frontier, struct hiveDb * db)
+void hiveSignalFrontierLocal(struct hiveDbFrontier * frontier, struct hiveDb * db)
 {
     frontierLock(&frontier->lock);
     struct hiveDbFrontierIterator * iter = hiveDbFrontierIterCreate(frontier);
@@ -449,7 +453,7 @@ inline void hiveSignalFrontierLocal(struct hiveDbFrontier * frontier, struct hiv
             }
         }
     }
-    
+
     if(frontier->exNode)
     {
         //Send the exclusive here...
@@ -468,7 +472,7 @@ inline void hiveSignalFrontierLocal(struct hiveDbFrontier * frontier, struct hiv
             {
                 hiveHandleRemoteStolenEdt(edt);
             }
-            
+
             if(pos+1 == DBSPERELEMENT)
                 current = current->next;
         }
@@ -511,7 +515,7 @@ struct hiveDbFrontierIterator * hiveProgressAndGetFrontier(struct hiveDbList * d
 
 /*Not sure if we need then...**************************************************/
 
-inline unsigned int * makeCopy(struct hiveDbFrontier * frontier)
+unsigned int * makeCopy(struct hiveDbFrontier * frontier)
 {
     unsigned int * array = hiveMalloc(sizeof(unsigned int) * frontier->position);
     unsigned int numElements = frontier->position / DBSPERELEMENT;
@@ -530,31 +534,31 @@ inline unsigned int * makeCopy(struct hiveDbFrontier * frontier)
     return array;
 }
 
-void quicksort(unsigned int * array, unsigned int length) 
+void quicksort(unsigned int * array, unsigned int length)
 {
-  if (length < 2) 
+  if (length < 2)
       return;
- 
+
   unsigned int pivot = array[length/2];
   unsigned int i, j;
-  for(i = 0, j = length-1; ; i++, j--) 
+  for(i = 0, j = length-1; ; i++, j--)
   {
-    while(array[i] < pivot) 
+    while(array[i] < pivot)
         i++;
-    while(array[j] > pivot) 
+    while(array[j] > pivot)
         j--;
- 
+
     if (i >= j) break;
     unsigned int temp = array[i];
     array[i] = array[j];
     array[j] = temp;
   }
-  
+
   quicksort(array, i);
   quicksort(array+i, length-i);
 }
 
-inline void replaceWithCopy(struct hiveDbFrontier * frontier, unsigned int * array)
+void replaceWithCopy(struct hiveDbFrontier * frontier, unsigned int * array)
 {
     unsigned int numElements = frontier->position / DBSPERELEMENT;
     unsigned int lastPos = frontier->position % DBSPERELEMENT;
@@ -571,7 +575,7 @@ inline void replaceWithCopy(struct hiveDbFrontier * frontier, unsigned int * arr
     }
 }
 
-inline void sortSingleElement(struct hiveDbElement * current, unsigned int size)
+void sortSingleElement(struct hiveDbElement * current, unsigned int size)
 {
     unsigned int * array = current->array;
     for(unsigned int i=1; i<size; i++)

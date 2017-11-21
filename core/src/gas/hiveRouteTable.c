@@ -12,16 +12,27 @@
 
 #define DPRINTF
 //#define DPRINTF(...) PRINTF(__VA_ARGS__)
-#define collisionResolves 8
-#define initInvalidateSize 128
+#define collisionResolves 8 
+#define initInvalidateSize 128 
 #define guidLockSize 1024
 volatile unsigned int guidLock[guidLockSize] = {0};
 
 #define reservedItem  0x8000000000000000
 #define availableItem 0x4000000000000000
 #define deleteItem    0x2000000000000000
-#define maxItem       0xDFFFFFFFFFFFFFFF
 #define statusMask    (reservedItem | availableItem | deleteItem)
+
+#define maxItem       0x1FFFFFFFFFFFFFFF
+#define countMask     ~(reservedItem | availableItem | deleteItem)
+#define checkMaxItem(x) (((x & countMask) + 1) < maxItem)
+#define getCount(x)   (x & countMask)
+
+#define isDel(x)       ( x & deleteItem )
+#define isRes(x)       ( (x & reservedItem ) && !(x & availableItem) && !(x & deleteItem) )
+#define isAvail(x)     ( (x & availableItem) && !(x & reservedItem ) && !(x & deleteItem) )
+#define isReq(x)  ( (x & reservedItem ) &&  (x & availableItem) && !(x & deleteItem) )
+
+#define shouldDelete(x) (isDel(x) && !getCount(x))
 
 struct hiveRouteItem
 {
@@ -29,7 +40,6 @@ struct hiveRouteItem
     void * data;
     volatile u64 lock;
     unsigned int rank;
-    unsigned int requested;
     struct hiveOutOfOrderList ooList;
 } __attribute__ ((aligned));
 
@@ -46,72 +56,109 @@ struct hiveRouteTable
     volatile unsigned writerLock;
 } __attribute__ ((aligned));
 
-bool markReserve(struct hiveRouteItem * item, bool markUse)
+inline void freeItem(struct hiveRouteItem * item)
+{
+    hiveFree(item->data);
+    hiveOutOfOrderListDelete(&item->ooList);
+    item->data = NULL;
+    item->key = 0;
+    item->lock = 0;
+}
+
+inline bool markReserve(struct hiveRouteItem * item, bool markUse)
 {
     if(markUse)
     {
         u64 mask = reservedItem + 1;
         return !hiveAtomicCswapU64(&item->lock, 0, mask);
     }
-    else
+    else   
         return !hiveAtomicFetchOrU64(&item->lock, reservedItem);
 }
 
-bool markWrite(struct hiveRouteItem * item)
+inline bool markRequested(struct hiveRouteItem * item)
 {
-    u64 res = hiveAtomicFetchOrU64(&item->lock, availableItem);
-    u64 mask = statusMask;
-    u64 validMask = reservedItem;
-    return (res & mask) != validMask;
+    u64 local, temp;
+    while(1)
+    {
+        local = item->lock;
+        if((local & reservedItem) || (local & deleteItem))
+            return false;
+        else
+        {
+            temp = local | reservedItem;
+            if(local == hiveAtomicCswapU64(&item->lock, local, temp))
+                    return true;
+        }
+    }
 }
 
-bool markDelete(struct hiveRouteItem * item)
+inline bool markWrite(struct hiveRouteItem * item)
+{
+    u64 local, temp;
+    while(1)
+    {
+        local = item->lock;
+        if(local & reservedItem)
+        {
+            temp = (local & ~reservedItem) | availableItem;
+            if(local == hiveAtomicCswapU64(&item->lock, local, temp))
+                return true;
+        }
+        else
+            return false;
+    }
+}
+
+inline bool markDelete(struct hiveRouteItem * item)
 {
     u64 res = hiveAtomicFetchOrU64(&item->lock, deleteItem);
-    u64 mask = statusMask;
-    u64 validMask = reservedItem | availableItem;
-    return (res & mask) != validMask;
+    return (res & deleteItem) != 0;
 }
 
 inline void printState(struct hiveRouteItem * item)
 {
     if(item)
     {
-        u64 mask = statusMask;
-        u64 res = item->lock & mask;
-        if(res == reservedItem)
-            PRINTF("%lu: reserved\n", item->key);
-        else if(res == (reservedItem | availableItem))
-            PRINTF("%lu: available\n", item->key);
-        else if((res == (reservedItem | availableItem | deleteItem)))
-            PRINTF("%lu: deleted\n", item->key);
+        u64 local = item->lock;
+        if(isReq(local))
+            PRINTF("%lu: reserved-available %p\n", item->key, local);
+        else if(isRes(local))
+            PRINTF("%lu: reserved\n", item->key, local);
+        else if(isAvail(local))
+            PRINTF("%lu: available %p\n", item->key, local);     
+        else if(isDel(local))
+            PRINTF("%lu: deleted %p\n", item->key, local);  
     }
-    PRINTF("NULL ITEM\n");
+    else
+        PRINTF("NULL ITEM\n");
 }
 
 //11000 & 11100 = 11000, 10000 & 11100 = 10000, 11100 & 11100 = 11000
-bool checkItemState(struct hiveRouteItem * item, itemState state)
+inline bool checkItemState(struct hiveRouteItem * item, itemState state)
 {
     if(item)
     {
-        u64 mask = statusMask;
-        u64 res = item->lock & mask;
+        u64 local = item->lock;
         switch(state)
         {
             case reservedKey:
-                return res == reservedItem;
+                return isRes(local);
 
+            case requestedKey:
+                return isReq(local);
+                
             case availableKey:
-                return res == (reservedItem | availableItem);
-
+                return isAvail(local);    
+                
             case allocatedKey:
-                return (res == reservedItem) || (res == (reservedItem | availableItem));
-
+                return isRes(local) || isAvail(local) || isReq(local);    
+                
             case deletedKey:
-                return (res == (reservedItem | availableItem | deleteItem));
+                return isDel(local);
 
             case anyKey:
-                return res != 0;
+                return local!=0;
 
             default:
                 return false;
@@ -120,32 +167,57 @@ bool checkItemState(struct hiveRouteItem * item, itemState state)
     return false;
 }
 
+inline bool checkMinItemState(struct hiveRouteItem * item, itemState state)
+{
+    if(item)
+    {
+        u64 local = item->lock;
+        itemState actualState = noKey;
+        
+        if(isDel(local))
+            actualState = deletedKey;
+        
+        else if(isRes(local))
+            actualState = reservedKey;
+        
+        else if(isReq(local))
+            actualState = requestedKey;
+        
+        else if(isAvail(local))
+            actualState = availableKey;
+        
+        return (actualState && actualState>=state);
+    }
+    return false;
+}
+
 itemState getItemState(struct hiveRouteItem * item)
 {
     if(item)
     {
-        u64 mask = statusMask;
-        u64 res = item->lock & mask;
-
-        if(res == reservedItem)
+        u64 local = item->lock;
+        
+        if(isRes(local))
             return reservedKey;
-
-        else if(res == (reservedItem | availableItem))
-            return availableKey;
-
-        else if((res == (reservedItem | availableItem | deleteItem)))
-            return deletedKey;
+        
+        if(isAvail(local))
+            return availableKey;    
+        
+        if(isReq(local))
+            return requestedKey;
+        
+        if(isDel(local))
+            return deletedKey;  
     }
     return noKey;
 }
 
-bool incItem(struct hiveRouteItem * item)
+inline bool incItem(struct hiveRouteItem * item)
 {
-    u64 mask = deleteItem;
     while(1)
     {
         u64 local = item->lock;
-        if(!(local & mask) && (local + 1 < maxItem))
+        if(!(local & deleteItem) && checkMaxItem(local))
         {
             if(local == hiveAtomicCswapU64(&item->lock, local, local + 1))
             {
@@ -158,21 +230,18 @@ bool incItem(struct hiveRouteItem * item)
     return false;
 }
 
-bool decItem(struct hiveRouteItem * item)
+inline bool decItem(struct hiveRouteItem * item)
 {
-    u64 mask = statusMask;
-    if(mask == hiveAtomicSubU64(&item->lock, 1))
+    u64 local = hiveAtomicSubU64(&item->lock, 1);
+    if(shouldDelete(local))
     {
-        hiveOutOfOrderListDelete(&item->ooList);
-        hiveFree(item->data);
-        item->data = NULL;
-        item->lock = 0;
+        freeItem(item);
         return true;
     }
     return false;
 }
 
-void readerTableLock(struct hiveRouteTable *  table)
+inline void readerTableLock(struct hiveRouteTable *  table)
 {
     while(1)
     {
@@ -184,7 +253,7 @@ void readerTableLock(struct hiveRouteTable *  table)
     }
 }
 
-void readerTableUnlock(struct hiveRouteTable *  table)
+inline void readerTableUnlock(struct hiveRouteTable *  table)
 {
     hiveAtomicSub(&table->readerLock, 1U);
 }
@@ -196,7 +265,7 @@ inline void writerTableLock(struct hiveRouteTable *  table)
     return;
 }
 
-bool writerTryTableLock(struct hiveRouteTable *  table)
+inline bool writerTryTableLock(struct hiveRouteTable *  table)
 {
     if(hiveAtomicCswap(&table->writerLock, 0U, 1U) == 0U)
     {
@@ -206,7 +275,7 @@ bool writerTryTableLock(struct hiveRouteTable *  table)
     return false;
 }
 
-void writeTableUnlock(struct hiveRouteTable *  table)
+inline void writeTableUnlock(struct hiveRouteTable *  table)
 {
     hiveAtomicSwap(&table->writerLock, 0U);
 }
@@ -269,7 +338,7 @@ static inline u64 getRouteTableKey(u64 x, unsigned int shift, u64 func)
         case 32:
             hash *= 4294967291;
     }
-
+    
     return (hash64(x, hash) >> (64-shift))*collisionResolves;
 }
 
@@ -345,7 +414,7 @@ struct hiveRouteItem * hiveRouteTableSearchForEmpty(struct hiveRouteTable * rout
             }
             keyVal++;
         }
-
+        
         readerTableLock(current);
         next = current->next;
         readerTableUnlock(current);
@@ -366,7 +435,7 @@ struct hiveRouteItem * hiveRouteTableSearchForEmpty(struct hiveRouteTable * rout
                 next = current->next;
                 readerTableUnlock(current);
             }
-
+            
         }
         current = next;
     }
@@ -379,24 +448,22 @@ void * hiveRouteTableAddItem(void* item, hiveGuid_t key, unsigned int rank, bool
 {
     struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
     struct hiveRouteItem * location = hiveRouteTableSearchForEmpty(routeTable, key, used);
-
+    
     location->data = item;
     location->rank = rank;
-    markWrite(location);
+    markWrite(location);              
     return location;
 }
 
 bool hiveRouteTableRemoveItem(hiveGuid_t key)
-{
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
+{ 
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
     struct hiveRouteItem * item = hiveRouteTableSearchForKey(routeTable, key, availableKey);
     if(item)
     {
         if(markDelete(item))
         {
-            hiveOutOfOrderListDelete(&item->ooList);
-            item->data = NULL;
-            item->lock = 0;
+            freeItem(item);
         }
     }
     return 0;
@@ -406,11 +473,11 @@ bool hiveRouteTableRemoveItem(hiveGuid_t key)
 //The guid doesn't need to be locked if no one knows about it
 bool hiveRouteTableAddItemRace(void * item, hiveGuid_t key, unsigned int rank, bool used)
 {
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
     unsigned int pos = (unsigned int)(((u64)key) % (u64)guidLockSize);
-
+    
     bool ret = false;
-    struct hiveRouteItem * found = NULL;
+    struct hiveRouteItem * found = NULL; 
     while(!found)
     {
         if(guidLock[pos] == 0)
@@ -432,7 +499,7 @@ bool hiveRouteTableAddItemRace(void * item, hiveGuid_t key, unsigned int rank, b
                 }
                 else
                 {
-                    found = hiveRouteTableAddItem(item, key, rank, used);
+                    found = hiveRouteTableAddItem(item, key, rank, used);    
                     ret = true;
                 }
                 guidLock[pos] = 0U;
@@ -440,7 +507,7 @@ bool hiveRouteTableAddItemRace(void * item, hiveGuid_t key, unsigned int rank, b
         }
         else
             found = hiveRouteTableSearchForKey(routeTable, key, availableKey);
-    }
+    }  
 //    PRINTF("found: %lu %p\n", key, found);
     return ret;
 }
@@ -448,7 +515,7 @@ bool hiveRouteTableAddItemRace(void * item, hiveGuid_t key, unsigned int rank, b
 //This is used for the send aggregation
 bool hiveRouteTableReserveItemRace(hiveGuid_t key, struct hiveRouteItem ** item, bool used)
 {
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
     unsigned int pos = (unsigned int)(((u64)key) % (u64)guidLockSize);
     bool ret = false;
     *item = NULL;
@@ -463,7 +530,7 @@ bool hiveRouteTableReserveItemRace(hiveGuid_t key, struct hiveRouteItem ** item,
                 {
                     *item = hiveRouteTableSearchForEmpty(routeTable, key, used);
                     ret = true;
-                    PRINTF("RES: %lu %p\n", key, routeTable);
+                    DPRINTF("RES: %lu %p\n", key, routeTable);
                 }
                 guidLock[pos] = 0U;
             }
@@ -473,50 +540,59 @@ bool hiveRouteTableReserveItemRace(hiveGuid_t key, struct hiveRouteItem ** item,
             *item = hiveRouteTableSearchForKey(routeTable, key, allocatedKey);
         }
     }
-//    printState(hiveRouteTableSearchForKey(routeTable, key, reservedKey));
+//    printState(hiveRouteTableSearchForKey(routeTable, key, anyKey));
     return ret;
 }
 
 //This does the send aggregation
-bool hiveRouteTableAddSent(hiveGuid_t key, void * edt, unsigned int slot, bool aggregate, bool update)
+bool hiveRouteTableAddSent(hiveGuid_t key, void * edt, unsigned int slot, bool aggregate)
 {
     struct hiveRouteItem * item = NULL;
     bool sendReq;
-    if(update)
+    //I shouldn't be able to get to here if the db hasn't already been created
+    //and I am the owner node thus item can't be null... or so it should be
+    if(hiveGuidGetRank(key) == hiveGlobalRankId)
     {
-        struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
+        struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
         item = hiveRouteTableSearchForKey(routeTable, key, allocatedKey);
-        sendReq = (hiveAtomicCswap(&item->requested, 0, item->rank+1) == 0);
+        sendReq = markRequested(item);
     }
     else
     {
         sendReq = hiveRouteTableReserveItemRace(key, &item, true);
-
         if(!sendReq && !incItem(item))
-            PRINTF("Item marked for deletion before it has arrived...");
+            PRINTF("Item marked for deletion before it has arrived %u...", sendReq);
     }
-    hiveOutOfOrderHandleRemoteDbRequest(&item->ooList, &item->data, edt, slot);
+    hiveOutOfOrderHandleDbRequestWithOOList(&item->ooList, &item->data, edt, slot);
     return sendReq || !aggregate;
 }
 
 void * hiveRouteTableLookupItem(hiveGuid_t key)
 {
     void * ret = NULL;
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
     struct hiveRouteItem * location = hiveRouteTableSearchForKey(routeTable, key, availableKey);
     if(location)
         ret = location->data;
     return ret;
 }
 
-itemState hiveRouteTableLookupItemWithState(hiveGuid_t key, void ** data)
+itemState hiveRouteTableLookupItemWithState(hiveGuid_t key, void *** data, itemState min, bool inc)
 {
     void * ret = NULL;
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
-    struct hiveRouteItem * location = hiveRouteTableSearchForKey(routeTable, key, anyKey);
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
+    struct hiveRouteItem * location = hiveRouteTableSearchForKey(routeTable, key, min);
     if(location)
     {
-        *data = location->data;
+        if(inc)
+        {
+            if(!incItem(location))
+            {
+                *data = NULL;
+                return noKey;
+            }
+        }
+        *data = &location->data;
         return getItemState(location);
     }
     return noKey;
@@ -526,7 +602,7 @@ void * hiveRouteTableLookupDb(hiveGuid_t key, int * rank)
 {
     *rank = -1;
     void * ret = NULL;
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
     struct hiveRouteItem * location = hiveRouteTableSearchForKey(routeTable, key, availableKey);
     if(location)
     {
@@ -537,19 +613,20 @@ void * hiveRouteTableLookupDb(hiveGuid_t key, int * rank)
     return ret;
 }
 
-bool hiveRouteTableReturnDb(hiveGuid_t key)
+bool hiveRouteTableReturnDb(hiveGuid_t key, bool markToDelete)
 {
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
     struct hiveRouteItem * location = hiveRouteTableSearchForKey(routeTable, key, availableKey);
     if(location)
     {
-        if(hiveGuidGetRank(key) != hiveGlobalRankId)
+        if(markToDelete && hiveGuidGetRank(key) != hiveGlobalRankId)
         {
-            u64 validMask = (reservedItem | availableItem) + 1;
-            u64 local = location->lock;
-            if(local == validMask)
+            //Only mark it for deletion if it is the last one
+            //Why make it unusable to other if there is still other
+            //tasks that may benifit
+            if(!getCount(location->lock))
             {
-                hiveAtomicCswapU64(&location->lock, local, (local | deleteItem));
+                hiveAtomicCswapU64(&location->lock, availableItem, (availableItem | deleteItem));
             }
         }
         return decItem(location);
@@ -559,21 +636,21 @@ bool hiveRouteTableReturnDb(hiveGuid_t key)
 
 int hiveRouteTableLookupRank(hiveGuid_t key)
 {
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
     struct hiveRouteItem * location = hiveRouteTableSearchForKey(routeTable, key, availableKey);
     if(location)
-        return location->rank;
+        return location->rank; 
     return -1;
 }
 
 int hiveRouteTableSetRank(hiveGuid_t key, int rank)
 {
     int ret = -1;
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
     struct hiveRouteItem * location = hiveRouteTableSearchForKey(routeTable, key, availableKey);
     if(location)
     {
-        ret = location->rank;
+        ret = location->rank; 
         location->rank = rank;
     }
     return ret;
@@ -581,7 +658,7 @@ int hiveRouteTableSetRank(hiveGuid_t key, int rank)
 
 void hiveRouteTableFireOO(hiveGuid_t key, void (*callback)(void *, void*))
 {
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
     struct hiveRouteItem * item = hiveRouteTableSearchForKey(routeTable, key, availableKey);
     if(item != NULL)
         hiveOutOfOrderListFireCallback(&item->ooList, item->data, callback);
@@ -600,16 +677,14 @@ bool hiveRouteTableAddOO(hiveGuid_t key, void * data, unsigned int rank )
 
 void hiveRouteTableResetOO(hiveGuid_t key)
 {
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
     struct hiveRouteItem * item = hiveRouteTableSearchForKey(routeTable, key, anyKey);
-    if(item == NULL)
-        PRINTF("ER: %ld\n", key);
     hiveOutOfOrderListReset(&item->ooList);
 }
 
 void ** hiveRouteTableGetOOList(hiveGuid_t key, struct hiveOutOfOrderList ** list)
 {
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
     struct hiveRouteItem * item = hiveRouteTableSearchForKey(routeTable, key, availableKey);
     if(item != NULL)
     {
@@ -618,78 +693,104 @@ void ** hiveRouteTableGetOOList(hiveGuid_t key, struct hiveOutOfOrderList ** lis
     }
 }
 
+//This is just a wrapper for outside consumption...
+void ** hiveRouteTableReserve(hiveGuid_t key, bool * dec, itemState *state)
+{
+    bool res;
+    *dec = false;
+    struct hiveRouteItem * item = NULL;
+    while(1)
+    {
+        res = hiveRouteTableReserveItemRace(key, &item, true);
+        if(!res)
+        {
+            //Check to make sure we can use it
+            if(incItem(item))
+            {
+                *dec = true;
+                break;
+            }
+            //If we were not keep trying...
+        }
+        else //we were successful in reserving
+            break;
+    }
+    if(item)
+        *state = getItemState(item);
+    return &item->data;
+}
+
+inline struct hiveRouteItem * getItemFromData(hiveGuid_t key, void * data)
+{
+    struct hiveRouteItem * item = (struct hiveRouteItem*)((char*) data - sizeof(hiveGuid_t));
+    if(key == item->key)
+        return item;
+    return NULL;
+}
+
+void hiveRouteTableDecItem(hiveGuid_t key, void * data)
+{
+    if(data)
+    {
+        decItem(getItemFromData(key, data));
+    }
+}
+
 //To cleanup --------------------------------------------------------------------------->
 
-bool hiveRouteTableUpdateItem(hiveGuid_t key, void * data, unsigned int rank)
+bool hiveRouteTableUpdateItem(hiveGuid_t key, void * data, unsigned int rank, itemState state)
 {
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
-    unsigned int pos = (unsigned int)(((u64)key) % (u64)guidLockSize);
-
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
     bool ret = false;
-    struct hiveRouteItem * found = NULL;
+    struct hiveRouteItem * found = NULL; 
     while(!found)
     {
-        if(guidLock[pos] == 0)
+        found = hiveRouteTableSearchForKey(routeTable, key, state);
+        if(found)
         {
-            if(!hiveAtomicCswap(&guidLock[pos], 0U, 1U))
-            {
-                found = hiveRouteTableSearchForKey(routeTable, key, reservedKey);
-                if(found)
-                {
-                    found->data = data;
-                    found->rank = rank;
-                    markWrite(found);
-                    ret = true;
-                }
-                guidLock[pos] = 0U;
-            }
+            found->data = data;
+            found->rank = rank;
+            markWrite(found);
+            ret = true;
         }
     }
     return ret;
 }
 
-
-void * hiveRouteTableInvalidateItem(hiveGuid_t key)
+bool hiveRouteTableInvalidateItem(hiveGuid_t key)
 {
-    void * ret = NULL;
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
     struct hiveRouteItem * location = hiveRouteTableSearchForKey(routeTable, key, allocatedKey);
-
     if(location)
     {
-        if(markDelete(location))
+        markDelete(location);
+        if(shouldDelete(location->lock))
         {
-            hiveOutOfOrderListDelete(&location->ooList);
-            hiveFree(location->data);
-            location->data = NULL;
-            location->lock = 0;
+            freeItem(location);
+            return true;
         }
+        PRINTF("Marked %lu as invalid %lu\n", key, location->lock);
     }
-    return ret;
+    return false;
 }
 
 void hiveRouteTableAddRankDuplicate(hiveGuid_t key, unsigned int rank)
 {
-
+    
 }
 
 struct hiveDbFrontierIterator * hiveRouteTableGetRankDuplicates(hiveGuid_t key, unsigned int rank)
 {
     struct hiveDbFrontierIterator * iter = NULL;
-    struct hiveRouteTable * routeTable = hiveGetRouteTable(key);
+    struct hiveRouteTable * routeTable = hiveGetRouteTable(key); 
     struct hiveRouteItem * location = hiveRouteTableSearchForKey(routeTable, key, availableKey);
     if(location)
     {
         if(rank != -1)
         {
-            PRINTF("Setting %lu %u -> %u\n", key, location->rank, rank);
             //Blocks until the OO is done firing
             hiveOutOfOrderListReset(&location->ooList);
             location->rank = rank;
-        }
-        else
-        {
-            PRINTF("DID not update rank\n");
         }
         struct hiveDb * db = location->data;
         iter = hiveCloseFrontier(db->dbList);

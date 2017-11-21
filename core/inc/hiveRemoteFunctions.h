@@ -31,7 +31,7 @@ void hiveRemoteSignalEdt(hiveGuid_t edt, hiveGuid_t db, u32 slot, hiveDbAccessMo
 void hiveRemoteSendStealRequest( unsigned int rank);
 void hiveRemoteEventSatisfy(hiveGuid_t eventGuid, hiveGuid_t dataGuid );
 void hiveRemoteEventSatisfySlot(hiveGuid_t eventGuid, hiveGuid_t dataGuid, u32 slot );
-bool hiveRemoteDbRequest(hiveGuid_t dataGuid,  int rank, struct hiveEdt * edt, int pos, hiveDbAccessMode_t mode, bool aggRequest, bool update);
+bool hiveRemoteDbRequest(hiveGuid_t dataGuid,  int rank, struct hiveEdt * edt, int pos, hiveDbAccessMode_t mode, bool aggRequest);
 void hiveRemoteDbSendCheck(int rank, struct hiveDb * db, hiveDbAccessMode_t mode);
 void hiveRemoteDbSendNow(int rank, struct hiveDb * db);
 void hiveRemoteDbSend( struct hiveRemoteDbRequestPacket * pack );
@@ -59,9 +59,16 @@ void hiveActiveMessage(unsigned int route, hiveGuid_t guid, void * ptr, unsigned
 void hiveRemoteHandleActiveMessage(void * ptr);
 void hiveRemoteDbForward(int destRank, int sourceRank, hiveGuid_t dataGuid, hiveDbAccessMode_t mode);
 void hiveRemoteHandleEventMove(void * ptr);
-void hiveDbExclusiveRequestCallback(struct hiveDb * db, int rank, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode);
 void hiveRemoteHandleUpdateDb(void * ptr);
 void hiveRemoteUpdateDb(hiveGuid_t guid, bool sendDb);
 void hiveDbRequestCallback(struct hiveEdt *edt, unsigned int slot, struct hiveDb * dbRes);
+void hiveRemoteDbFullRequest(hiveGuid_t dataGuid, int rank, struct hiveEdt * edt, int pos, hiveDbAccessMode_t mode);
+void hiveRemoteDbForwardFull(int destRank, int sourceRank, hiveGuid_t dataGuid, struct hiveEdt * edt, int pos, hiveDbAccessMode_t mode);
+void hiveRemoteDbFullSendNow(int rank, struct hiveDb * db, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode);
+void hiveRemoteDbFullSendCheck(int rank, struct hiveDb * db, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode);
+void hiveRemoteDbFullSend(struct hiveRemoteDbFullRequestPacket * pack);
+void hiveRemoteHandleDbFullRecieved(struct hiveRemoteDbFullSendPacket * packet);
+void hiveRemoteSendAlreadyLocal(int rank, hiveGuid_t guid, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode);
+void hiveRemoteHandleSendAlreadyLocal(void * pack);
 
 #endif

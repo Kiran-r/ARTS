@@ -15,11 +15,12 @@ struct hiveRouteInvalidate
 typedef enum
 {
     noKey = 0,
-    reservedKey = 1, //reserved only
-    availableKey,    //available only
-    allocatedKey,    //reserved or avaiable
-    deletedKey,       //deleted only
-    anyKey        
+    anyKey,
+    deletedKey,   //deleted only
+    allocatedKey, //reserved, available, or requested
+    availableKey, //available only 
+    requestedKey, //available but reserved (means so one else has the valid copy)
+    reservedKey,  //reserved only      
 } itemState;
 
 struct hiveRouteItem;
@@ -35,13 +36,13 @@ bool hiveRouteTableAddItemRace(void * item, hiveGuid_t key, unsigned int route, 
 bool hiveRouteTableAddItemAtomic(void * item, hiveGuid_t key, unsigned int route);
 bool hiveRouteTableDeleteItem(hiveGuid_t key);
 bool hiveRouteTableRemoveItem(hiveGuid_t key);
+bool hiveRouteTableInvalidateItem(hiveGuid_t key);
 void * hiveRouteTableLookupItem(hiveGuid_t key);
 void * hiveRouteTableLookupInvalidItem(hiveGuid_t key);
 int hiveRouteTableLookupRank(hiveGuid_t key);
-bool hiveRouteTableUpdateItem(hiveGuid_t key, void * data, unsigned int rank);
-void * hiveRouteTableInvalidateItem(hiveGuid_t key);
+bool hiveRouteTableUpdateItem(hiveGuid_t key, void * data, unsigned int rank, itemState state);
 struct hiveDbFrontierIterator * hiveRouteTableGetRankDuplicates(hiveGuid_t key, unsigned int rank);
-bool hiveRouteTableAddSent(hiveGuid_t key, void * edt, unsigned int slot, bool aggregate, bool used);
+bool hiveRouteTableAddSent(hiveGuid_t key, void * edt, unsigned int slot, bool aggregate);
 bool hiveRouteTableAddOO(hiveGuid_t key, void * data, unsigned int rank );
 void hiveRouteTableFireOO(hiveGuid_t key, void (*callback)(void *, void*) );
 void hiveRouteTableFireSent(hiveGuid_t key, void (*callback)(void *, void*) );
@@ -54,11 +55,13 @@ bool hiveRouteTableClearItem(hiveGuid_t key);
 void * hiveRouteTableCreateLocalEntry( struct hiveRouteTable * routeTable, void * item, unsigned int rank );
 bool hiveRouteTableLockGuid(hiveGuid_t key);
 bool hiveRouteTableLockGuidRace(hiveGuid_t key, unsigned int rank);
-itemState hiveRouteTableLookupItemWithState(hiveGuid_t key, void ** data);
+itemState hiveRouteTableLookupItemWithState(hiveGuid_t key, void *** data, itemState min, bool inc);
 itemState getItemState(struct hiveRouteItem * item);
-bool hiveRouteTableReturnDb(hiveGuid_t key);
+bool hiveRouteTableReturnDb(hiveGuid_t key, bool markToDelete);
 void * hiveRouteTableLookupDb(hiveGuid_t key, int * rank);
 int hiveRouteTableSetRank(hiveGuid_t key, int rank);
 void ** hiveRouteTableGetOOList(hiveGuid_t key, struct hiveOutOfOrderList ** list);
+void hiveRouteTableDecItem(hiveGuid_t key, void * data);
+void ** hiveRouteTableReserve(hiveGuid_t key, bool * dec, itemState * state);
 
 #endif

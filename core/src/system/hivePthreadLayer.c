@@ -31,13 +31,29 @@ pthread_t * nodeThreadList;
 //struct hiveThreadArgs * args;
 struct hiveConfig * config;
 
+void
+hiveThreadPin(void * data)
+{
+    unsigned int * id = data;  
+    cpu_set_t cpuset;
+    pthread_t thread = pthread_self();
+    CPU_ZERO(&cpuset);
+    CPU_SET(*id, &cpuset);
+    pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
+}
+
+
 void *
 hiveThreadLoop(void * data)
 {
+    u64 actualStackSize;
+    pthread_attr_t tattr;
+    pthread_getattr_np(pthread_self(), &tattr);
+    pthread_attr_getstacksize(&tattr, &actualStackSize);
     struct threadMask * unit = (struct threadMask*) data;
-    if(unit->pin) {
+    if(unit->pin)
         hiveAbstractMachineModelPinThread(unit->coreInfo);
-    }
+        //hiveThreadPin(unit->unitId);
     hiveRuntimePrivateInit(unit, gConfig);
     hiveRuntimeLoop();
     hiveRuntimePrivateCleanup();
@@ -63,7 +79,7 @@ void
 hiveThreadInit( struct hiveConfig * config  )
 {
     gConfig = config;
-    struct threadMask * mask = getThreadMask(config);
+    struct threadMask * mask = getThreadMask(config);    
     nodeThreadList = hiveMalloc(sizeof (pthread_t) * hiveNodeInfo.totalThreadCount);
     unsigned int i, threadCount=hiveNodeInfo.totalThreadCount;
     if(config->stackSize)
@@ -94,7 +110,7 @@ hiveShutdown()
 {
     if(hiveGlobalRankCount>1)
         hiveRemoteShutdown();
-
+    
     if(hiveGlobalRankCount==1)
         hiveRuntimeStop();
 }
@@ -103,7 +119,7 @@ void
 hiveAbort(u8 errorCode)
 {
     hiveRemoteShutdown();
-
+    
     if(hiveGlobalRankCount==1)
         hiveRuntimeStop();
 

@@ -10,7 +10,7 @@
 #define fireLock 1U
 #define resetLock 2U
 
-bool readerOOTryLock(struct hiveOutOfOrderList * list)
+inline bool readerOOTryLock(struct hiveOutOfOrderList * list)
 {
     while(1)
     {
@@ -37,19 +37,19 @@ inline void readerOOLock(struct hiveOutOfOrderList *  list)
     }
 }
 
-void readerOOUnlock(struct hiveOutOfOrderList *  list)
+inline void readerOOUnlock(struct hiveOutOfOrderList *  list)
 {
     hiveAtomicSub(&list->readerLock, 1U);
 }
 
-void writerOOLock(struct hiveOutOfOrderList *  list, unsigned int lockType)
+inline void writerOOLock(struct hiveOutOfOrderList *  list, unsigned int lockType)
 {
     while(hiveAtomicCswap(&list->writerLock, 0U, lockType) == 0U);
     while(list->readerLock);
     return;
 }
 
-bool writerTryOOLock(struct hiveOutOfOrderList *  list, unsigned int lockType)
+inline bool writerTryOOLock(struct hiveOutOfOrderList *  list, unsigned int lockType)
 {
     while(1)
     {
@@ -65,12 +65,12 @@ bool writerTryOOLock(struct hiveOutOfOrderList *  list, unsigned int lockType)
     return true;
 }
 
-void writerOOUnlock(struct hiveOutOfOrderList *  list)
+inline void writerOOUnlock(struct hiveOutOfOrderList *  list)
 {
     hiveAtomicSwap(&list->writerLock, 0U);
 }
 
-bool hiveOOisFired(struct hiveOutOfOrderList *  list)
+inline bool hiveOOisFired(struct hiveOutOfOrderList *  list)
 {
     return list->isFired;
 }
@@ -79,15 +79,15 @@ bool hiveOutOfOrderListAddItem(struct hiveOutOfOrderList * addToMe, void * item)
 {
     if(!readerOOTryLock(addToMe))
         return false;
-
+    
     if(hiveOOisFired(addToMe))
     {
         readerOOUnlock(addToMe);
         return false;
     }
     unsigned int pos = hiveAtomicFetchAdd(&addToMe->count, 1U);
-
-    PRINTF("ADDING to OO LIST %u %u %p\n", pos, addToMe->count, &addToMe->count);
+    
+    DPRINTF("ADDING to OO LIST %u %u %p\n", pos, addToMe->count, &addToMe->count);
     unsigned int numElements = pos / OOPERELEMENT;
     unsigned int elementPos = pos % OOPERELEMENT;
 
@@ -124,7 +124,7 @@ void hiveOutOfOrderListReset(struct hiveOutOfOrderList * list)
     }
 }
 
-void deleteOOElements(struct hiveOutOfOrderElement * current)
+inline void deleteOOElements(struct hiveOutOfOrderElement * current)
 {
     struct hiveOutOfOrderElement * trail = NULL;
     while(current)
@@ -144,12 +144,15 @@ void hiveOutOfOrderListDelete(struct hiveOutOfOrderList * list)
 {
     deleteOOElements((struct hiveOutOfOrderElement *) list->head.next);
     list->head.next = NULL;
+    list->isFired = false;
+    list->count = 0;
 }
 
 void hiveOutOfOrderListFireCallback(struct hiveOutOfOrderList * fireMe, void * localGuidAddress,  void (* callback )( void *, void * ))
 {
     if(writerTryOOLock(fireMe, fireLock))
     {
+        DPRINTF("FIRING OO LIST %u\n", fireMe->count);
         fireMe->isFired = true;
         unsigned int pos = fireMe->count;
         unsigned int j = 0;

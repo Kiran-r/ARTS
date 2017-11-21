@@ -9,7 +9,7 @@ if(CMAKE_COMPILER_IS_GNUCC OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
         message("Using ICC")
     endif()
-
+    
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         message("Debug Build")
         set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O0 -g -DCNC_DEBUG_TRACE")
@@ -30,8 +30,7 @@ endif()
 
 #Find Required Libs-------------------------->
 
-#find_library(RT_LIB rt)
-set(RT_LIB "")
+find_library(RT_LIB rt)
 find_library(PTHREAD_LIB pthread)
 
 if(CONNECTION MATCHES "TCP" OR MIC)

@@ -54,7 +54,7 @@ void hiveRemoteAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot
 
 void hiveRemoteUpdateRouteTable(hiveGuid_t guid, unsigned int rank)
 {
-    DPRINTF("Here Update Table %ld %p\n", guid, callBack);
+    DPRINTF("Here Update Table %ld %u\n", guid, rank);
     unsigned int owner = hiveGuidGetRank(guid);
     if(owner == hiveGlobalRankId)
     {
@@ -64,7 +64,7 @@ void hiveRemoteUpdateRouteTable(hiveGuid_t guid, unsigned int rank)
             unsigned int node;
             while(hiveDbFrontierIterNext(iter, &node))
             {
-                if(node != hiveGlobalRankId)
+                if(node != hiveGlobalRankId && node != rank)
                 {
                     struct hiveRemoteInvalidateDbPacket outPacket;
                     outPacket.guid = guid;
@@ -96,7 +96,7 @@ void hiveRemoteHandleInvalidateDb(void * ptr)
 {
     struct hiveRemoteInvalidateDbPacket * packet = ptr;
     void * address = hiveRouteTableLookupItem(packet->guid);
-    hiveRouteTableRemoveItem(packet->guid);
+    hiveRouteTableInvalidateItem(packet->guid);
 }
 
 void hiveRemoteDbDestroy(hiveGuid_t guid, unsigned int originRank, bool clean)
@@ -212,17 +212,18 @@ void hiveRemoteHandleUpdateDb(void * ptr)
     unsigned int rank = hiveGuidGetRank(packet->guid);
     if(rank == hiveGlobalRankId)
     {
-        struct hiveDb * db = hiveRouteTableLookupItem(packet->guid);
-        PRINTF("DB: %p %lu %u %u\n", db, packet->guid, packet->header.size, sizeof(struct hiveRemoteUpdateDbPacket));
-//        hivePushDbToList(db->dbList, packet->header.rank, false, false, false, true, NULL, 0, DB_MODE_NON_COHERENT_READ);
-        if(packet->header.size > sizeof(struct hiveRemoteUpdateDbPacket))
+        struct hiveDb ** dataPtr;
+        bool write = packet->header.size > sizeof(struct hiveRemoteUpdateDbPacket);
+        itemState state = hiveRouteTableLookupItemWithState(packet->guid, (void***)&dataPtr, allocatedKey, write);
+        struct hiveDb * db = (dataPtr) ? *dataPtr : NULL;
+//        PRINTF("DB: %p %lu %u %u %d\n", db, packet->guid, packet->header.size, sizeof(struct hiveRemoteUpdateDbPacket), state);
+        if(write)
         {
-            PRINTF("HERE %p %u\n", db, db->header.size - sizeof(struct hiveDb));
             void * ptr = (void*)(db+1);
             memcpy(ptr, packetDb, db->header.size - sizeof(struct hiveDb));
-            PRINTF("COPIED\n");
             hiveRouteTableSetRank(packet->guid, hiveGlobalRankId);
             hiveProgressFrontier(db, hiveGlobalRankId);
+            hiveRouteTableDecItem(packet->guid, dataPtr);
         }
         else
         {
@@ -348,27 +349,24 @@ void hiveDbRequestCallback(struct hiveEdt *edt, unsigned int slot, struct hiveDb
     hiveEdtDep_t * depv = (hiveEdtDep_t *)(((u64 *)(edt + 1)) + edt->paramc);
     depv[slot].ptr = dbRes + 1;
     unsigned int temp = hiveAtomicSub(&edt->depcNeeded, 1U);
-    PRINTF("hiveDbRequestCallback: %u ptr: %p\n", temp, depv[slot].ptr);
     if(temp == 0)
         hiveHandleRemoteStolenEdt(edt);
 }
 
-bool hiveRemoteDbRequest(hiveGuid_t dataGuid,  int rank, struct hiveEdt * edt, int pos, hiveDbAccessMode_t mode, bool aggRequest, bool update)
+bool hiveRemoteDbRequest(hiveGuid_t dataGuid, int rank, struct hiveEdt * edt, int pos, hiveDbAccessMode_t mode, bool aggRequest)
 {
-    if(hiveRouteTableAddSent(dataGuid, edt, pos, aggRequest, update))
+    if(hiveRouteTableAddSent(dataGuid, edt, pos, aggRequest))
     {
-        PRINTF("Queueu db req: %lu\n", dataGuid);
         struct hiveRemoteDbRequestPacket packet;
         packet.dbGuid = dataGuid;
         packet.mode = mode;
         hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_REMOTE_DB_REQUEST_MSG);
         hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
+        PRINTF("DB req send: %u -> %u mode: %u agg: %u\n", packet.header.rank, rank, mode, aggRequest);
         return true;
     }
     return false;
 }
-
-//bool hiveRemoteDbRequestUpdate(hiveGuid_t dataGuid, int rank, )
 
 void hiveRemoteDbForward(int destRank, int sourceRank, hiveGuid_t dataGuid, hiveDbAccessMode_t mode)
 {
@@ -383,8 +381,8 @@ void hiveRemoteDbForward(int destRank, int sourceRank, hiveGuid_t dataGuid, hive
 
 void hiveRemoteDbSendNow(int rank, struct hiveDb * db)
 {
-    PRINTF("SEND NOW: %u -> %u\n", hiveGlobalRankId, rank);
-    hiveDebugPrintStack();
+    DPRINTF("SEND NOW: %u -> %u\n", hiveGlobalRankId, rank);
+//    hiveDebugPrintStack();
     struct hiveRemoteDbSendPacket packet;
     int size = sizeof(struct hiveRemoteDbSendPacket)+db->header.size;
     hiveFillPacketHeader(&packet.header, size, HIVE_REMOTE_DB_SEND_MSG);
@@ -393,10 +391,13 @@ void hiveRemoteDbSendNow(int rank, struct hiveDb * db)
 
 void hiveRemoteDbSendCheck(int rank, struct hiveDb * db, hiveDbAccessMode_t mode)
 {
-    
-    if(hiveAddDbDuplicate(db, rank, NULL, 0, mode))
+    if(!hiveIsGuidLocal(db->guid))
     {
-        PRINTF("SEND: %lu %u -> %u\n", db->guid, hiveGlobalRankId, rank);
+        hiveRouteTableReturnDb(db->guid, false);
+        hiveRemoteDbSendNow(rank, db);
+    }
+    else if(hiveAddDbDuplicate(db, rank, NULL, 0, mode))
+    {
         hiveRemoteDbSendNow(rank, db);
     }
 }
@@ -404,7 +405,7 @@ void hiveRemoteDbSendCheck(int rank, struct hiveDb * db, hiveDbAccessMode_t mode
 void hiveRemoteDbSend(struct hiveRemoteDbRequestPacket * pack)
 {
     unsigned int redirected = hiveRouteTableLookupRank(pack->dbGuid);
-    if(redirected != hiveGlobalRankId &&  redirected != -1)
+    if(redirected != hiveGlobalRankId && redirected != -1)
         hiveRemoteSendRequestAsync(redirected, (char *)pack, pack->header.size);
     else
     {
@@ -412,9 +413,15 @@ void hiveRemoteDbSend(struct hiveRemoteDbRequestPacket * pack)
         if(db == NULL)
         {
             hiveOutOfOrderHandleRemoteDbSend(pack->header.rank, pack->dbGuid, pack->mode);
-            return;
         }
-        hiveRemoteDbSendCheck(pack->header.rank, db, pack->mode);
+        else if(!hiveIsGuidLocal(db->guid) && pack->header.rank == hiveGlobalRankId)
+        {
+            //This is when the memory model sends a CDAG write after CDAG write to the same node
+            //The hiveIsGuidLocal should be an extra check, maybe not required
+            hiveRouteTableFireOO(pack->dbGuid, hiveOutOfOrderHandler);
+        }
+        else
+            hiveRemoteDbSendCheck(pack->header.rank, db, pack->mode);
     }
 }
 
@@ -422,111 +429,225 @@ void hiveRemoteHandleDbRecieved(struct hiveRemoteDbSendPacket * packet)
 {
     struct hiveDb * packetDb = (struct hiveDb *)(packet+1);    
     struct hiveDb * dbRes = NULL;
+    struct hiveDb ** dataPtr = NULL;
+    itemState state = hiveRouteTableLookupItemWithState(packetDb->guid, (void***)&dataPtr, allocatedKey, true);
     
-    struct hiveDb * tPtr = NULL;
-    itemState state = hiveRouteTableLookupItemWithState(packetDb->guid, (void*)&tPtr);
-    
+    struct hiveDb * tPtr = (dataPtr) ? *dataPtr : NULL;
     struct hiveDbList * dbList = NULL;
     if(tPtr && hiveIsGuidLocal(packetDb->guid))    
         dbList = tPtr->dbList;
-    
+    DPRINTF("Rec DB State: %u\n", state);
     switch(state)
-    {  
-        case allocatedKey:
-            PRINTF("UPDATING NOT SUPPORTED YET\n");
+    {              
+        case requestedKey:
+            if(packetDb->header.size == tPtr->header.size)
+            {
+                void * source = (void*)((struct hiveDb *) packetDb + 1);
+                void * dest = (void*)((struct hiveDb *) tPtr + 1);
+                memcpy(dest, source, packetDb->header.size - sizeof(struct hiveDb));
+                tPtr->dbList = dbList;
+                dbRes = tPtr;
+            }
+            else
+            {
+                PRINTF("Did the DB do a remote resize...\n");
+            }
             break;
             
-        case deletedKey:
-            PRINTF("Deleted key received not supported yet...");
-        case noKey:
-        case reservedKey:    
-        default:
-            PRINTF("GOT A REMOTE ONE... %lu\n", packetDb->guid);
+        case reservedKey:
             HIVESETMEMSHOTTYPE(hiveDbMemorySize);
             dbRes = hiveMalloc(packetDb->header.size);
             HIVESETMEMSHOTTYPE(hiveDbMemorySize);
-
             memcpy(dbRes, packetDb, packetDb->header.size);
-            if(hiveRouteTableUpdateItem(packetDb->guid, (void*)dbRes, hiveGlobalRankId))
-                hiveRouteTableFireOO(packetDb->guid, hiveOutOfOrderHandler);
+            if(hiveIsGuidLocal(packetDb->guid))
+               dbRes->dbList = hiveNewDbList(); 
+            else
+                dbRes->dbList = NULL;
+            break;
+            
+        default:
+            PRINTF("Got a DB but current key state is %d looking again\n", state);
+            itemState state = hiveRouteTableLookupItemWithState(packetDb->guid, (void*)&tPtr, anyKey, false);
+            PRINTF("The current state after re-checking is %d\n", state);
+            break;
     }
-    dbRes->dbList = dbList;
+    if(dbRes && hiveRouteTableUpdateItem(packetDb->guid, (void*)dbRes, hiveGlobalRankId, state))
+    {
+        hiveRouteTableFireOO(packetDb->guid, hiveOutOfOrderHandler);
+    }
+    
+    hiveRouteTableDecItem(packetDb->guid, dataPtr);
 }
 
-void hiveRemoteDbExclusiveRequest(hiveGuid_t dataGuid,  struct hiveEdt * edt, int pos, hiveDbAccessMode_t mode, bool aggRequest)
+void hiveRemoteDbFullRequest(hiveGuid_t dataGuid, int rank, struct hiveEdt * edt, int pos, hiveDbAccessMode_t mode)
 {
-    int rank = hiveGuidGetRank(dataGuid);
-    struct hiveRemoteDbExclusiveRequestPacket packet;
+    //Do not try to reduce full requests since they are unique
+    struct hiveRemoteDbFullRequestPacket packet;
     packet.dbGuid = dataGuid;
     packet.edt = edt;
     packet.slot = pos;
     packet.mode = mode;
-    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_REMOTE_DB_EXCLUSIVE_REQUEST_MSG);
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_REMOTE_DB_FULL_REQUEST_MSG);
     hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
 }
 
-void hiveRemoteDbExclusiveSend(int rank, struct hiveDb * db, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
+void hiveRemoteDbForwardFull(int destRank, int sourceRank, hiveGuid_t dataGuid, struct hiveEdt * edt, int pos, hiveDbAccessMode_t mode)
 {
-    struct hiveRemoteDbExclusiveSendPacket packet;
+    struct hiveRemoteDbFullRequestPacket packet;
+    packet.header.size = sizeof(packet);
+    packet.header.messageType = HIVE_REMOTE_DB_FULL_REQUEST_MSG;
+    packet.header.rank = destRank;
+    packet.dbGuid = dataGuid;
+    packet.edt = edt;
+    packet.slot = pos;
+    packet.mode = mode;
+    hiveRemoteSendRequestAsync(sourceRank, (char *)&packet, sizeof(packet));
+}
+
+void hiveRemoteDbFullSendNow(int rank, struct hiveDb * db, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
+{
+    PRINTF("SEND FULL NOW: %u -> %u\n", hiveGlobalRankId, rank);
+    struct hiveRemoteDbFullSendPacket packet;
     packet.edt = edt;
     packet.slot = slot;
     packet.mode = mode;
-    int size = sizeof(struct hiveRemoteDbSendPacket)+db->header.size;
-    hiveFillPacketHeader(&packet.header, size, HIVE_REMOTE_DB_EXCLUSIVE_SEND_MSG);
+    int size = sizeof(struct hiveRemoteDbFullSendPacket)+db->header.size;
+    hiveFillPacketHeader(&packet.header, size, HIVE_REMOTE_DB_FULL_SEND_MSG);
     hiveRemoteSendRequestPayloadAsync(rank, (char *)&packet, sizeof(packet), (char *)db, db->header.size);
 }
 
-void hiveDbExclusiveRequestCallback(struct hiveDb * db, int rank, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
+void hiveRemoteDbFullSendCheck(int rank, struct hiveDb * db, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
 {
-    if(hiveAddDbDuplicate(db, rank, edt, slot, mode))
-        hiveRemoteDbExclusiveSend(rank, db, edt, slot, mode);
-}
-
-void hiveRemoteHandleDbExclusiveRequest(struct hiveRemoteDbExclusiveRequestPacket * pack)
-{
-    struct hiveDb * db = hiveRouteTableLookupItem(pack->dbGuid);
-    if(db == NULL)
+    if(!hiveIsGuidLocal(db->guid))
     {
-        hiveOutOfOrderHandleRemoteDbExclusiveRequest(pack->dbGuid, pack->header.rank, pack->edt, pack->slot, pack->mode);
-        return;
+        hiveRouteTableReturnDb(db->guid, false);
+        hiveRemoteDbFullSendNow(rank, db, edt, slot, mode);
     }
-    if(hiveAddDbDuplicate(db, pack->header.rank, pack->edt, pack->slot, pack->mode))
-        hiveRemoteDbExclusiveSend(pack->header.rank, db, pack->edt, pack->slot, pack->mode);
+    else if(hiveAddDbDuplicate(db, rank, edt, slot, mode))
+    {
+        hiveRemoteDbFullSendNow(rank, db, edt, slot, mode);
+    }
 }
 
-void hiveRemoteHandleDbExclusiveRecieved(struct hiveRemoteDbExclusiveSendPacket * packet)
+void hiveRemoteDbFullSend(struct hiveRemoteDbFullRequestPacket * pack)
 {
+    unsigned int redirected = hiveRouteTableLookupRank(pack->dbGuid);
+    if(redirected != hiveGlobalRankId && redirected != -1)
+        hiveRemoteSendRequestAsync(redirected, (char *)pack, pack->header.size);
+    else
+    {
+        struct hiveDb * db = hiveRouteTableLookupItem(pack->dbGuid);
+        if(db == NULL)
+        {
+            hiveOutOfOrderHandleRemoteDbFullSend(pack->header.rank, pack->dbGuid, pack->edt, pack->slot, pack->mode);
+        }
+        else
+            hiveRemoteDbFullSendCheck(pack->header.rank, db, pack->edt, pack->slot, pack->mode);
+    }
+}
+
+void hiveRemoteHandleDbFullRecieved(struct hiveRemoteDbFullSendPacket * packet)
+{
+    bool dec;
+    itemState state;
     struct hiveDb * packetDb = (struct hiveDb *)(packet+1);    
-    struct hiveDb * dbRes = NULL;
-    
-    struct hiveDb * tPtr = NULL;
-    itemState state = hiveRouteTableLookupItemWithState(packetDb->guid, (void*)&tPtr);
-    
-    struct hiveDbList * dbList = NULL;
-    if(tPtr && hiveIsGuidLocal(packetDb->guid))    
-        dbList = tPtr->dbList;
-    
-    switch(state)
+    void ** dataPtr = hiveRouteTableReserve(packetDb->guid, &dec, &state);
+    struct hiveDb * dbRes = (dataPtr) ? *dataPtr : NULL;    
+    if(dbRes)
     {
-        case deletedKey:
-            PRINTF("Deleted key received not supported yet...");
-        case reservedKey:
-        case allocatedKey:
-            hiveRouteTableInvalidateItem(packetDb->guid);
-        case noKey:
-        default:
-            PRINTF("GOT A REMOTE ONE... %lu\n", packetDb->guid);
-            HIVESETMEMSHOTTYPE(hiveDbMemorySize);
-            dbRes = hiveMalloc(packetDb->header.size);
-            HIVESETMEMSHOTTYPE(hiveDbMemorySize);
-
-            memcpy(dbRes, packetDb, packetDb->header.size);
-            if(!hiveRouteTableAddItemRace((void*)dbRes, packetDb->guid, hiveGlobalRankId, true))
-                PRINTF("HOW DID SOMEONE DO THAT\n");
-            hiveDbRequestCallback(packet->edt, packet->slot, dbRes);       
+        if(packetDb->header.size == dbRes->header.size)
+        {
+            struct hiveDbList * dbList = dbRes->dbList;
+            void * source = (void*)((struct hiveDb *) packetDb + 1);
+            void * dest = (void*)((struct hiveDb *) dbRes + 1);
+            memcpy(dest, source, packetDb->header.size - sizeof(struct hiveDb));
+            dbRes->dbList = dbList;
+        }
+        else
+            PRINTF("Did the DB do a remote resize...\n");
     }
-    dbRes->dbList = dbList;
+    else
+    {
+        HIVESETMEMSHOTTYPE(hiveDbMemorySize);
+        dbRes = hiveMalloc(packetDb->header.size);
+        HIVESETMEMSHOTTYPE(hiveDbMemorySize);
+        memcpy(dbRes, packetDb, packetDb->header.size);
+        if(hiveIsGuidLocal(packetDb->guid))
+           dbRes->dbList = hiveNewDbList();
+        else
+            dbRes->dbList = NULL;
+    }
+    if(hiveRouteTableUpdateItem(packetDb->guid, (void*)dbRes, hiveGlobalRankId, state))
+        hiveRouteTableFireOO(packetDb->guid, hiveOutOfOrderHandler);
+    hiveDbRequestCallback(packet->edt, packet->slot, dbRes);
+    if(dec)
+        hiveRouteTableDecItem(packetDb->guid, dataPtr);
 }
+
+void hiveRemoteSendAlreadyLocal(int rank, hiveGuid_t guid, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
+{
+    struct hiveRemoteDbFullRequestPacket packet;
+    packet.dbGuid = guid;
+    packet.edt = edt;
+    packet.slot = slot;
+    packet.mode = mode;
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_REMOTE_DB_FULL_SEND_ALREADY_LOCAL);
+    hiveRemoteSendRequestAsync(rank, (char*)&packet, sizeof(packet));
+}
+
+void hiveRemoteHandleSendAlreadyLocal(void * pack)
+{
+    struct hiveRemoteDbFullRequestPacket * packet = pack;
+    int rank;
+    struct hiveDb * dbRes = hiveRouteTableLookupDb(packet->dbGuid, &rank);
+    hiveDbRequestCallback(packet->edt, packet->slot, dbRes);
+}
+
+//void hiveRemoteHandleDbExclusiveRequest(struct hiveRemoteDbExclusiveRequestPacket * pack)
+//{
+//    struct hiveDb * db = hiveRouteTableLookupItem(pack->dbGuid);
+//    if(db == NULL)
+//    {
+//        hiveOutOfOrderHandleRemoteDbExclusiveRequest(pack->dbGuid, pack->header.rank, pack->edt, pack->slot, pack->mode);
+//        return;
+//    }
+//    if(hiveAddDbDuplicate(db, pack->header.rank, pack->edt, pack->slot, pack->mode))
+//        hiveRemoteDbExclusiveSend(pack->header.rank, db, pack->edt, pack->slot, pack->mode);
+//}
+//
+//void hiveRemoteHandleDbExclusiveRecieved(struct hiveRemoteDbExclusiveSendPacket * packet)
+//{
+//    struct hiveDb * packetDb = (struct hiveDb *)(packet+1);    
+//    struct hiveDb * dbRes = NULL;
+//    
+//    struct hiveDb * tPtr = NULL;
+//    itemState state = hiveRouteTableLookupItemWithState(packetDb->guid, (void*)&tPtr, anyKey);
+//    
+//    struct hiveDbList * dbList = NULL;
+//    if(tPtr && hiveIsGuidLocal(packetDb->guid))    
+//        dbList = tPtr->dbList;
+//    
+//    switch(state)
+//    {
+//        case deletedKey:
+//            PRINTF("Deleted key received not supported yet...");
+//        case reservedKey:
+//        case allocatedKey:
+//            hiveRouteTableInvalidateItem(packetDb->guid);
+//        case noKey:
+//        default:
+//            PRINTF("GOT A REMOTE ONE... %lu\n", packetDb->guid);
+//            HIVESETMEMSHOTTYPE(hiveDbMemorySize);
+//            dbRes = hiveMalloc(packetDb->header.size);
+//            HIVESETMEMSHOTTYPE(hiveDbMemorySize);
+//
+//            memcpy(dbRes, packetDb, packetDb->header.size);
+//            if(!hiveRouteTableAddItemRace((void*)dbRes, packetDb->guid, hiveGlobalRankId, true))
+//                PRINTF("HOW DID SOMEONE DO THAT\n");
+//            hiveDbRequestCallback(packet->edt, packet->slot, dbRes);       
+//    }
+//    dbRes->dbList = dbList;
+//}
 
 bool hiveRemoteShutdownSend()
 {

@@ -206,7 +206,6 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
             struct hiveRemoteDbRequestPacket *pack = (struct hiveRemoteDbRequestPacket *)(packet);
             if(packet->size != sizeof(*pack))
                 PRINTF("Error dbpacket insanity\n");
-            PRINTF("DB req: %lu -> %u\n", pack->dbGuid, pack->header.rank);
             hiveRemoteDbSend(pack);
             break;
         }
@@ -226,7 +225,7 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
 #endif
             DPRINTF("Remote Db Recieved\n");
             struct hiveRemoteDbSendPacket *pack = (struct hiveRemoteDbSendPacket *)(packet);
-            hiveRemoteHandleDbRecieved( pack  );
+            hiveRemoteHandleDbRecieved(pack);
             break;
         }
         case HIVE_REMOTE_INVALIDATE_DB_MSG:
@@ -235,7 +234,24 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
             HIVECOUNTERINCREMENT(remoteInvalidateDbMsg);
             hiveRemoteHandleInvalidateDb( packet );
             break;
-        }   
+        }
+        case HIVE_REMOTE_DB_FULL_REQUEST_MSG:
+        {
+            struct hiveRemoteDbFullRequestPacket *pack = (struct hiveRemoteDbFullRequestPacket *)(packet);
+            hiveRemoteDbFullSend(pack);
+            break;
+        }
+        case HIVE_REMOTE_DB_FULL_SEND_MSG:
+        {
+            struct hiveRemoteDbFullSendPacket * pack = (struct hiveRemoteDbFullSendPacket *)(packet);
+            hiveRemoteHandleDbFullRecieved(pack);
+            break;
+        }
+        case HIVE_REMOTE_DB_FULL_SEND_ALREADY_LOCAL:
+        {
+            hiveRemoteHandleSendAlreadyLocal(packet);
+            break;
+        }
         case HIVE_REMOTE_DB_DESTROY_MSG:
         {
             DPRINTF("DB Destroy Recieved\n");

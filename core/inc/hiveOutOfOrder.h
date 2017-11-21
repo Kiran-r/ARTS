@@ -7,9 +7,10 @@ void hiveOutOfOrderEventSatisfySlot( hiveGuid_t waitOn, hiveGuid_t eventGuid, hi
 void hiveOutOfOrderAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hiveDbAccessMode_t mode, hiveGuid_t waitOn);
 void hiveOutOfOrderHandleReadyEdt(hiveGuid_t triggerGuid, struct hiveEdt *edt);
 void hiveOutOfOrderHandleRemoteDbSend(int rank, hiveGuid_t dbGuid, hiveDbAccessMode_t mode);
-void hiveOutOfOrderHandleRemoteDbRequest(struct hiveOutOfOrderList * addToMe, void ** data, struct hiveEdt *edt, unsigned int slot);
-void hiveOutOfOrderHandleLocalDbRequest(hiveGuid_t dbGuid, struct hiveEdt *edt, unsigned int slot);
+void hiveOutOfOrderHandleDbRequestWithOOList(struct hiveOutOfOrderList * addToMe, void ** data, struct hiveEdt *edt, unsigned int slot);
+void hiveOutOfOrderHandleDbRequest(hiveGuid_t dbGuid, struct hiveEdt *edt, unsigned int slot);
 void hiveOutOfOrderHandleRemoteDbExclusiveRequest(hiveGuid_t dbGuid, int rank, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode);
+void hiveOutOfOrderHandleRemoteDbFullSend(hiveGuid_t dbGuid, int rank, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode);
 
 void hiveOutOfOrderHandler( void * handleMe, void * memoryPtr );
 

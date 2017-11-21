@@ -32,8 +32,9 @@ enum hiveServerMessageType
     HIVE_DB_LOCK_ALL_DBS_MSG,
     HIVE_REMOTE_METRIC_UPDATE,
     HIVE_ACTIVE_MESSAGE,
-    HIVE_REMOTE_DB_EXCLUSIVE_REQUEST_MSG,
-    HIVE_REMOTE_DB_EXCLUSIVE_SEND_MSG
+    HIVE_REMOTE_DB_FULL_REQUEST_MSG,
+    HIVE_REMOTE_DB_FULL_SEND_MSG,
+    HIVE_REMOTE_DB_FULL_SEND_ALREADY_LOCAL
 };
 
 //Header
@@ -169,7 +170,7 @@ struct __attribute__ ((__packed__)) hiveRemoteDbSendPacket
     struct hiveRemotePacket header;
 };
 
-struct __attribute__ ((__packed__)) hiveRemoteDbExclusiveRequestPacket
+struct __attribute__ ((__packed__)) hiveRemoteDbFullRequestPacket
 {
     struct hiveRemotePacket header;
     hiveGuid_t dbGuid;
@@ -178,7 +179,7 @@ struct __attribute__ ((__packed__)) hiveRemoteDbExclusiveRequestPacket
     hiveDbAccessMode_t mode;
 };
 
-struct __attribute__ ((__packed__)) hiveRemoteDbExclusiveSendPacket
+struct __attribute__ ((__packed__)) hiveRemoteDbFullSendPacket
 {
     struct hiveRemotePacket header;
     struct hiveEdt * edt;

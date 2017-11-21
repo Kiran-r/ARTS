@@ -25,7 +25,7 @@ enum hiveOutOfOrderType
     ooHandleReadyEdt,
     ooRemoteDbSend,
     ooDbRequestSatisfy,
-    ooDbExclusiveSent
+    ooDbFullSend
 };
 
 struct ooSignalEdt
@@ -82,7 +82,7 @@ struct ooRemoteDbSend
     hiveGuid_t dataGuid;
 };
 
-struct ooRemoteDbExclusiveSend
+struct ooRemoteDbFullSend
 {
     enum hiveOutOfOrderType type;
     int rank;
@@ -143,10 +143,10 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
             hiveDbRequestCallback(req->edt, req->slot, (struct hiveDb *)memoryPtr);
             break;
         }
-        case ooDbExclusiveSent:
+        case ooDbFullSend:
         {
-            struct ooRemoteDbExclusiveSend * dbSend = handleMe;
-            hiveDbExclusiveRequestCallback((struct hiveDb *)memoryPtr, dbSend->rank, dbSend->edt, dbSend->slot, dbSend->mode);
+            struct ooRemoteDbFullSend * dbSend = handleMe;
+            hiveRemoteDbFullSendCheck(dbSend->rank, (struct hiveDb *)memoryPtr, dbSend->edt, dbSend->slot, dbSend->mode);
         }
         default:
             PRINTF("OO Handler Error\n");
@@ -257,22 +257,7 @@ void hiveOutOfOrderHandleRemoteDbSend(int rank, hiveGuid_t dbGuid, hiveDbAccessM
     HIVECOUNTERTIMERENDINCREMENT(ooRemoteDb);
 }
 
-void hiveOutOfOrderHandleRemoteDbRequest(struct hiveOutOfOrderList * addToMe, void ** data, struct hiveEdt *edt, unsigned int slot)
-{
-//    HIVECOUNTERTIMERSTART(ooRemoteDb);
-    struct ooDbRequestSatisfy * req = hiveMalloc(sizeof(struct ooDbRequestSatisfy));
-    req->type = ooDbRequestSatisfy;
-    req->edt = edt;
-    req->slot = slot;
-    if(!hiveOutOfOrderListAddItem(addToMe, req))
-    {
-        hiveDbRequestCallback(req->edt, req->slot, *data);
-        hiveFree(req);
-    }
-//    HIVECOUNTERTIMERENDINCREMENT(ooRemoteDb);
-}
-
-void hiveOutOfOrderHandleLocalDbRequest(hiveGuid_t dbGuid, struct hiveEdt *edt, unsigned int slot)
+void hiveOutOfOrderHandleDbRequest(hiveGuid_t dbGuid, struct hiveEdt *edt, unsigned int slot)
 {
     HIVECOUNTERTIMERSTART(ooRemoteDb);
     struct ooDbRequestSatisfy * req = hiveMalloc(sizeof(struct ooDbRequestSatisfy));
@@ -289,11 +274,28 @@ void hiveOutOfOrderHandleLocalDbRequest(hiveGuid_t dbGuid, struct hiveEdt *edt, 
     HIVECOUNTERTIMERENDINCREMENT(ooRemoteDb);
 }
 
-void hiveOutOfOrderHandleRemoteDbExclusiveRequest(hiveGuid_t dbGuid, int rank, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
+//This should save one lookup compared to the function above...
+void hiveOutOfOrderHandleDbRequestWithOOList(struct hiveOutOfOrderList * addToMe, void ** data, struct hiveEdt *edt, unsigned int slot)
 {
-    HIVECOUNTERTIMERSTART(ooReadyEdt);
-    struct ooRemoteDbExclusiveSend * dbSend = hiveMalloc(sizeof(struct ooRemoteDbExclusiveSend));
-    dbSend->type = ooDbExclusiveSent;
+//    HIVECOUNTERTIMERSTART(ooRemoteDb);
+    struct ooDbRequestSatisfy * req = hiveMalloc(sizeof(struct ooDbRequestSatisfy));
+    req->type = ooDbRequestSatisfy;
+    req->edt = edt;
+    req->slot = slot;
+    bool res = hiveOutOfOrderListAddItem(addToMe, req);
+    if(!res)
+    {
+        hiveDbRequestCallback(req->edt, req->slot, *data);
+        hiveFree(req);
+    }
+//    HIVECOUNTERTIMERENDINCREMENT(ooRemoteDb);
+}
+
+void hiveOutOfOrderHandleRemoteDbFullSend(hiveGuid_t dbGuid, int rank, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
+{
+//    HIVECOUNTERTIMERSTART(ooReadyEdt);
+    struct ooRemoteDbFullSend * dbSend = hiveMalloc(sizeof(struct ooRemoteDbFullSend));
+    dbSend->type = ooDbFullSend;
     dbSend->rank = rank;
     dbSend->edt = edt;
     dbSend->slot = slot;
@@ -302,8 +304,8 @@ void hiveOutOfOrderHandleRemoteDbExclusiveRequest(hiveGuid_t dbGuid, int rank, s
     if(!res)
     {
         struct hiveDb * db = hiveRouteTableLookupItem(dbGuid);
-        hiveDbExclusiveRequestCallback(db, dbSend->rank, dbSend->edt, dbSend->slot, dbSend->mode);
+        hiveRemoteDbFullSendCheck(dbSend->rank, db, dbSend->edt, dbSend->slot, dbSend->mode);
         hiveFree(dbSend);
     }
-    HIVECOUNTERTIMERENDINCREMENT(ooReadyEdt);
+//    HIVECOUNTERTIMERENDINCREMENT(ooReadyEdt);
 }

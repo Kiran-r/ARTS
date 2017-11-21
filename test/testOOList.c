@@ -2,9 +2,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <sys/resource.h>
-#if !defined(__APPLE__)
-  #include <sys/prctl.h>
-#endif
+#include <sys/prctl.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include "hiveAtomics.h"
@@ -62,7 +60,7 @@ int main(void)
     {
         list.head.array[i] = 0;
     }
-
+    
     pthread_t thread[NUMTHREADS];
     for(unsigned int t=0; t<NUMTHREADS-1; t++)
     {
@@ -72,15 +70,15 @@ int main(void)
           exit(-1);
        }
     }
-
+    
     if(pthread_create(&thread[NUMTHREADS-1], NULL, firer, 0))
     {
        printf("ERROR on create\n");
        exit(-1);
     }
-
+    
     void * status;
-    for(unsigned int t=0; t<NUMTHREADS; t++)
+    for(unsigned int t=0; t<NUMTHREADS; t++) 
     {
         if(pthread_join(thread[t], &status))
         {
@@ -90,3 +88,5 @@ int main(void)
     }
     return 0;
 }
+
+

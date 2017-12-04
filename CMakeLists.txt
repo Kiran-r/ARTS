@@ -112,3 +112,6 @@ include_directories(core/inc)
 add_subdirectory(common)
 add_subdirectory(core)
 add_subdirectory(test)
+
+configure_file(sampleConfigs/hive.cfg test/hive.cfg COPYONLY)
+configure_file(sampleConfigs/hive.insp test/hive.insp COPYONLY)

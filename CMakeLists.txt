@@ -30,8 +30,6 @@ endif()
 
 #Find Required Libs-------------------------->
 
-#find_library(RT_LIB rt)
-set(RT_LIB "")
 find_library(PTHREAD_LIB pthread)
 
 if(CONNECTION MATCHES "TCP" OR MIC)
@@ -85,19 +83,26 @@ elseif(${MALLOC} MATCHES "FOA")
 endif()
 
 
+if(APPLE)
+    set(RT_LIB "")   
+else()
+    find_library(RT_LIB rt)
+endif()
+
 if(COUNT)
-    add_definitions(-DCOUNT)
     message("Counting on")
+    add_definitions(-DCOUNT)
 endif()
 
 if(MODELCOUNT)
-    add_definitions(-DMODELCOUNT)
     message("Model Counting only")
+    add_definitions(-DMODELCOUNT)
 endif()
 
 if(INSPECTOR)
-    add_definitions(-DINSPECTOR)
     message("Inspection on")
+    add_definitions(-DINSPECTOR)
+    
 endif()
 
 message("Using ${MALLOC} malloc.")

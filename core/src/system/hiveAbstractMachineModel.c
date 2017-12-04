@@ -16,23 +16,6 @@ enum abstractGroupId
     abstractMax
 };
 
-/*void setUnit(struct unitMask * unit, 
-        unsigned int id, unsigned int clusterId, unsigned int coreId, unsigned int unitId, 
-        bool on, bool worker, bool networkSend, bool networkReceive, bool pin)
-{
-    unit->id = id;
-    unit->clusterId = clusterId;
-    unit->coreId = coreId;
-    unit->unitId = unitId;
-    unit->groupId = abstractMax;
-    unit->groupPos = 0;
-    unit->on = on;
-    unit->worker = worker;
-    unit->networkSend = networkSend;
-    unit->networkReceive = networkReceive;
-    unit->pin = pin;
-}*/
-
 void setThreadMask( struct threadMask *threadMask, struct unitMask * unitMask, struct unitThread * unitThread )
 {
     threadMask->clusterId = unitMask->clusterId;
@@ -41,7 +24,6 @@ void setThreadMask( struct threadMask *threadMask, struct unitMask * unitMask, s
     threadMask->on = unitMask->on;
     threadMask->coreInfo = unitMask->coreInfo;
 
-    //--->
     threadMask->id = unitThread->id;
     threadMask->groupId = unitThread->groupId; 
     threadMask->groupPos = unitThread->groupPos;
@@ -62,12 +44,7 @@ void addAThread( struct unitMask * mask, bool workOn, bool networkOutOn, bool ne
     }
     else
     {
-        //next = mask->listHead;
         next = mask->listTail;
-        /*while(next->next != NULL)
-        {
-            next = next->next;
-        }*/
         next->next = hiveMalloc(sizeof(struct unitThread));
         next = next->next;
         mask->listTail = next;
@@ -83,12 +60,15 @@ void addAThread( struct unitMask * mask, bool workOn, bool networkOutOn, bool ne
 }
 
 #ifdef HWLOC
+
 #include <hwloc.h>
+
 struct hiveCoreInfo
 {
     hwloc_cpuset_t cpuset;
     hwloc_topology_t topology;
 };
+
 hwloc_topology_t getTopology()
 {
     hwloc_topology_t topology;
@@ -126,17 +106,12 @@ void initClusterUnits(hwloc_topology_t topology, hwloc_obj_t obj, hwloc_obj_t cl
             units[*unitIndex].coreId = obj->parent->os_index;
         }
         units[*unitIndex].clusterId = cluster->os_index;
-        //units[*unitIndex].id = 0;
         units[*unitIndex].unitId = obj->os_index;
         units[*unitIndex].on = 0;
-        //units[*unitIndex].worker = 0;
-        //units[*unitIndex].networkSend = 0;
-        //units[*unitIndex].networkReceive = 0;
 
         units[*unitIndex].listHead = NULL;
         units[*unitIndex].threads = 0;
         units[*unitIndex].coreInfo = hiveMalloc(sizeof(struct hiveCoreInfo));
-        //units[*unitIndex].coreInfo->cpuset = hwloc_bitmap_singlify(hwloc_bitmap_dup(obj->cpuset));
         units[*unitIndex].coreInfo->topology = topology;
         units[*unitIndex].coreInfo->cpuset = hwloc_bitmap_dup(obj->cpuset);
         *unitIndex=(*unitIndex)+1;
@@ -177,7 +152,6 @@ struct nodeMask * initTopology()
     //hwloc_topology_destroy(topology);
     return node;
 }
-
 
 //ASSUMES A HOMEGEOUS SYSTEM...
 void defaultPolicy(unsigned int numberOfWorkers, struct nodeMask * node, struct hiveConfig * config)
@@ -238,113 +212,6 @@ void defaultPolicy(unsigned int numberOfWorkers, struct nodeMask * node, struct 
             }
             j=offset;
 
-        }
-    }
-}
-void fastNetworkPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, unsigned int numberOfReceivers, struct nodeMask * node, struct hiveConfig * config)
-{   
-    unsigned int numClusters = node->numClusters;
-    unsigned int numCores = node->cluster[0].numCores;
-    unsigned int numUnits = node->cluster[0].core[0].numUnits;
-    //PRINTF("%d %d %d\n", numClusters, numCores, numUnits);
-    unsigned int coresPerCluster = numCores*numUnits; 
-    unsigned int coreCount = numClusters*numCores*numUnits; 
-    unsigned int i=0, j=0, k=0, totalThreads=0;
-    unsigned int stride = config->pinStride; 
-    unsigned int strideLoop =0;
-    unsigned int offset = 0;
-    #ifndef USE_MPI
-    unsigned int networkThreads = (hiveGlobalRankCount>1)*(numberOfReceivers+numberOfSenders);
-    #else
-    unsigned int networkThreads = (hiveGlobalRankCount>1)*(numberOfReceivers);
-    #endif
-    numberOfSenders = (hiveGlobalRankCount>1) * numberOfSenders;
-    numberOfReceivers = (hiveGlobalRankCount>1) * numberOfReceivers;
-    unsigned int workerThreadId = 0; 
-    unsigned int networkOutThreadId = 0; 
-    unsigned int networkInThreadId = 0; 
-    while(totalThreads < numberOfWorkers+networkThreads)
-    {
-        //node->cluster[i].core[j].unit[k].pin = 1;
-        //PRINTF("%d %d %d\n", i, j, k);
-        node->cluster[i].core[j].unit[k].on = 1;
-        
-        if( totalThreads< numberOfWorkers )
-        {
-            /*node->cluster[i].core[j].unit[k].worker = 1;
-            node->cluster[i].core[j].unit[k].networkReceive = 0;
-            node->cluster[i].core[j].unit[k].networkSend = 0;
-            node->cluster[i].core[j].unit[k].groupId = abstractWorker;
-            uode->cluster[i].core[j].unit[k].groupPos = workerThreadId++;*/
-            addAThread(&node->cluster[i].core[j].unit[k], 1, 0, 0, abstractWorker, workerThreadId++, config->pinThreads );
-        }
-        else
-        {
-            if(totalThreads < numberOfWorkers + numberOfSenders )
-            {
-                /*node->cluster[i].core[j].unit[k].worker = 0;
-                node->cluster[i].core[j].unit[k].networkReceive = 0;
-                node->cluster[i].core[j].unit[k].networkSend = 1;
-                node->cluster[i].core[j].unit[k].groupId = abstractOutbound;
-                node->cluster[i].core[j].unit[k].groupPos = networkOutThreadId++;*/
-                addAThread(&node->cluster[i].core[j].unit[k], 0, 1, 0, abstractOutbound, networkOutThreadId++, config->pinThreads );
-                //addAThread(&node->cluster[i].core[j].unit[k], 0, 1, 0, abstractOutbound, networkOutThreadId++, 0 );
-            }
-            else if(totalThreads < numberOfWorkers+numberOfReceivers+numberOfSenders )
-            {
-                /*node->cluster[i].core[j].unit[k].worker = 0;
-                node->cluster[i].core[j].unit[k].networkReceive = 1;
-                node->cluster[i].core[j].unit[k].networkSend = 0;
-                node->cluster[i].core[j].unit[k].groupId = abstractInbound;
-                node->cluster[i].core[j].unit[k].groupPos = networkInThreadId++;*/
-                #ifndef USE_MPI
-                    addAThread(&node->cluster[i].core[j].unit[k], 0, 0, 1, abstractInbound, networkInThreadId++, config->pinThreads );
-                #else
-                    addAThread(&node->cluster[i].core[j].unit[k], 0, 1, 1, abstractInbound, networkInThreadId++, config->pinThreads );
-                #endif
-
-                //addAThread(&node->cluster[i].core[j].unit[k], 0, 0, 1, 0, abstractInbound, networkInThreadId++, 0 );
-            }
-        }
-        totalThreads++;
-        numCores = node->cluster[i].numCores;  
-        numUnits = node->cluster[i].core[j].numUnits;
-        j+=stride;
-        if(j >= numCores)
-        {
-            i++;
-            if(i<numClusters)
-            {
-                while(node->cluster[i].numCores == 0)
-                {
-                    i++;
-                    if(i == numClusters)
-                        break;
-                }
-            }
-            if(i == numClusters)
-            {
-                i=0;
-                
-                if(stride > 1)
-                {
-                    offset++;
-                    strideLoop++;
-                    if(strideLoop == stride)
-                    {
-                        offset = 0;
-                        k++;
-                        strideLoop=0;
-                    }
-                }
-                else
-                k++;
-                if(k == numUnits)
-                {
-                    k=0;
-                }
-            }
-            j=offset;
         }
     }
 }
@@ -416,13 +283,8 @@ struct threadMask * getThreadMask(struct hiveConfig * config)
     struct threadMask * flat;
     struct nodeMask * topology = initTopology();
         
-    if(config->fastNetworking)
-        fastNetworkPolicy(workerThreads, config->senderCount, config->recieverCount, topology, config);
-    else
-        defaultPolicy(workerThreads, topology, config);
-
+    defaultPolicy(workerThreads, topology, config);
     totalThreads = flattenMask(config, topology, &flat);
-    
     
     hiveRuntimeNodeInit(workerThreads, 1, config->senderCount, config->recieverCount, totalThreads, config->remoteWorkStealing && networkOn, config);
     if(config->printTopology)
@@ -456,7 +318,9 @@ void printTopology(struct nodeMask * node)
     }
 }
 #else
-#include <sys/sysinfo.h>
+
+#include <unistd.h>
+
 struct hiveCoreInfo
 {
     unsigned int cpuId;
@@ -464,7 +328,7 @@ struct hiveCoreInfo
 
 void hiveAbstractMachineModelPinThread(struct hiveCoreInfo * coreInfo )
 {
-    hiveThreadPin(&coreInfo->cpuId);
+    //For now this will not pin anything if there is no hwloc library
 }
 
 void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, unsigned int numberOfReceivers, struct unitMask * flat, unsigned int numCores,  struct hiveConfig * config)
@@ -481,7 +345,6 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
     {
         flat[i%numCores].on = 1;
         flat[i%numCores].coreInfo = hiveMalloc(sizeof(struct hiveCoreInfo));
-        //flat[i].id = totalThreads;
         flat[i%numCores].coreId = flat[i%numCores].coreInfo->cpuId = i%numCores;
         
         addAThread(&flat[i%numCores], 1, networkThreads, networkThreads, abstractWorker, workerThreadId++, config->pinThreads);
@@ -495,63 +358,6 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
     }
 }
 
-void fastNetworkPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, unsigned int numberOfReceivers, struct unitMask * flat, unsigned int numCores,  struct hiveConfig * config)
-{   
-    unsigned int totalThreads=0;
-    unsigned int stride = config->pinStride; 
-    unsigned int strideLoop =0;
-    unsigned int i=0, offset = 0;
-    #ifndef USE_MPI
-    unsigned int networkThreads = (hiveGlobalRankCount>1)*(numberOfReceivers+numberOfSenders);
-    #else
-    unsigned int networkThreads = (hiveGlobalRankCount>1)*(numberOfReceivers);
-    #endif
-    unsigned int workerThreadId = 0; 
-    unsigned int networkOutThreadId = 0; 
-    unsigned int networkInThreadId = 0; 
-    while(totalThreads < numberOfWorkers+networkThreads)
-    {
-        //flat[i].pin = 1;
-        flat[i%numCores].on = 1;
-        flat[i%numCores].coreInfo = hiveMalloc(sizeof(struct hiveCoreInfo));
-        //flat[i].id = totalThreads;
-        flat[i%numCores].coreId = flat[i%numCores].coreInfo->cpuId = i%numCores;
-
-        if( totalThreads < numberOfWorkers )
-        {
-            addAThread(&flat[i%numCores], 1, 0, 0, abstractWorker, workerThreadId++, config->pinThreads);
-        }
-        else
-        {
-            if(totalThreads < numberOfWorkers + numberOfSenders )
-            {
-//                MASTER_PRINTF("HERE\n");
-                addAThread(&flat[i%numCores], 0, 1, 0, abstractOutbound, networkOutThreadId++, config->pinThreads);
-            }
-            else if(totalThreads < numberOfWorkers+numberOfReceivers+numberOfSenders )
-            {
-                #ifndef USE_MPI
-                addAThread(&flat[i%numCores], 0, 0, 1, abstractInbound, networkInThreadId++, config->pinThreads);
-                #else
-                addAThread(&flat[i%numCores], 0, 1, 1, abstractInbound, networkInThreadId++, config->pinThreads);
-                #endif
-            }
-        }
-        totalThreads++;
-        
-        i+=stride;
-        if(i >= numCores && stride > 1)
-        {
-            strideLoop++;
-            offset++;
-            if(strideLoop == stride)
-            {
-                offset=strideLoop=0;
-            }
-            i=offset;
-        }
-    }
-}
 unsigned int flattenMask(struct hiveConfig * config, unsigned int numCores, struct unitMask * unit, struct threadMask ** flat)
 {
     unsigned int maskSize=0;
@@ -603,13 +409,10 @@ struct threadMask * getThreadMask(struct hiveConfig * config)
     struct unitMask * unit;
     struct threadMask * flat;
 
-    unsigned int coreCount = get_nprocs();
+    unsigned int coreCount = sysconf(_SC_NPROCESSORS_ONLN);
 
     unit = hiveCalloc(sizeof(struct unitMask) * coreCount);   
-    if(config->fastNetworking)
-        fastNetworkPolicy(workerThreads, config->senderCount, config->recieverCount, unit, coreCount, config);
-    else
-        defaultPolicy(workerThreads, config->senderCount, config->recieverCount, unit, coreCount, config);
+    defaultPolicy(workerThreads, config->senderCount, config->recieverCount, unit, coreCount, config);
     
     totalThreads = flattenMask(config, coreCount, unit, &flat);
 

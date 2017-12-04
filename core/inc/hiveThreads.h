@@ -7,7 +7,6 @@ void
 hiveThreadInit( struct hiveConfig * config  );
 void
 hiveThreadMainJoin();
-void hiveThreadPin(void * data);
 void hiveThreadSetOsThreadCount(unsigned int threads);
 
 #endif

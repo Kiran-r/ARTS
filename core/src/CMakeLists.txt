@@ -9,5 +9,4 @@ set(main_src
     hiveConfig.c
     hiveUtil.c
 )
-
 add_library(hive ${main_src} $<TARGET_OBJECTS:gas> $<TARGET_OBJECTS:network> $<TARGET_OBJECTS:introspection> $<TARGET_OBJECTS:runtime> $<TARGET_OBJECTS:system> $<TARGET_OBJECTS:common>)

@@ -832,14 +832,14 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
     else
     {
         ONCE_PRINTF("Defaulting to 4 threads\n");
-        config->threadCount =4;
+        config->threadCount = 4;
     }
     
     if( (foundVariable = hiveConfigFindVariable(&configVariables,"osThreads")) != NULL)
         config->osThreadCount = strtol( foundVariable->value, &end , 10);
     else
     {
-        config->osThreadCount =0;
+        config->osThreadCount = 0;
     }
     
     if( (foundVariable = hiveConfigFindVariable(&configVariables,"ports")) != NULL)
@@ -847,7 +847,7 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
     else
     {
         ONCE_PRINTF("Defaulting to 1 connection per node\n");
-        config->ports =1;
+        config->ports = 1;
     }
     
     if( (foundVariable = hiveConfigFindVariable(&configVariables,"outgoing")) != NULL)
@@ -855,7 +855,7 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
     else
     {
         ONCE_PRINTF("Defaulting to 1 sender\n");
-        config->senderCount =1;
+        config->senderCount = 1;
     }
     
     if( (foundVariable = hiveConfigFindVariable(&configVariables,"incoming")) != NULL)
@@ -1106,13 +1106,6 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
         routeTableEntries*=2;
     
     config->routeTableEntries = routeTableEntries;
-
-    if( (foundVariable = hiveConfigFindVariable(&configVariables,"fastNetworking")) != NULL)
-        config->fastNetworking = strtol( foundVariable->value, &end , 10);
-    else
-    {
-        config->fastNetworking = 1;
-    }
     
     if( (foundVariable = hiveConfigFindVariable(&configVariables,"pin")) != NULL)
         config->pinThreads = strtol( foundVariable->value, &end , 10);
@@ -1120,9 +1113,6 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
     {
         config->pinThreads = 1;
     }
-
-    if(!config->fastNetworking)
-        ONCE_PRINTF("Warning: Fast Networking off\n");
     
     DPRINTF("Config Parsed\n");
 

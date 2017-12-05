@@ -48,7 +48,6 @@ struct hiveConfig
     char * suffix;
     bool ibNames;
     bool masterBoot;
-    bool fastNetworking;
     bool remoteWorkStealing;
     bool coreDump;
     unsigned int pinStride;

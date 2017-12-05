@@ -153,40 +153,67 @@ struct nodeMask * initTopology()
     return node;
 }
 
-//ASSUMES A HOMEGEOUS SYSTEM...
-void defaultPolicy(unsigned int numberOfWorkers, struct nodeMask * node, struct hiveConfig * config)
+void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, unsigned int numberOfReceivers, struct nodeMask * node, struct hiveConfig * config)
 {   
     unsigned int numClusters = node->numClusters;
     unsigned int numCores = node->cluster[0].numCores;
     unsigned int numUnits = node->cluster[0].core[0].numUnits;
+    //PRINTF("%d %d %d\n", numClusters, numCores, numUnits);
     unsigned int coresPerCluster = numCores*numUnits; 
     unsigned int coreCount = numClusters*numCores*numUnits; 
     unsigned int i=0, j=0, k=0, totalThreads=0;
     unsigned int stride = config->pinStride; 
     unsigned int strideLoop =0;
     unsigned int offset = 0;
-    unsigned int networkThreads = (hiveGlobalRankCount>1)*2;
+    #ifndef USE_MPI
+    unsigned int networkThreads = (hiveGlobalRankCount>1)*(numberOfReceivers+numberOfSenders);
+    #else
+    unsigned int networkThreads = (hiveGlobalRankCount>1)*(numberOfReceivers);
+    #endif
+    numberOfSenders = (hiveGlobalRankCount>1) * numberOfSenders;
+    numberOfReceivers = (hiveGlobalRankCount>1) * numberOfReceivers;
     unsigned int workerThreadId = 0; 
     unsigned int networkOutThreadId = 0; 
     unsigned int networkInThreadId = 0; 
     while(totalThreads < numberOfWorkers+networkThreads)
     {
-        //node->cluster[i].core[j].unit[k].pin = 1;
         node->cluster[i].core[j].unit[k].on = 1;
-        
-        /*node->cluster[i].core[j].unit[k].worker = 1;
-        node->cluster[i].core[j].unit[k].networkReceive = networkThreads;
-        node->cluster[i].core[j].unit[k].networkSend = networkThreads;
-        node->cluster[i].core[j].unit[k].groupId = abstractWorker;
-        node->cluster[i].core[j].unit[k].groupPos = workerThreadId++;*/
-        addAThread(&node->cluster[i].core[j].unit[k], 1, networkThreads, networkThreads, abstractWorker, workerThreadId++, config->pinThreads);
-        
+
+        if( totalThreads< numberOfWorkers )
+        {
+            addAThread(&node->cluster[i].core[j].unit[k], 1, 0, 0, abstractWorker, workerThreadId++, config->pinThreads);
+        }
+        else
+        {
+            if(totalThreads < numberOfWorkers + numberOfSenders )
+            {
+                addAThread(&node->cluster[i].core[j].unit[k], 0, 1, 0, abstractOutbound, networkOutThreadId++, config->pinThreads);
+            }
+            else if(totalThreads < numberOfWorkers+numberOfReceivers+numberOfSenders)
+            {
+                #ifndef USE_MPI
+                    addAThread(&node->cluster[i].core[j].unit[k], 0, 0, 1, abstractInbound, networkInThreadId++, config->pinThreads);
+                #else
+                    addAThread(&node->cluster[i].core[j].unit[k], 0, 1, 1, abstractInbound, networkInThreadId++, config->pinThreads);
+                #endif
+            }
+        }
         totalThreads++;
-        
+        numCores = node->cluster[i].numCores;  
+        numUnits = node->cluster[i].core[j].numUnits;
         j+=stride;
         if(j >= numCores)
         {
             i++;
+            if(i<numClusters)
+            {
+                while(node->cluster[i].numCores == 0)
+                {
+                    i++;
+                    if(i == numClusters)
+                        break;
+                }
+            }
             if(i == numClusters)
             {
                 i=0;
@@ -207,11 +234,9 @@ void defaultPolicy(unsigned int numberOfWorkers, struct nodeMask * node, struct 
                 if(k == numUnits)
                 {
                     k=0;
-                    //offset++;
                 }
             }
             j=offset;
-
         }
     }
 }
@@ -283,7 +308,7 @@ struct threadMask * getThreadMask(struct hiveConfig * config)
     struct threadMask * flat;
     struct nodeMask * topology = initTopology();
         
-    defaultPolicy(workerThreads, topology, config);
+    defaultPolicy(workerThreads, config->senderCount, config->recieverCount, topology, config);
     totalThreads = flattenMask(config, topology, &flat);
     
     hiveRuntimeNodeInit(workerThreads, 1, config->senderCount, config->recieverCount, totalThreads, config->remoteWorkStealing && networkOn, config);
@@ -337,7 +362,11 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
     unsigned int stride = config->pinStride; 
     unsigned int strideLoop =0;
     unsigned int i=0, offset = 0;
+    #ifndef USE_MPI
     unsigned int networkThreads = (hiveGlobalRankCount>1)*(numberOfReceivers+numberOfSenders);
+    #else
+    unsigned int networkThreads = (hiveGlobalRankCount>1)*(numberOfReceivers);
+    #endif
     unsigned int workerThreadId = 0; 
     unsigned int networkOutThreadId = 0; 
     unsigned int networkInThreadId = 0; 
@@ -346,18 +375,41 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
         flat[i%numCores].on = 1;
         flat[i%numCores].coreInfo = hiveMalloc(sizeof(struct hiveCoreInfo));
         flat[i%numCores].coreId = flat[i%numCores].coreInfo->cpuId = i%numCores;
-        
-        addAThread(&flat[i%numCores], 1, networkThreads, networkThreads, abstractWorker, workerThreadId++, config->pinThreads);
+
+        if( totalThreads < numberOfWorkers)
+        {
+            addAThread(&flat[i%numCores], 1, 0, 0, abstractWorker, workerThreadId++, config->pinThreads);
+        }
+        else
+        {
+            if(totalThreads < numberOfWorkers + numberOfSenders)
+            {
+                addAThread(&flat[i%numCores], 0, 1, 0, abstractOutbound, networkOutThreadId++, config->pinThreads);
+            }
+            else if(totalThreads < numberOfWorkers+numberOfReceivers+numberOfSenders)
+            {
+                #ifndef USE_MPI
+                addAThread(&flat[i%numCores], 0, 0, 1, abstractInbound, networkInThreadId++, config->pinThreads);
+                #else
+                addAThread(&flat[i%numCores], 0, 1, 1, abstractInbound, networkInThreadId++, config->pinThreads);
+                #endif
+            }
+        }
         totalThreads++;
         
         i+=stride;
-        if(i >= numCores)
+        if(i >= numCores && stride > 1)
         {
-            i=++offset;
+            strideLoop++;
+            offset++;
+            if(strideLoop == stride)
+            {
+                offset=strideLoop=0;
+            }
+            i=offset;
         }
     }
 }
-
 unsigned int flattenMask(struct hiveConfig * config, unsigned int numCores, struct unitMask * unit, struct threadMask ** flat)
 {
     unsigned int maskSize=0;

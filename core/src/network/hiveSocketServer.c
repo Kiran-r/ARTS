@@ -149,7 +149,7 @@ void hiveServerFixIbNames(struct hiveConfig * config )
     
     bool found=false;
 
-    char post[5][10] = {"-ib\0", "ib\0", ".ib\0","-ib.ib\0", "\0"};
+    char post[6][10] = {"-ib\0", "ib\0", ".ib\0","-ib.ib\0", ".ibnet\0", "\0"};
     char pre[4][10] = {"ib-\0", "ib\0", "ib.\0", "\0"};
    
     int curLength;

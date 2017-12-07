@@ -50,3 +50,4 @@ KNOWN PROBLEMS
 ++++++++++++++
 
 - In PUMA, you should not run across the partition names since it can only run across nodes with the same prefix (pphi01, pphi02, pphi03, ... or pnode01, pnode02, pnode03, ..., but not across).
+- There is a rare instance in which the RTS does not end cleanly. This is normal since the application finishes normal (output is produced correctly).

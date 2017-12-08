@@ -44,7 +44,7 @@
 //        while(i<num)
 //        {
 //            unsigned int * ptr = NULL;
-//            guids[k++] = hiveDbCreate((void**)&ptr, sizeof(unsigned int)*j);
+//            guids[k++] = hiveDbCreate((void**)&ptr, sizeof(unsigned int)*j, false);
 //            ptr[0] = j-1;
 //            for(unsigned int l=1; l<j; l++)
 //            {

@@ -54,7 +54,8 @@ typedef enum
     DB_MODE_CDAG_WRITE,
     DB_MODE_EXCLUSIVE_READ,
     DB_MODE_EXCLUSIVE_WRITE,
-    DB_MODE_SINGLE_VALUE
+    DB_MODE_SINGLE_VALUE,
+    DB_MODE_PIN
 } hiveDbAccessMode_t;
 
 typedef struct

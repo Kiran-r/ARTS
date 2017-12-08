@@ -47,7 +47,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     {
         if(!nodeId)
         {
-            unsigned int * ptr = hiveDbCreateWithGuid(dbGuid, sizeof(unsigned int) * numWrites);
+            unsigned int * ptr = hiveDbCreateWithGuid(dbGuid, sizeof(unsigned int) * numWrites, false);
             for(unsigned int i=0; i<numWrites; i++)
                 ptr[i] = 0;
         }
@@ -62,11 +62,11 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
                 if(i < numWrites-1)
                 {
                     args[1] = writeGuids[i+1];
-                    hiveEdtCreateWithGuid(writeTest, writeGuids[i], 2, args, 2, NULL);
+                    hiveEdtCreateWithGuid(writeTest, writeGuids[i], 2, args, 2);
                 }
                 else
                 {
-                    hiveEdtCreateWithGuid(writeTest, writeGuids[i], 1, args, 2, NULL);
+                    hiveEdtCreateWithGuid(writeTest, writeGuids[i], 1, args, 2);
                 }
                 hiveSignalEdt(writeGuids[i], dbGuid, 0, DB_MODE_CDAG_WRITE);
             }

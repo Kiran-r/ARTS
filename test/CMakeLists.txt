@@ -23,3 +23,6 @@ target_link_libraries(testCDAG2 ${LIBS})
 
 add_executable(simpleReduction simpleReduction.c)
 target_link_libraries(simpleReduction ${LIBS})
+
+add_executable(pinDB pinDB.c)
+target_link_libraries(pinDB ${LIBS})

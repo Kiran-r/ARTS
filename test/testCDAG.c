@@ -47,14 +47,14 @@ hiveGuid_t writeTest(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 
     for(unsigned int i=0; i<numDynamicReads; i++)
     {
-        hiveGuid_t guid = hiveEdtCreate(readTest, hiveGetCurrentNode(), 0, NULL, 1, NULL);
+        hiveGuid_t guid = hiveEdtCreate(readTest, hiveGetCurrentNode(), 0, NULL, 1);
         hiveSignalEdt(guid, dbGuid, 0, DB_MODE_NON_COHERENT_READ);
     }
 
     for(unsigned int i=0; i<numDynamicWrites; i++)
     {
         paramv[0] = (paramv[0]+1) % numWrites;
-        hiveGuid_t guid = hiveEdtCreate(readTest, hiveGetCurrentNode(), 0, NULL, 1, NULL);
+        hiveGuid_t guid = hiveEdtCreate(readTest, hiveGetCurrentNode(), 0, NULL, 1);
         hiveSignalEdt(guid, dbGuid, 0, DB_MODE_NON_COHERENT_READ);
     }
 
@@ -94,18 +94,18 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     {
         if(!nodeId)
         {
-            unsigned int * ptr = hiveDbCreateWithGuid(dbGuid, sizeof(unsigned int) * numWrites);
+            unsigned int * ptr = hiveDbCreateWithGuid(dbGuid, sizeof(unsigned int) * numWrites, false);
             for(unsigned int i=0; i<numWrites; i++)
                 ptr[i] = 0;
 
-            hiveEdtCreateWithGuid(shutdownEdt, shutdownGuid, 0, NULL, numDynamicReads*numWrites+numDynamicWrites*numWrites+numReads+numWrites, NULL);
+            hiveEdtCreateWithGuid(shutdownEdt, shutdownGuid, 0, NULL, numDynamicReads*numWrites+numDynamicWrites*numWrites+numReads+numWrites);
         }
 
         for(u64 i=0; i<numReads; i++)
         {
             if(hiveIsGuidLocal(readGuids[i]))
             {
-                hiveEdtCreateWithGuid(readTest, readGuids[i], 0, NULL, 1, NULL);
+                hiveEdtCreateWithGuid(readTest, readGuids[i], 0, NULL, 1);
                 hiveSignalEdt(readGuids[i], dbGuid, 0, DB_MODE_NON_COHERENT_READ);
             }
         }
@@ -114,7 +114,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         {
             if(hiveIsGuidLocal(writeGuids[i]))
             {
-                hiveEdtCreateWithGuid(writeTest, writeGuids[i], 1, &i, 1, NULL);
+                hiveEdtCreateWithGuid(writeTest, writeGuids[i], 1, &i, 1);
                 hiveSignalEdt(writeGuids[i], dbGuid, 0, DB_MODE_CDAG_WRITE);
             }
         }

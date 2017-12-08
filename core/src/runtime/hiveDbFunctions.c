@@ -16,7 +16,7 @@
 #include <string.h>
 #define DPRINTF( ... )
 
-void hiveDbCreateInternal(hiveGuid_t guid, void *addr, u64 size, u64 packetSize)
+void hiveDbCreateInternal(hiveGuid_t guid, void *addr, u64 size, u64 packetSize, bool pin)
 {
     struct hiveHeader *header = (struct hiveHeader*)addr;
     header->type = HIVE_DB;
@@ -24,10 +24,12 @@ void hiveDbCreateInternal(hiveGuid_t guid, void *addr, u64 size, u64 packetSize)
 
     struct hiveDb * dbRes = (struct hiveDb *)header;
     dbRes->guid = guid;
-    dbRes->dbList = hiveNewDbList();
+    if(!pin)
+        dbRes->dbList = hiveNewDbList();
 }
 
-hiveGuid_t hiveDbCreate(void **addr, u64 size)
+//Creates a local DB only
+hiveGuid_t hiveDbCreate(void **addr, u64 size, bool pin)
 {
     HIVEEDTCOUNTERTIMERSTART(dbCreateCounter);
     hiveGuid_t guid = NULL_GUID;
@@ -39,7 +41,7 @@ hiveGuid_t hiveDbCreate(void **addr, u64 size)
     if(ptr)
     {
         guid = hiveGuidCreateForRank(hiveGlobalRankId, HIVE_DB);
-        hiveDbCreateInternal(guid, ptr, size, dbSize);
+        hiveDbCreateInternal(guid, ptr, size, dbSize, pin);
         //change false to true to force a manual DB delete
         hiveRouteTableAddItem(ptr, guid, hiveGlobalRankId, false);
         *addr = (void*)((struct hiveDb *) ptr + 1);
@@ -48,32 +50,33 @@ hiveGuid_t hiveDbCreate(void **addr, u64 size)
     return guid;
 }
 
-void * hiveDbCreateWithGuid(hiveGuid_t guid, u64 size)
+//Guid must be for a local DB only
+void * hiveDbCreateWithGuid(hiveGuid_t guid, u64 size, bool pin)
 {
     HIVEEDTCOUNTERTIMERSTART(dbCreateCounter);
-    unsigned int dbSize = size + sizeof(struct hiveDb);
-
-    HIVESETMEMSHOTTYPE(hiveDbMemorySize);
-    void * ptr = hiveMalloc(dbSize);
-    HIVESETMEMSHOTTYPE(hiveDefaultMemorySize);
-    if(ptr)
+    void * ptr = NULL;
+    if(hiveIsGuidLocal(guid))
     {
-        unsigned int route = hiveGuidGetRank(guid);
-        hiveDbCreateInternal(guid, ptr, size, dbSize);
-        if(route == hiveGlobalRankId)
+        unsigned int dbSize = size + sizeof(struct hiveDb);
+        
+        HIVESETMEMSHOTTYPE(hiveDbMemorySize);
+        ptr = hiveMalloc(dbSize);
+        HIVESETMEMSHOTTYPE(hiveDefaultMemorySize);
+        
+        if(ptr)
         {
+            unsigned int route = hiveGuidGetRank(guid);
+            hiveDbCreateInternal(guid, ptr, size, dbSize, pin);
             if(hiveRouteTableAddItemRace(ptr, guid, hiveGlobalRankId, false))
                 hiveRouteTableFireOO(guid, hiveOutOfOrderHandler);
+            ptr = (void*)((struct hiveDb *) ptr + 1);
         }
-        else
-        {
-            //add code to move db here...
-        }
-        ptr = (void*)((struct hiveDb *) ptr + 1);
     }
     HIVEEDTCOUNTERTIMERENDINCREMENT(dbCreateCounter);
     return ptr;
 }
+
+
 
 void * hiveDbResizePtr(struct hiveDb * dbRes, unsigned int size, bool copy)
 {
@@ -204,6 +207,27 @@ void acquireDbs(struct hiveEdt * edt)
             int owner = hiveGuidGetRank(depv[i].guid);
             switch(depv[i].mode)
             {
+                case DB_MODE_PIN:
+                    if(hiveIsGuidLocal(depv[i].guid))
+                    {
+                        int validRank = -1;
+                        struct hiveDb * dbTemp = hiveRouteTableLookupDb(depv[i].guid, &validRank);
+                        if(dbTemp)
+                        {
+                            dbFound = dbTemp;
+                            hiveAtomicSub(&edt->depcNeeded, 1U);
+                        }
+                        else
+                        {
+                            hiveOutOfOrderHandleDbRequest(depv[i].guid, edt, i);
+                        }
+                    }
+                    else
+                    {
+                        PRINTF("Error: Cannot acquire DB %lu because it is pinned on %u\n", depv[i].guid, hiveGuidGetRank(depv[i].guid));
+                    }
+                    break;
+                    
                 case DB_MODE_NON_COHERENT_READ:
                 case DB_MODE_CDAG_WRITE:
                     if(owner == hiveGlobalRankId) //Owner Rank
@@ -321,7 +345,7 @@ void releaseDbs(unsigned int depc, hiveEdtDep_t * depv)
         }
         else 
         {
-            if(hiveRouteTableReturnDb(depv[i].guid, true))
+            if(hiveRouteTableReturnDb(depv[i].guid, depv[i].mode != DB_MODE_PIN))
                 PRINTF("FREED A COPY!\n");
         }
     }

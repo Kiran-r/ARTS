@@ -102,7 +102,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
             if(hiveIsGuidLocal(graphGuid[i]))
             {
                 PRINTF("SIZE ALLOC: %u vert %u edge %u\n", sizeof(vertex) * NUMVERT, sizeof(vertex), sizeof(edge));
-                vertex * v = hiveDbCreateWithGuid(graphGuid[i], sizeof(vertex) * NUMVERT);
+                vertex * v = hiveDbCreateWithGuid(graphGuid[i], sizeof(vertex) * NUMVERT, false);
                 for(unsigned int j=0; j<NUMVERT; j++)
                 {
                     

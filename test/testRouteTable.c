@@ -39,7 +39,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         {
             if(hiveIsGuidLocal(guids[i]))
             {
-                unsigned int * ptr = hiveDbCreateWithGuid(guids[i], sizeof(unsigned int));
+                unsigned int * ptr = hiveDbCreateWithGuid(guids[i], sizeof(unsigned int), false);
                 *ptr = i;
                 PRINTF("Created i: %u guid: %ld\n", i, guids[i]);
             }
@@ -47,10 +47,10 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         
         if(!nodeId)
         {
-            hiveEdtCreateWithGuid(shutdownEdt, shutdownGuid, 0, NULL, hiveGetTotalNodes()*hiveGetTotalWorkers(), NULL);     
+            hiveEdtCreateWithGuid(shutdownEdt, shutdownGuid, 0, NULL, hiveGetTotalNodes()*hiveGetTotalWorkers());     
         }
     }
-    hiveGuid_t edtGuid = hiveEdtCreate(acquireTest, nodeId, 0, NULL, hiveGetTotalNodes(), NULL);
+    hiveGuid_t edtGuid = hiveEdtCreate(acquireTest, nodeId, 0, NULL, hiveGetTotalNodes());
     for(unsigned int i=0; i<hiveGetTotalNodes(); i++)
     {
         hiveSignalEdt(edtGuid, guids[i], i, DB_MODE_NON_COHERENT_READ);

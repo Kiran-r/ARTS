@@ -18,14 +18,14 @@ hiveGuid_t fibFork(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
         hiveSignalEdt(guid, num, slot, DB_MODE_SINGLE_VALUE);
     else
     {
-        hiveGuid_t joinGuid = hiveEdtCreate(fibJoin, 0, paramc-1, paramv, 2, NULL);
+        hiveGuid_t joinGuid = hiveEdtCreate(fibJoin, 0, paramc-1, paramv, 2);
         
         u64 args[3] = {joinGuid, 0, num-1};
-        hiveEdtCreate(fibFork, 0, 3, args, 0, NULL);
+        hiveEdtCreate(fibFork, 0, 3, args, 0);
         
         args[1] = 1;
         args[2] = num-2;
-        hiveEdtCreate(fibFork, 0, 3, args, 0, NULL);
+        hiveEdtCreate(fibFork, 0, 3, args, 0);
     }
 }
 
@@ -45,9 +45,9 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     if(!nodeId && !workerId)
     {
         unsigned int num = atoi(argv[1]);
-        hiveGuid_t doneGuid = hiveEdtCreate(fibDone, 0, 1, (u64*)&num, 1, NULL);
+        hiveGuid_t doneGuid = hiveEdtCreate(fibDone, 0, 1, (u64*)&num, 1);
         u64 args[3] = {doneGuid, 0, num};
-        hiveGuid_t guid = hiveEdtCreate(fibFork, 0, 3, args, 0, NULL);
+        hiveGuid_t guid = hiveEdtCreate(fibFork, 0, 3, args, 0);
     }
 }
 

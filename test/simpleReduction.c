@@ -37,7 +37,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
             if(i % hiveGetTotalNodes() == nodeId)
             {
                 int * ptr;
-                hiveGuid_t dbGuid = hiveDbCreate((void**)&ptr, sizeof(unsigned int));
+                hiveGuid_t dbGuid = hiveDbCreate((void**)&ptr, sizeof(unsigned int), false);
                 ptr[0] = i;
                 hiveSignalEdt(reductionGuid, dbGuid, i, DB_MODE_NON_COHERENT_READ);
             }
@@ -45,8 +45,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         
         if(!nodeId)
         {
-            hiveGuid_t guid = hiveEdtCreate(shutDown, 0, 0, NULL, 1, NULL);
-            hiveEdtCreateWithGuid(reduction, reductionGuid, 1, (u64*)&guid, numDbs, NULL);
+            hiveGuid_t guid = hiveEdtCreate(shutDown, 0, 0, NULL, 1);
+            hiveEdtCreateWithGuid(reduction, reductionGuid, 1, (u64*)&guid, numDbs);
         }
     }
 }

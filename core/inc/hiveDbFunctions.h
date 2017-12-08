@@ -1,8 +1,8 @@
 #ifndef HIVEDBFUNCTIONS_H
 #define	HIVEDBFUNCTIONS_H
 
-hiveGuid_t hiveDbCreate(void **addr, u64 size);
-void * hiveDbCreateWithGuid(hiveGuid_t guid, u64 size);
+hiveGuid_t hiveDbCreate(void **addr, u64 size, bool pin);
+void * hiveDbCreateWithGuid(hiveGuid_t guid, u64 size, bool pin);
 void * hiveDbResize(hiveGuid_t guid, unsigned int size, bool copy);
 void hiveDbDestroy(hiveGuid_t guid);
 void hiveDbDestroySafe(hiveGuid_t guid, bool remote);

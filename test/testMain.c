@@ -18,7 +18,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     if(!nodeId && !workerId)
     {
         u64 args[3];
-        hiveGuid_t guid = hiveEdtCreate(test, 0, 3, args, 0, NULL);
+        hiveGuid_t guid = hiveEdtCreate(test, 0, 3, args, 0);
     }
 }
 

@@ -20,3 +20,6 @@ target_link_libraries(testCDAG2 ${LIBS})
 
 #add_executable(testOOList testOOList.c)
 #target_link_libraries(testOOList ${LIBS})
+
+add_executable(simpleReduction simpleReduction.c)
+target_link_libraries(simpleReduction ${LIBS})

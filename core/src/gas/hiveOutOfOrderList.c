@@ -78,8 +78,9 @@ bool hiveOOisFired(struct hiveOutOfOrderList *  list)
 bool hiveOutOfOrderListAddItem(struct hiveOutOfOrderList * addToMe, void * item)
 {
     if(!readerOOTryLock(addToMe))
+    {
         return false;
-
+    }
     if(hiveOOisFired(addToMe))
     {
         readerOOUnlock(addToMe);

@@ -353,6 +353,16 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
             hiveRemoteHandleActiveMessage(packet);
             break;    
         }
+        case HIVE_REMOTE_GET_FROM_DB:
+        {
+            hiveRemoteHandleRemoteGetFromDb(packet);
+            break;
+        }
+        case HIVE_REMOTE_SIGNAL_EDT_WITH_PTR:
+        {
+            hiveRemoteHandleSignalEdtWithPtr(packet);
+            break;
+        }
         default:
         {
             PRINTF("Unknown Packet %d %d %d\n", packet->messageType, packet->size, packet->rank);

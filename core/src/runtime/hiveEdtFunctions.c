@@ -70,10 +70,11 @@ bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int e
             }
             else //we are racing to add an edt
             {
-//                PRINTF("ADDING EXISING EDT GUID\n");
                 hiveRouteTableAddItemRace(edt, *guid, hiveGlobalRankId, false);
                 if(edt->depcNeeded)
+                {
                     hiveRouteTableFireOO(*guid, hiveOutOfOrderHandler); //Check the OO callback for EDT
+                }
                 else
                     hiveHandleReadyEdt((void*)edt);
             }
@@ -269,6 +270,44 @@ void hiveSignalEdt(hiveGuid_t edtPacket, hiveGuid_t dataGuid, u32 slot, hiveDbAc
     }
     hiveUpdatePerformanceMetric(hiveEdtSignalThroughput, hiveThread, 1, false);
     HIVEEDTCOUNTERTIMERENDINCREMENT(signalEdtCounter);
+}
+
+void hiveSignalEdtPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * ptr, unsigned int size, u32 slot)
+{
+    struct hiveEdt * edt = hiveRouteTableLookupItem(edtGuid);
+    if(edt)
+    {
+        hiveEdtDep_t *edtDep = (hiveEdtDep_t *)((u64 *)(edt + 1) + edt->paramc);
+        
+        if(slot < edt->depc)
+        {
+            edtDep[slot].guid = dbGuid;
+            edtDep[slot].ptr = ptr;
+            edtDep[slot].mode = DB_MODE_PTR;
+        }
+        if(hiveAtomicSub(&edt->depcNeeded, 1U) == 0)
+            hiveHandleReadyEdt(edt);
+    }
+    else
+    {
+        unsigned int rank = hiveGuidGetRank(edtGuid);
+        if(rank != hiveGlobalRankId)
+        {
+            hiveRemoteSignalEdtWithPtr(edtGuid, dbGuid, ptr, size, slot);
+        }
+        else
+        {
+            rank = hiveRouteTableLookupRank(edtGuid);
+            if(rank == hiveGlobalRankId || rank == -1)
+            {
+                hiveOutOfOrderSignalEdtWithPtr(edtGuid, dbGuid, ptr, size, slot);
+            }
+            else
+            {
+                hiveRemoteSignalEdtWithPtr(edtGuid, dbGuid, ptr, size, slot);
+            }
+        }
+    }
 }
 
 void hiveEventSatisfySlot(hiveGuid_t eventGuid, hiveGuid_t dataGuid, u32 slot)

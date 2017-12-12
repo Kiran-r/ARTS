@@ -70,5 +70,8 @@ void hiveRemoteDbFullSend(struct hiveRemoteDbFullRequestPacket * pack);
 void hiveRemoteHandleDbFullRecieved(struct hiveRemoteDbFullSendPacket * packet);
 void hiveRemoteSendAlreadyLocal(int rank, hiveGuid_t guid, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode);
 void hiveRemoteHandleSendAlreadyLocal(void * pack);
-
+void hiveRemoteGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size);
+void hiveRemoteHandleRemoteGetFromDb(void * pack);
+void hiveRemoteSignalEdtWithPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * ptr, unsigned int size, unsigned int slot);
+void hiveRemoteHandleSignalEdtWithPtr(void * pack);
 #endif

@@ -16,6 +16,7 @@ void checkIfLocalDbIsOutOfDate(unsigned int slot, void ** ptr, hiveGuid_t guid, 
 void releaseDbs(unsigned int depc, hiveEdtDep_t * depv);
 bool hiveAddDbDuplicate(struct hiveDb * db, unsigned int rank, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode);
 void prepDbs(unsigned int depc, hiveEdtDep_t * depv);
-
+void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size);
+void * hiveDbCreateWithGuidAndData(hiveGuid_t guid, void * data, u64 size, bool pin);
 #endif	/* hiveDBFUNCTIONS_H */
 

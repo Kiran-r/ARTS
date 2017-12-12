@@ -603,6 +603,48 @@ void hiveRemoteHandleSendAlreadyLocal(void * pack)
     hiveDbRequestCallback(packet->edt, packet->slot, dbRes);
 }
 
+void hiveRemoteGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+{
+    unsigned int rank = hiveGuidGetRank(dbGuid);
+    struct hiveRemoteGetFromDbPacket packet;
+    packet.edtGuid = edtGuid;
+    packet.dbGuid = dbGuid;
+    packet.slot = slot;
+    packet.offset = offset;
+    packet.size = size;
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_REMOTE_GET_FROM_DB);
+    hiveRemoteSendRequestAsync(rank, (char*)&packet, sizeof(packet));
+}
+
+void hiveRemoteHandleRemoteGetFromDb(void * pack)
+{
+    struct hiveRemoteGetFromDbPacket * packet = pack;
+    hiveGetFromDb(packet->edtGuid, packet->dbGuid, packet->slot, packet->offset, packet->size);
+}
+
+void hiveRemoteSignalEdtWithPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * ptr, unsigned int size, unsigned int slot)
+{
+    unsigned int rank = hiveGuidGetRank(edtGuid);
+    DPRINTF("SEND NOW: %u -> %u\n", hiveGlobalRankId, rank);
+    struct hiveRemoteSignalEdtWithPtrPacket packet;
+    packet.edtGuid = edtGuid;
+    packet.dbGuid = dbGuid;
+    packet.size = size;
+    packet.slot = slot;
+    int totalSize = sizeof(struct hiveRemoteSignalEdtWithPtrPacket)+size;
+    hiveFillPacketHeader(&packet.header, totalSize, HIVE_REMOTE_SIGNAL_EDT_WITH_PTR);
+    hiveRemoteSendRequestPayloadAsync(rank, (char *)&packet, sizeof(packet), (char *)ptr, size);
+}
+
+void hiveRemoteHandleSignalEdtWithPtr(void * pack)
+{
+    struct hiveRemoteSignalEdtWithPtrPacket * packet = pack;
+    void * source = (void*)(packet + 1);
+    void * dest = hiveMalloc(packet->size);
+    memcpy(dest, source, packet->size);
+    hiveSignalEdtPtr(packet->edtGuid, packet->dbGuid, dest, packet->size, packet->slot);
+}
+
 //void hiveRemoteHandleDbExclusiveRequest(struct hiveRemoteDbExclusiveRequestPacket * pack)
 //{
 //    struct hiveDb * db = hiveRouteTableLookupItem(pack->dbGuid);

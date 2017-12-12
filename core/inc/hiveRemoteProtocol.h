@@ -34,7 +34,9 @@ enum hiveServerMessageType
     HIVE_ACTIVE_MESSAGE,
     HIVE_REMOTE_DB_FULL_REQUEST_MSG,
     HIVE_REMOTE_DB_FULL_SEND_MSG,
-    HIVE_REMOTE_DB_FULL_SEND_ALREADY_LOCAL
+    HIVE_REMOTE_DB_FULL_SEND_ALREADY_LOCAL,
+    HIVE_REMOTE_GET_FROM_DB,
+    HIVE_REMOTE_SIGNAL_EDT_WITH_PTR
 };
 
 //Header
@@ -206,6 +208,25 @@ struct __attribute__ ((__packed__)) hiveRemoteMetricUpdate
     u64 timeStamp;
     u64 toAdd;
     bool sub;
+};
+
+struct __attribute__ ((__packed__)) hiveRemoteGetFromDbPacket
+{
+    struct hiveRemotePacket header;
+    hiveGuid_t edtGuid;
+    hiveGuid_t dbGuid;
+    unsigned int slot;
+    unsigned int offset;
+    unsigned int size;
+};
+
+struct __attribute__ ((__packed__)) hiveRemoteSignalEdtWithPtrPacket
+{
+    struct hiveRemotePacket header;
+    hiveGuid_t edtGuid;
+    hiveGuid_t dbGuid;
+    unsigned int size;
+    unsigned int slot;
 };
 
 void outInit( unsigned int size );

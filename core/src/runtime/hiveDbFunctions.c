@@ -13,6 +13,7 @@
 #include "hiveDbList.h"
 #include "hiveDeque.h"
 #include "hiveDebug.h"
+#include "hiveEdtFunctions.h"
 #include <string.h>
 #define DPRINTF( ... )
 
@@ -76,7 +77,32 @@ void * hiveDbCreateWithGuid(hiveGuid_t guid, u64 size, bool pin)
     return ptr;
 }
 
-
+void * hiveDbCreateWithGuidAndData(hiveGuid_t guid, void * data, u64 size, bool pin)
+{
+    HIVEEDTCOUNTERTIMERSTART(dbCreateCounter);
+    void * ptr = NULL;
+    if(hiveIsGuidLocal(guid))
+    {
+        unsigned int dbSize = size + sizeof(struct hiveDb);
+        
+        HIVESETMEMSHOTTYPE(hiveDbMemorySize);
+        ptr = hiveMalloc(dbSize);
+        HIVESETMEMSHOTTYPE(hiveDefaultMemorySize);
+        
+        if(ptr)
+        {
+            unsigned int route = hiveGuidGetRank(guid);
+            hiveDbCreateInternal(guid, ptr, size, dbSize, pin);
+            void * dbData = (void*)((struct hiveDb *) ptr + 1);
+            memcpy(dbData, data, size);
+            if(hiveRouteTableAddItemRace(ptr, guid, hiveGlobalRankId, false))
+                hiveRouteTableFireOO(guid, hiveOutOfOrderHandler);
+            ptr = dbData;
+        }
+    }
+    HIVEEDTCOUNTERTIMERENDINCREMENT(dbCreateCounter);
+    return ptr;
+}
 
 void * hiveDbResizePtr(struct hiveDb * dbRes, unsigned int size, bool copy)
 {
@@ -369,4 +395,28 @@ bool hiveAddDbDuplicate(struct hiveDb * db, unsigned int rank, struct hiveEdt * 
             break;
     }
     return hivePushDbToList(db->dbList, rank, write, exclusive, hiveGuidGetRank(db->guid) == rank, false, edt, slot, mode);
+}
+
+void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+{
+    if(hiveIsGuidLocal(dbGuid))
+    {
+        int rank = -1;
+        struct hiveDb * db = hiveRouteTableLookupDb(dbGuid, &rank);
+        if(db)
+        {
+            void * data = (void*)(((char*) (db+1)) + offset);
+            void * ptr = hiveMalloc(size);
+            memcpy(ptr, data, size);
+            hiveSignalEdtPtr(edtGuid, dbGuid, ptr, size, slot);
+        }
+        else
+        {
+            hiveOutOfOrderGetFromDb(edtGuid, dbGuid, slot, offset, size);
+        }
+    }
+    else
+    {
+        hiveRemoteGetFromDb(edtGuid, dbGuid, slot, offset, size);
+    }
 }

@@ -24,5 +24,6 @@ void hiveAddLocalEventCallback(hiveGuid_t source, eventCallback_t callback);
 bool hiveIsEventFiredExt(hiveGuid_t event);
 void hiveSetThreadLocalEdtInfo(struct hiveEdt * edt);
 hiveGuid_t hivePercolateEdt(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u32 depc, hiveGuid_t * depv);
+void hiveSignalEdtPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * ptr, unsigned int size, u32 slot);
 
 #endif

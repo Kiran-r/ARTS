@@ -355,7 +355,12 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
         }
         case HIVE_REMOTE_GET_FROM_DB:
         {
-            hiveRemoteHandleRemoteGetFromDb(packet);
+            hiveRemoteHandleGetFromDb(packet);
+            break;
+        }
+        case HIVE_REMOTE_PUT_IN_DB:
+        {
+            hiveRemoteHandlePutInDb(packet);
             break;
         }
         case HIVE_REMOTE_SIGNAL_EDT_WITH_PTR:

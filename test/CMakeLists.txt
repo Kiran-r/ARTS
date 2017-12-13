@@ -29,3 +29,6 @@ target_link_libraries(pinDB ${LIBS})
 
 add_executable(testGetFromDb testGetFromDb.c)
 target_link_libraries(testGetFromDb ${LIBS})
+
+add_executable(testPutInDb testPutInDb.c)
+target_link_libraries(testPutInDb ${LIBS})

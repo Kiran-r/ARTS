@@ -246,11 +246,14 @@ void acquireDbs(struct hiveEdt * edt)
                         else
                         {
                             hiveOutOfOrderHandleDbRequest(depv[i].guid, edt, i);
+                            
                         }
                     }
                     else
                     {
-                        PRINTF("Error: Cannot acquire DB %lu because it is pinned on %u\n", depv[i].guid, hiveGuidGetRank(depv[i].guid));
+                        DPRINTF("Error: Cannot acquire DB %lu because it is pinned on %u\n", depv[i].guid, hiveGuidGetRank(depv[i].guid));
+                        depv[i].ptr = NULL;
+                        hiveAtomicSub(&edt->depcNeeded, 1U);
                     }
                     break;
                     
@@ -369,6 +372,10 @@ void releaseDbs(unsigned int depc, hiveEdtDep_t * depv)
             }
 //            hiveRouteTableReturnDb(depv[i].guid, false);
         }
+        else if(depv[i].mode == DB_MODE_PTR)
+        {
+            hiveFree(depv[i].ptr);
+        }
         else 
         {
             if(hiveRouteTableReturnDb(depv[i].guid, depv[i].mode != DB_MODE_PIN))
@@ -401,8 +408,7 @@ void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, uns
 {
     if(hiveIsGuidLocal(dbGuid))
     {
-        int rank = -1;
-        struct hiveDb * db = hiveRouteTableLookupDb(dbGuid, &rank);
+        struct hiveDb * db = hiveRouteTableLookupItem(dbGuid);
         if(db)
         {
             void * data = (void*)(((char*) (db+1)) + offset);
@@ -418,5 +424,35 @@ void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, uns
     else
     {
         hiveRemoteGetFromDb(edtGuid, dbGuid, slot, offset, size);
+    }
+}
+
+void hivePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+{
+    if(hiveIsGuidLocal(dbGuid))
+    {
+        struct hiveDb * db = hiveRouteTableLookupItem(dbGuid);
+        if(db)
+        {
+            void * data = (void*)(((char*) (db+1)) + offset);
+            memcpy(data, ptr, size);
+            
+            if(edtGuid)
+            {
+                hiveSignalEdt(edtGuid, dbGuid, slot, DB_MODE_PIN);
+            }
+        }
+        else
+        {
+            void * cpyPtr = hiveMalloc(size);
+            memcpy(cpyPtr, ptr, size);
+            hiveOutOfOrderPutInDb(cpyPtr, edtGuid, dbGuid, slot, offset, size);
+        }
+    }
+    else
+    {
+        void * cpyPtr = hiveMalloc(size);
+        memcpy(cpyPtr, ptr, size);
+        hiveRemotePutInDb(cpyPtr, edtGuid, dbGuid, slot, offset, size);
     }
 }

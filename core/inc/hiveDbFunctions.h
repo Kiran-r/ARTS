@@ -18,5 +18,6 @@ bool hiveAddDbDuplicate(struct hiveDb * db, unsigned int rank, struct hiveEdt * 
 void prepDbs(unsigned int depc, hiveEdtDep_t * depv);
 void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size);
 void * hiveDbCreateWithGuidAndData(hiveGuid_t guid, void * data, u64 size, bool pin);
+void hivePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size);
 #endif	/* hiveDBFUNCTIONS_H */
 

@@ -36,6 +36,7 @@ enum hiveServerMessageType
     HIVE_REMOTE_DB_FULL_SEND_MSG,
     HIVE_REMOTE_DB_FULL_SEND_ALREADY_LOCAL,
     HIVE_REMOTE_GET_FROM_DB,
+    HIVE_REMOTE_PUT_IN_DB,
     HIVE_REMOTE_SIGNAL_EDT_WITH_PTR
 };
 
@@ -210,7 +211,7 @@ struct __attribute__ ((__packed__)) hiveRemoteMetricUpdate
     bool sub;
 };
 
-struct __attribute__ ((__packed__)) hiveRemoteGetFromDbPacket
+struct __attribute__ ((__packed__)) hiveRemoteGetPutPacket
 {
     struct hiveRemotePacket header;
     hiveGuid_t edtGuid;

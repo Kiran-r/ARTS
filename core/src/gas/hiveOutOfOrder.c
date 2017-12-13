@@ -28,7 +28,8 @@ enum hiveOutOfOrderType
     ooDbRequestSatisfy,
     ooDbFullSend,
     ooGetFromDb,
-    ooSignalEdtPtr
+    ooSignalEdtPtr,
+    ooPutInDb
 };
 
 struct ooSignalEdt
@@ -94,7 +95,7 @@ struct ooRemoteDbFullSend
     hiveDbAccessMode_t mode;
 };
 
-struct ooRemoteGetFromDb
+struct ooGetFromDb
 {
     enum hiveOutOfOrderType type;
     hiveGuid_t edtGuid;
@@ -112,6 +113,17 @@ struct ooSignalEdtPtr
     void * ptr;
     unsigned int size;
     unsigned int slot;
+};
+
+struct ooPutInDb
+{
+    enum hiveOutOfOrderType type;
+    void * ptr;
+    hiveGuid_t edtGuid;
+    hiveGuid_t dbGuid;
+    unsigned int slot;
+    unsigned int offset;
+    unsigned int size;
 };
 
 struct ooGeneric
@@ -174,7 +186,7 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
         }
         case ooGetFromDb:
         {
-            struct ooRemoteGetFromDb * req = handleMe;
+            struct ooGetFromDb * req = handleMe;
             hiveGetFromDb(req->edtGuid, req->dbGuid, req->slot, req->offset, req->size);
             break;
             
@@ -184,6 +196,14 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
             struct ooSignalEdtPtr * req = handleMe;
             hiveSignalEdtPtr(req->edtGuid, req->dbGuid, req->ptr, req->size, req->slot);
             break;
+        }
+        case ooPutInDb:
+        {
+            struct ooPutInDb * req = handleMe;
+            hivePutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size);
+            hiveFree(req->ptr);
+            break;
+            
         }
         default:
             PRINTF("OO Handler Error\n");
@@ -349,7 +369,7 @@ void hiveOutOfOrderHandleRemoteDbFullSend(hiveGuid_t dbGuid, int rank, struct hi
 
 void hiveOutOfOrderGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
 {
-    struct ooRemoteGetFromDb * req = hiveMalloc(sizeof(struct ooRemoteGetFromDb));
+    struct ooGetFromDb * req = hiveMalloc(sizeof(struct ooGetFromDb));
     req->type = ooGetFromDb;
     req->edtGuid = edtGuid;
     req->dbGuid = dbGuid;
@@ -377,6 +397,25 @@ void hiveOutOfOrderSignalEdtWithPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void 
     if(!res)
     {
         hiveSignalEdtPtr(req->edtGuid, req->dbGuid, req->ptr, req->size, req->slot);
+        hiveFree(req);
+    }
+}
+
+void hiveOutOfOrderPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+{
+    struct ooPutInDb * req = hiveMalloc(sizeof(struct ooPutInDb));
+    req->type = ooPutInDb;
+    req->ptr = ptr;
+    req->edtGuid = edtGuid;
+    req->dbGuid = dbGuid;
+    req->slot = slot;
+    req->offset = offset;
+    req->size = size;
+    bool res = hiveRouteTableAddOO(dbGuid, req, hiveGuidGetRank(dbGuid));
+    if(!res)
+    {
+        hivePutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size);
+        hiveFree(req->ptr);
         hiveFree(req);
     }
 }

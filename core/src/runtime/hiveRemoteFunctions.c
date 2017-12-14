@@ -362,7 +362,7 @@ bool hiveRemoteDbRequest(hiveGuid_t dataGuid, int rank, struct hiveEdt * edt, in
         packet.mode = mode;
         hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_REMOTE_DB_REQUEST_MSG);
         hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
-        PRINTF("DB req send: %u -> %u mode: %u agg: %u\n", packet.header.rank, rank, mode, aggRequest);
+        DPRINTF("DB req send: %u -> %u mode: %u agg: %u\n", packet.header.rank, rank, mode, aggRequest);
         return true;
     }
     return false;
@@ -1066,4 +1066,31 @@ void hiveRemoteHandleActiveMessage(void * ptr)
         hiveRouteTableAddItemRace(edt, (hiveGuid_t) packet->guid, hiveGlobalRankId, false);
         hiveRouteTableFireOO(packet->guid, hiveOutOfOrderHandler); 
     }            
+}
+
+void hiveRemoteSend(unsigned int rank, sendHandler_t funPtr, void * args, unsigned int size, bool free)
+{
+    if(rank==hiveGlobalRankId)
+    {
+        funPtr(args);
+        if(free)
+            hiveFree(args);
+        return;
+    }
+    struct hiveRemoteSend packet;
+    packet.funPtr = funPtr;
+    int totalSize = sizeof(struct hiveRemoteSend)+size;
+    hiveFillPacketHeader(&packet.header, totalSize, HIVE_REMOTE_SEND);
+    
+    if(free)
+        hiveRemoteSendRequestPayloadAsyncFree(rank, (char*)&packet, sizeof(packet), (char *)args, 0, size, NULL_GUID, hiveFree);
+    else
+        hiveRemoteSendRequestPayloadAsync(rank, (char *)&packet, sizeof(packet), (char *)args, size);
+}
+
+void hiveRemoteHandleSend(void * pack)
+{
+    struct hiveRemoteSend * packet = pack;
+    void * args = (void*)(packet+1);
+    packet->funPtr(args);
 }

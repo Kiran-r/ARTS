@@ -26,7 +26,9 @@ void hiveDbCreateInternal(hiveGuid_t guid, void *addr, u64 size, u64 packetSize,
     struct hiveDb * dbRes = (struct hiveDb *)header;
     dbRes->guid = guid;
     if(!pin)
+    {
         dbRes->dbList = hiveNewDbList();
+    }
 }
 
 //Creates a local DB only
@@ -224,7 +226,6 @@ void acquireDbs(struct hiveEdt * edt)
 {
     hiveEdtDep_t * depv = (hiveEdtDep_t *)(((u64 *)(edt + 1)) + edt->paramc);
     edt->depcNeeded = edt->depc + 1;
-
     for(int i=0; i<edt->depc; i++)
     {
         if(depv[i].guid && depv[i].ptr == NULL)
@@ -234,6 +235,7 @@ void acquireDbs(struct hiveEdt * edt)
             switch(depv[i].mode)
             {
                 case DB_MODE_PIN:
+                    
                     if(hiveIsGuidLocal(depv[i].guid))
                     {
                         int validRank = -1;
@@ -246,12 +248,11 @@ void acquireDbs(struct hiveEdt * edt)
                         else
                         {
                             hiveOutOfOrderHandleDbRequest(depv[i].guid, edt, i);
-                            
                         }
                     }
                     else
                     {
-                        DPRINTF("Error: Cannot acquire DB %lu because it is pinned on %u\n", depv[i].guid, hiveGuidGetRank(depv[i].guid));
+                        PRINTF("Cannot acquire DB %lu because it is pinned on %u\n", depv[i].guid, hiveGuidGetRank(depv[i].guid));
                         depv[i].ptr = NULL;
                         hiveAtomicSub(&edt->depcNeeded, 1U);
                     }
@@ -401,6 +402,7 @@ bool hiveAddDbDuplicate(struct hiveDb * db, unsigned int rank, struct hiveEdt * 
         default:
             break;
     }
+
     return hivePushDbToList(db->dbList, rank, write, exclusive, hiveGuidGetRank(db->guid) == rank, false, edt, slot, mode);
 }
 

@@ -236,6 +236,7 @@ void hiveEventDestroy(hiveGuid_t guid)
 
 void hiveSignalEdt(hiveGuid_t edtPacket, hiveGuid_t dataGuid, u32 slot, hiveDbAccessMode_t mode)
 {
+    
     HIVEEDTCOUNTERTIMERSTART(signalEdtCounter);
     if(currentEdt && currentEdt->invalidateCount > 0)
         hiveOutOfOrderSignalEdt(currentEdt->currentEdt, edtPacket, dataGuid, slot, mode);
@@ -264,7 +265,9 @@ void hiveSignalEdt(hiveGuid_t edtPacket, hiveGuid_t dataGuid, u32 slot, hiveDbAc
                 edtDep[slot].guid = dataGuid;
                 edtDep[slot].mode = mode;
             }
-            if(hiveAtomicSub(&edt->depcNeeded, 1U) == 0)
+            unsigned int res = hiveAtomicSub(&edt->depcNeeded, 1U);
+//            PRINTF("SIG: %lu %lu %u res: %u\n", edtPacket, dataGuid, slot, res);
+            if(res == 0)
                 hiveHandleReadyEdt(edt);
         }
     }
@@ -774,3 +777,21 @@ bool hiveIsEventFiredExt(hiveGuid_t event)
 //    }
 //    return guid;
 //}
+
+hiveGuid_t hiveActiveMessageWithDb(hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, hiveGuid_t dbGuid)
+{
+    unsigned int rank = hiveGuidGetRank(dbGuid);
+    hiveGuid_t guid = hiveEdtCreate(funcPtr, rank, paramc, paramv, depc+1);
+//    PRINTF("AM -> %lu rank: %u depc: %u\n", guid, rank, depc+1);
+    hiveSignalEdt(guid, dbGuid, 0, DB_MODE_PIN); //DB_MODE_NON_COHERENT_READ);
+    return guid;
+}
+
+hiveGuid_t hiveActiveMessageWithBuffer(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u32 depc, void * data, unsigned int size)
+{
+    void * ptr = hiveMalloc(size);
+    memcpy(ptr, data, size);
+    hiveGuid_t guid = hiveEdtCreate(funcPtr, route, paramc, paramv, depc+1);
+    hiveSignalEdtPtr(guid, NULL_GUID, ptr, size, 0);
+    return guid;
+}

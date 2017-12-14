@@ -368,6 +368,11 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
             hiveRemoteHandleSignalEdtWithPtr(packet);
             break;
         }
+        case HIVE_REMOTE_SEND:
+        {
+            hiveRemoteHandleSend(packet);
+            break;
+        }
         default:
         {
             PRINTF("Unknown Packet %d %d %d\n", packet->messageType, packet->size, packet->rank);

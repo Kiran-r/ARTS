@@ -68,6 +68,8 @@ typedef struct
 
 typedef hiveGuid_t(*hiveEdt_t) (u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]);
 
+typedef void (*sendHandler_t) (void * args);
+
 typedef enum
 {
     HIVE_EVENT_ONCE_T,/**< A ONCE event simply passes along a satisfaction on its

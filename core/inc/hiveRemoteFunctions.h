@@ -76,5 +76,7 @@ void hiveRemoteSignalEdtWithPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * pt
 void hiveRemoteHandleSignalEdtWithPtr(void * pack);
 void hiveRemotePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size);
 void hiveRemoteHandlePutInDb(void * pack);
+void hiveRemoteSend(unsigned int rank, sendHandler_t funPtr, void * args, unsigned int size, bool free);
+void hiveRemoteHandleSend(void * pack);
 
 #endif

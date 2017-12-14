@@ -25,5 +25,9 @@ bool hiveIsEventFiredExt(hiveGuid_t event);
 void hiveSetThreadLocalEdtInfo(struct hiveEdt * edt);
 hiveGuid_t hivePercolateEdt(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u32 depc, hiveGuid_t * depv);
 void hiveSignalEdtPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * ptr, unsigned int size, u32 slot);
+void hiveRemoteSend(unsigned int rank, sendHandler_t funPtr, void * args, unsigned int size, bool free);
+
+hiveGuid_t hiveActiveMessageWithDb(hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, hiveGuid_t dbGuid);
+hiveGuid_t hiveActiveMessageWithBuffer(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u32 depc, void * ptr, unsigned int size);
 
 #endif

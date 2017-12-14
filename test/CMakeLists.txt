@@ -6,9 +6,6 @@ target_link_libraries(testMain ${LIBS})
 add_executable(fib fib.c)
 target_link_libraries(fib ${LIBS})
 
-#add_executable(testActiveMessage testActiveMessage.c)
-#target_link_libraries(testActiveMessage ${LIBS})
-
 add_executable(testRouteTable testRouteTable.c)
 target_link_libraries(testRouteTable ${LIBS})
 
@@ -32,3 +29,12 @@ target_link_libraries(testGetFromDb ${LIBS})
 
 add_executable(testPutInDb testPutInDb.c)
 target_link_libraries(testPutInDb ${LIBS})
+
+add_executable(testHiveSend testHiveSend.c)
+target_link_libraries(testHiveSend ${LIBS})
+
+add_executable(testActiveMessageDb testActiveMessageDb.c)
+target_link_libraries(testActiveMessageDb ${LIBS})
+
+add_executable(testActiveMessageBuffer testActiveMessageBuffer.c)
+target_link_libraries(testActiveMessageBuffer ${LIBS})

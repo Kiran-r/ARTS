@@ -37,7 +37,8 @@ enum hiveServerMessageType
     HIVE_REMOTE_DB_FULL_SEND_ALREADY_LOCAL,
     HIVE_REMOTE_GET_FROM_DB,
     HIVE_REMOTE_PUT_IN_DB,
-    HIVE_REMOTE_SIGNAL_EDT_WITH_PTR
+    HIVE_REMOTE_SIGNAL_EDT_WITH_PTR,
+    HIVE_REMOTE_SEND
 };
 
 //Header
@@ -228,6 +229,12 @@ struct __attribute__ ((__packed__)) hiveRemoteSignalEdtWithPtrPacket
     hiveGuid_t dbGuid;
     unsigned int size;
     unsigned int slot;
+};
+
+struct __attribute__ ((__packed__)) hiveRemoteSend
+{
+    struct hiveRemotePacket header;
+    sendHandler_t funPtr;
 };
 
 void outInit( unsigned int size );

@@ -4,19 +4,20 @@
 #include <inttypes.h>
 #include "distributedCsr.h"
 
-void createGraphDB(hiveGuid_t * guid, graph_csr_distr ** ptr, u64 index, u64 numPartitions, u64 vertSize, u64 columnSize)
+graph_csr_distr * createGraphDB(hiveGuid_t guid, u64 index, u64 numPartitions, u64 vertSize, u64 columnSize)
 {
     //Allocate space for struct, row vector (vertSize+1), column vector (columnSize)
     u64 space = sizeof(graph_csr_distr) + 
-                   sizeof(u64) * (numPartitions+1+vertSize+columnSize+1);
-    graph_csr_distr * graph = *ptr = hiveDbCreateWithGuid(*guid, space, false);
-    memset(graph, '0', sizeof(*ptr));
+                sizeof(u64) * (numPartitions+1+vertSize+columnSize+1);
+    graph_csr_distr * graph = hiveDbCreateWithGuid(guid, space, true);
+    memset(graph, '0', sizeof(space));
     graph->partition = index;
-    graph->partSize = numPartitions;
-    graph->vertSize = vertSize;
-    graph->offset = (u64*)(graph+1);
-    graph->row    = graph->offset + numPartitions + 1;
-    graph->column = graph->row + vertSize + 1;
+    graph->partSize  = numPartitions;
+    graph->vertSize  = vertSize;
+    graph->offset    = (u64*)(graph+1);
+    graph->row       = graph->offset + numPartitions + 1;
+    graph->column    = graph->row + vertSize + 1;
+    return graph;
 }
 
 void deleteGraph(hiveGuid_t guid)
@@ -24,24 +25,22 @@ void deleteGraph(hiveGuid_t guid)
 //    hiveDbDestroy(guid);
 }
 
-void readGraph(char * prefix, hiveGuid_t * guid, graph_csr_distr ** ptr, u64 index, u64 numPartitions, u64 numVert)
+u64 readGraph(char * prefix, hiveGuid_t guid, u64 index, u64 numPartitions, u64 numVert)
 {
+    u64 vertSize=0 , rowSize=0, columnSize=0;
     char filename[MAXFILENAMESIZE];
     sprintf(filename,"%s.%" PRIu64 "", prefix, index);
     FILE * fp = fopen(filename,"r");
     if(fp)
     {
-        u64 vertSize, rowSize, columnSize;
         if(fscanf(fp, "%" SCNu64 " %" SCNu64 " %" SCNu64 "\n", &vertSize, &rowSize, &columnSize)==3)
         {
-            createGraphDB(guid, ptr, index, numPartitions, vertSize, columnSize);
-            graph_csr_distr * graph = *ptr;
+            graph_csr_distr * graph = createGraphDB(guid, index, numPartitions, vertSize, columnSize);
             u64 currentRow = 0;
             u64 currentColumn = 0;
             u64 i, j;
             for(i=0; i<vertSize; i++)
             {
-//                ocrEventCreate(&graph->event[i], OCR_EVENT_IDEM_T, TRUE);
                 u64 rowCount = 0;
                 if(fscanf(fp, "%" SCNu64 "", &rowCount)==1)
                 {
@@ -66,6 +65,7 @@ void readGraph(char * prefix, hiveGuid_t * guid, graph_csr_distr ** ptr, u64 ind
         }   
     }
     fclose(fp);
+    return vertSize;
 }
 
 u64 getStartIndex(graph_csr_distr * graph)

@@ -16,7 +16,7 @@
         u64 * column;
     } graph_csr_distr;
 
-void createGraphDB(hiveGuid_t * guid, graph_csr_distr ** ptr, u64 index, u64 numPartitions, u64 vertSize, u64 columnSize);
+graph_csr_distr * createGraphDB(hiveGuid_t guid, u64 index, u64 numPartitions, u64 vertSize, u64 columnSize);
 void deleteGraph(hiveGuid_t guid);
 u64 getStartIndex(graph_csr_distr * graph);
 u64 getEndIndex(graph_csr_distr * graph);
@@ -25,7 +25,7 @@ u64 * getNeighbors(graph_csr_distr * graph, u64 index);
 u64 getNumberOfNeighbors(graph_csr_distr * graph, u64 index);
 u64 getPartition(graph_csr_distr * graph, u64 index);
 bool isInCurrentBlock(graph_csr_distr * graph, u64 index);
-void readGraph(char * prefix, hiveGuid_t * guid, graph_csr_distr ** ptr, u64 index, u64 numPartitions, u64 numVert);
+u64 readGraph(char * prefix, hiveGuid_t guid, u64 index, u64 numPartitions, u64 numVert);
 void printGraph(graph_csr_distr * graph);
 
 #endif	/* DISTRIBUTEDCSR_H */

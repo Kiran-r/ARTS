@@ -12,7 +12,8 @@ if(CMAKE_COMPILER_IS_GNUCC OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         message("Debug Build")
-        set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O0 -g -DCNC_DEBUG_TRACE")
+        set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O0 -g -DCNC_DEBUG_TRACE -fsanitize=address -fsanitize=signed-integer-overflow")
+        #set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O0 -g -DCNC_DEBUG_TRACE")
 
         if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
             set(CMAKE_C_FLAGS "-std=gnu99 -O0 -g -DCNC_DEBUG_TRACE")
@@ -109,8 +110,10 @@ message("Using ${MALLOC} malloc.")
 
 include_directories(common/inc)
 include_directories(core/inc)
+include_directories(graph/inc)
 add_subdirectory(common)
 add_subdirectory(core)
+add_subdirectory(graph)
 add_subdirectory(test)
 
 configure_file(sampleConfigs/hive.cfg test/hive.cfg COPYONLY)

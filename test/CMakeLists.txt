@@ -1,4 +1,4 @@
-set(LIBS hive ${M_LIB} ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC_LIB})
+set(LIBS hive hive-graph ${M_LIB} ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC_LIB})
 
 add_executable(testMain testMain.c)
 target_link_libraries(testMain ${LIBS})
@@ -38,3 +38,12 @@ target_link_libraries(testActiveMessageDb ${LIBS})
 
 add_executable(testActiveMessageBuffer testActiveMessageBuffer.c)
 target_link_libraries(testActiveMessageBuffer ${LIBS})
+
+add_executable(testCSR testCSR.c)
+target_link_libraries(testCSR ${LIBS})
+
+#add_executable(testDistribution testDistribution.c)
+#target_link_libraries(testDistribution ${LIBS})
+
+add_executable(bfs bfs.c)
+target_link_libraries(bfs ${LIBS})

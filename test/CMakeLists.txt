@@ -3,9 +3,6 @@ set(LIBS hive hive-graph ${M_LIB} ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC
 add_executable(testMain testMain.c)
 target_link_libraries(testMain ${LIBS})
 
-add_executable(fib fib.c)
-target_link_libraries(fib ${LIBS})
-
 add_executable(testRouteTable testRouteTable.c)
 target_link_libraries(testRouteTable ${LIBS})
 
@@ -18,11 +15,8 @@ target_link_libraries(testCDAG2 ${LIBS})
 #add_executable(testOOList testOOList.c)
 #target_link_libraries(testOOList ${LIBS})
 
-add_executable(simpleReduction simpleReduction.c)
-target_link_libraries(simpleReduction ${LIBS})
-
-add_executable(pinDB pinDB.c)
-target_link_libraries(pinDB ${LIBS})
+add_executable(testPinDB testPinDB.c)
+target_link_libraries(testPinDB ${LIBS})
 
 add_executable(testGetFromDb testGetFromDb.c)
 target_link_libraries(testGetFromDb ${LIBS})

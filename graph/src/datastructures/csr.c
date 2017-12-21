@@ -211,8 +211,12 @@ void getNeighbors(csr_graph* _csr,
 
   // get the local index for the vertex
   local_index_t i = getLocalIndex(v, _csr->distribution);
-  (*_out) = &(_csr->columns[i]);
-  (*_neighborcount) = (_csr->columns[i+1] - _csr->columns[i]);
+  // get the column start position
+  graph_sz_t start = _csr->row_indices[i];
+  graph_sz_t end = _csr->row_indices[i+1];
+
+  (*_out) = &(_csr->columns[start]);
+  (*_neighborcount) = (end-start);
 }
 
 // If we want to read the graph as an undirected

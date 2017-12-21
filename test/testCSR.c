@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
+#include <assert.h>
 #include "hiveRT.h"
 #include "hiveGraph.h"
 
@@ -67,6 +69,18 @@ void initPerNode(unsigned int nodeId, int argc, char** argv) {
 
   printLocalCSR(&graph);
 
+  vertex* neighbors = NULL;
+  graph_sz_t nbrcnt = 0;
+  getNeighbors(&graph, (vertex)1, &neighbors, &nbrcnt);
+  assert(nbrcnt == 6);
+
+  PRINTF("Neighbors of 1 : {"); 
+  for (graph_sz_t i =0; i < nbrcnt; ++i) {
+    PRINTF("%" PRIu64 ", ", neighbors[i]);
+  }
+  PRINTF("}"); 
+  
+
   freeCSR(&graph);
 
   // Testing -- reading from commandline
@@ -84,6 +98,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv) {
 
   printLocalCSR(&graphCmd);
 
+
   freeCSR(&graphCmd);
   //  const char* fname = "/Users/kane972/Downloads/wiki-Vote.txt";
   //loadGraphNoWeight(fname, &graphGuid, &graph, &dist);
@@ -98,7 +113,6 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 
 int main(int argc, char** argv)
 {
-
   hiveRT(argc, argv);
   return 0;
 }

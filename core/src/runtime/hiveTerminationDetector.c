@@ -29,7 +29,7 @@ void incrementActiveCount(unsigned int n) {
   __atomic_fetch_add(&activeCount, n, __ATOMIC_RELAXED);
 }
 
-void incrementFinishedCount((unsigned int n) {
+void incrementFinishedCount(unsigned int n) {
   __atomic_fetch_add(&finishedCount, n, __ATOMIC_RELAXED);
 }
 
@@ -43,7 +43,7 @@ hiveGuid_t reductionOp(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
   unsigned int workerId = hiveGetCurrentWorker();
   unsigned int nodeCount = hiveGetTotalNodes();
   unsigned int sum = 0;
-  counterVal *values = depv;
+  counterVal *values = depv; //TODO: verify that depv actually contains all the inputs from all the ranks
   unsigned int totalActiveCount = 0;
   unsigned int totalFinishedCount = 0;
   unsigned int totalCount = 0;
@@ -53,9 +53,10 @@ hiveGuid_t reductionOp(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
   }
   totalCount = totalActiveCount - totalFinishedCount;
     
-  if (totalCount) {  // re-start first phase
+  if (totalCount) {  // re-start first phase, since totalCount is not zero
     phase = PHASE_1;
     // dbReduxValGuid = hiveReserveGuidRoute(HIVE_DB, 0);  /*place where we would want to put the redux data*/
+    // TODO: verify that we can do the following by reusing the guid for redux?
     reductionOpGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
     hiveEdtCreateWithGuid(reductionOp, reductionOpGuid, 0, 0, hiveGetTotalNodes());
     /*Now tell every rank to send their counter value to reductionop as depv*/
@@ -106,9 +107,9 @@ hiveGuid_t localTerminationInit(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t
   activeCount = 0;
   finishedCount = 0;
   // we signal that initialization is done for this rank
-  // TODO: We just need to signal that we are done. So instead of writing nodeId, is there a way to just signal the EDT?
+  // TODO: We just need to signal that we are done. Check whether its the correct way to do it.
   // param[0] contains the GUID for start termination EDT
-  hiveSignalEdt(paramv[0], nodeId, nodeId, DB_MODE_SINGLE_VALUE);
+  hiveSignalEdt(paramv[0], 0, 0, DB_MODE_SINGLE_VALUE);
   //}
 }
 

@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "hiveRT.h"
+#include "hiveTerminationDetection.h"
+
 // TODO: insert proper include
 
 hiveGuid_t relaxGuid = NULL_GUID;

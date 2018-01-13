@@ -8,7 +8,7 @@
 hiveGuid_t relaxGuid = NULL_GUID;
 
 hiveGuid_t dummytask(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
-  incrementFinishedCount(numNodes);
+  incrementFinishedCount(1);
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv) {
@@ -17,7 +17,6 @@ void initPerNode(unsigned int nodeId, int argc, char** argv) {
 
 void initPerWorker(unsigned int nodeId, int argc, char** argv)
 {
-  unsigned int nodeId = hiveGetCurrentNode();
   unsigned int workerId = hiveGetCurrentWorker();
   unsigned int numNodes = hiveGetTotalNodes();
   if(!nodeId && !workerId) {

@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <stdatomic.h>
 #include "hiveRT.h"
+#include "hiveTerminationDetection.h"
 
 // Termination detection counts                                                  
 static unsigned int activeCount = 0;
@@ -37,19 +38,32 @@ void incrementFinishedCount(unsigned int n) {
 /* 			     hiveEdtDep_t depv[]) { */
 /* } */
 
+
+hiveGuid_t getTermCount(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+  unsigned int curActive, curFinished;
+  __atomic_load(&activeCount, &curActive, __ATOMIC_RELAXED);
+  __atomic_load(&finishedCount, &curFinished, __ATOMIC_RELAXED);
+  counterVal *counterValue;
+  hiveGuid_t counterValGuid = hiveDbCreate((void**)&counterValue, sizeof(counterValue), false);
+  counterValue->curActiveCount = curActive; 
+  counterValue->curFinishedCount =  curFinished;
+  /*signal reductionOp EDT with the counter values for this rank*/
+  hiveSignalEdt(paramv[0], counterValGuid, hiveGetCurrentNode(), DB_MODE_SINGLE_VALUE);// TODO: verify this
+}
+
 hiveGuid_t reductionOp(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
   /*Once every rank has sent their counter value, perform a reduction*/
   unsigned int nodeId = hiveGetCurrentNode();
   unsigned int workerId = hiveGetCurrentWorker();
   unsigned int nodeCount = hiveGetTotalNodes();
   unsigned int sum = 0;
-  counterVal *values = depv; //TODO: verify that depv actually contains all the inputs from all the ranks
+  counterVal *values = (counterVal *) depv; //TODO: verify that depv actually contains all the inputs from all the ranks
   unsigned int totalActiveCount = 0;
   unsigned int totalFinishedCount = 0;
   unsigned int totalCount = 0;
   for (u32 count = 0; count < nodeCount; count++) {
-    totalActiveCount += values[count]->curActiveCount;
-    totalFinishedCount += values[count]->curFinishedCount;
+    totalActiveCount += values[count].curActiveCount;
+    totalFinishedCount += values[count].curFinishedCount;
   }
   totalCount = totalActiveCount - totalFinishedCount;
     
@@ -62,7 +76,7 @@ hiveGuid_t reductionOp(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
     /*Now tell every rank to send their counter value to reductionop as depv*/
     unsigned int numNodes = hiveGetTotalNodes();
     for (unsigned int rank = 0; rank < numNodes; rank++) {
-      hiveEdtCreate(getTermCount, rank, 1, (unsigned int*)&reductionOpGuid, 0);
+      hiveEdtCreate(getTermCount, rank, 1, (u64*)&reductionOpGuid, 0);
     }
   } else if (phase == PHASE_2 &&  lastFinishedCount == totalFinishedCount) {
     /*Signal termination*/
@@ -76,16 +90,6 @@ hiveGuid_t reductionOp(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
   }
 }
 
-hiveGuid_t getTermCount(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
-  unsigned int curActive = __atomic_load(&activeCount);
-  unsigned int curFinished = __atomic_load(&finishedCount);
-  counterVal *counterValue;
-  hiveGuid_t counterValGuid = hiveDbCreate((hiveGuid_t**)&counterValue, sizeof(counterValue), false);
-  counterValue->curActiveCount = curActive; 
-  counterValue->curFinishedCount =  curFinished;
-  /*signal reductionOp EDT with the counter values for this rank*/
-  hiveSignalEdt(paramv[0], counterValGuid, hiveGetCurrentNode(), DB_MODE_SINGLE_VALUE);// TODO: verify this
-}
 
 hiveGuid_t startTermination(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
   /*kick-off termination detection once every locality finished initialization*/
@@ -96,7 +100,7 @@ hiveGuid_t startTermination(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t dep
   /*Now tell every rank to send their counter value to reductionop as depv*/
   unsigned int numNodes = hiveGetTotalNodes();
   for (unsigned int rank = 0; rank < numNodes; rank++) {
-    hiveEdtCreate(getTermCount, rank, 1, (unsigned int*)&reductionOpGuid, 0);
+    hiveEdtCreate(getTermCount, rank, 1, (u64*)&reductionOpGuid, 0);
   }
 }
 
@@ -124,7 +128,7 @@ void hiveDetectTermination() { //TODO: maybe pass the rank from where we would w
     hiveEdtCreateWithGuid(startTermination, startTermGuid, 0, 0, hiveGetTotalNodes());
     for (unsigned int rank = 0; rank < numNodes; rank++) {
       /*initialize termination counter on all ranks*/
-      hiveEdtCreate(localTerminationInit, rank, 1, (unsigned int*)&startTermGuid, 0);
+      hiveEdtCreate(localTerminationInit, rank, 1, (u64*)&startTermGuid, 0);
     }
   }
 }

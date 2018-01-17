@@ -3,7 +3,6 @@
 #include "hiveRT.h"
 #include "hiveTerminationDetection.h"
 
-// TODO: insert proper include
 
 hiveGuid_t relaxGuid = NULL_GUID;
 hiveGuid_t kickoffTerminationGuid = NULL_GUID;
@@ -14,7 +13,7 @@ hiveGuid_t dummytask(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
   incrementFinishedCount(1);
 }
 
-hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]){
     hiveShutdown();
 }
 
@@ -29,16 +28,13 @@ hiveGuid_t kickoffTermination(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t d
   exitProgramGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
   hiveEdtCreateWithGuid(exitProgram, exitProgramGuid, 0, NULL, 1);
   hiveDetectTermination(exitProgramGuid, 0); 
-  // hiveShutdown();
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv) {
-  printf("In initpernode\n");
 }
 
 void initPerWorker(unsigned int nId, int argc, char** argv)
 {
-  printf("In initperworker\n");
   unsigned int workerId = hiveGetCurrentWorker();
   unsigned int numNodes = hiveGetTotalNodes();
   unsigned int nodeId = hiveGetCurrentNode();
@@ -46,19 +42,13 @@ void initPerWorker(unsigned int nId, int argc, char** argv)
     kickoffTerminationGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
     hiveEdtCreateWithGuid(kickoffTermination, kickoffTerminationGuid, 0, NULL, hiveGetTotalNodes());
     printf("Created kickoffterminationguid on node %u worker %u\n", nodeId, workerId);
-    // doneGuid = hiveEdtCreate(exitProgram, 0, 0, 0, hiveGetTotalNodes() );
-    initializeTerminationDetection(kickoffTerminationGuid);// doneGuid );
-  /* } */
+    initializeTerminationDetection(kickoffTerminationGuid);
   }
-  /* if (!workerId) { */
-  /*   hiveSignalEdt(doneGuid, 0, 0, DB_MODE_SINGLE_VALUE); */
-  /* } */
 }
 
 
 int main(int argc, char** argv)
 {
-  printf("In main\n");  
   hiveRT(argc, argv);
   return 0;
 }

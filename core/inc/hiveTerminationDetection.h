@@ -6,7 +6,8 @@ extern "C" {
 
 void incrementActiveCount(unsigned int n);
 void incrementFinishedCount(unsigned int n);
-void hiveDetectTermination();
+void hiveDetectTermination(hiveGuid_t finishGuid, unsigned int slot);
+void initializeTerminationDetection(hiveGuid_t kickoffTerminationGuid);
 
 #ifdef __cplusplus
 }

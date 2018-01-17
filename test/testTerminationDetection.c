@@ -6,31 +6,59 @@
 // TODO: insert proper include
 
 hiveGuid_t relaxGuid = NULL_GUID;
+hiveGuid_t kickoffTerminationGuid = NULL_GUID;
+hiveGuid_t exitProgramGuid = NULL_GUID;
+hiveGuid_t doneGuid = NULL_GUID;
 
 hiveGuid_t dummytask(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
   incrementFinishedCount(1);
 }
 
-void initPerNode(unsigned int nodeId, int argc, char** argv) {
-
+hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+    hiveShutdown();
 }
 
-void initPerWorker(unsigned int nodeId, int argc, char** argv)
+hiveGuid_t kickoffTermination(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+  unsigned int numNodes = hiveGetTotalNodes();
+  incrementActiveCount(numNodes);
+  printf("Spawning tasks on different rank\n");
+  for (unsigned int rank = 0; rank < numNodes; rank++) {
+    hiveEdtCreate(dummytask, rank, 0, 0, 0);
+  }
+  printf("kicking off termination detection  on node %u worker %u\n", hiveGetCurrentNode(), hiveGetCurrentWorker());
+  exitProgramGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
+  hiveEdtCreateWithGuid(exitProgram, exitProgramGuid, 0, NULL, 1);
+  hiveDetectTermination(exitProgramGuid, 0); 
+  // hiveShutdown();
+}
+
+void initPerNode(unsigned int nodeId, int argc, char** argv) {
+  printf("In initpernode\n");
+}
+
+void initPerWorker(unsigned int nId, int argc, char** argv)
 {
+  printf("In initperworker\n");
   unsigned int workerId = hiveGetCurrentWorker();
   unsigned int numNodes = hiveGetTotalNodes();
-  if(!nodeId && !workerId) {
-    hiveDetectTermination(); //TODO: Fix placement of this call.
-    incrementActiveCount(numNodes);
-    for (unsigned int rank = 0; rank < numNodes; rank++) {
-      hiveEdtCreate(dummytask, rank, 0, 0, 0); 
-    }
+  unsigned int nodeId = hiveGetCurrentNode();
+  if (!nodeId && !workerId) {
+    kickoffTerminationGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
+    hiveEdtCreateWithGuid(kickoffTermination, kickoffTerminationGuid, 0, NULL, hiveGetTotalNodes());
+    printf("Created kickoffterminationguid on node %u worker %u\n", nodeId, workerId);
+    // doneGuid = hiveEdtCreate(exitProgram, 0, 0, 0, hiveGetTotalNodes() );
+    initializeTerminationDetection(kickoffTerminationGuid);// doneGuid );
+  /* } */
   }
+  /* if (!workerId) { */
+  /*   hiveSignalEdt(doneGuid, 0, 0, DB_MODE_SINGLE_VALUE); */
+  /* } */
 }
 
 
 int main(int argc, char** argv)
 {
-    hiveRT(argc, argv);
-    return 0;
+  printf("In main\n");  
+  hiveRT(argc, argv);
+  return 0;
 }

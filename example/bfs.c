@@ -6,12 +6,16 @@
 #include <assert.h>
 #include "hiveRT.h"
 #include "hiveGraph.h"
+#include "hiveTerminationDetection.h"
 
 hive_block_dist_t distribution;
 csr_graph graph;
 
 u64* level;
 hiveGuid_t relaxGuid = NULL_GUID;
+
+hiveGuid_t kickoffTerminationGuid = NULL_GUID;
+hiveGuid_t exitProgramGuid = NULL_GUID;
 
 void initPerNode(unsigned int nodeId, int argc, char** argv) {
 
@@ -21,6 +25,17 @@ void initPerNode(unsigned int nodeId, int argc, char** argv) {
   
   relaxGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
 
+}
+
+
+hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]){
+    hiveShutdown();
+}
+
+hiveGuid_t kickoffTermination(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+  exitProgramGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
+  hiveEdtCreateWithGuid(exitProgram, exitProgramGuid, 0, NULL, 1);
+  hiveDetectTermination(exitProgramGuid, 0); 
 }
 
 // bit like mesage passing
@@ -65,10 +80,13 @@ hiveGuid_t relax(u32 paramc, u64 * paramv,
       // Question : Need documentation for these functions
         
       vertex u = neighbors[i];
+      incrementActiveCount(1);
       // route message
       send(u, level[indexv]);
     }
   }
+
+  incrementFinishedCount(1);
 }
 
 void send(vertex u,
@@ -100,6 +118,12 @@ void initPerWorker(unsigned int nodeId,
                    unsigned int workerId, 
                    int argc, char** argv) {   
 
+  if (!nodeId && !workerId) {
+    kickoffTerminationGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
+    hiveEdtCreateWithGuid(kickoffTermination, kickoffTerminationGuid, 0, NULL, hiveGetTotalNodes());
+    initializeTerminationDetection(kickoffTerminationGuid);
+  }
+  
   if (!workerId) {
     // set-up the graph
     loadGraphUsingCmdLineArgs(&graph,
@@ -130,6 +154,7 @@ void initPerWorker(unsigned int nodeId,
     if (getOwner(source, &distribution) == hiveGetCurrentNode()) {
       // set level to zero
       // note: we need the local index
+      incrementActiveCount(1);      
       send(source, 0);     
     }
 

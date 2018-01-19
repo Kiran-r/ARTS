@@ -27,9 +27,17 @@ void initPerNode(unsigned int nodeId, int argc, char** argv) {
 
 }
 
+void bfs_output() {
+  fprintf(stderr, "Printing vertex levels....\n");
+  u64 i;
+  for(i=0; i < graph.num_local_vertices; ++i) {
+    printf("Local vertex : %" PRIu64 ", Level : %" PRIu64 "\n", i, level[i]);
+  }
+}
 
 hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]){
-    hiveShutdown();
+  bfs_output();
+  hiveShutdown();
 }
 
 hiveGuid_t kickoffTermination(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
@@ -39,12 +47,13 @@ hiveGuid_t kickoffTermination(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t d
 }
 
 // bit like mesage passing
-void send(vertex, u64);
+void bfs_send(vertex, u64);
 
 hiveGuid_t relax(u32 paramc, u64 * paramv, 
                  u32 depc, 
                  hiveEdtDep_t depv[]) {
 
+  //fprintf(stderr, "calling relax\n");
   assert(paramc == 2);
   vertex v = (vertex)paramv[0];
   u64 vlevel = paramv[1];
@@ -75,21 +84,21 @@ hiveGuid_t relax(u32 paramc, u64 * paramv,
                  &neighbor_cnt);
 
     // iterate over neighbors
-    for(u64 i=0; i < neighbor_cnt; ++i) {
-      // create an edt
-      // Question : Need documentation for these functions
-        
+    u64 neigbrlevel = level[indexv]+1;
+    for(u64 i=0; i < neighbor_cnt; ++i) {        
       vertex u = neighbors[i];
+
       incrementActiveCount(1);
       // route message
-      send(u, level[indexv]);
+      //fprintf(stderr, "2sending u=%" PRIu64 ", level= %" PRIu64 "\n", u, level[indexv]);
+      bfs_send(u, neigbrlevel);
     }
   }
 
   incrementFinishedCount(1);
 }
 
-void send(vertex u,
+void bfs_send(vertex u,
           u64 ulevel) {
 
   hiveGuid_t* neighbDbguid = getGuidForVertex(u, &distribution);
@@ -155,7 +164,8 @@ void initPerWorker(unsigned int nodeId,
       // set level to zero
       // note: we need the local index
       incrementActiveCount(1);      
-      send(source, 0);     
+      fprintf(stderr, "sending %" PRIu64 "\n", source); 
+      bfs_send(source, 0);     
     }
 
   }

@@ -16,15 +16,33 @@ hiveGuid_t relaxGuid = NULL_GUID;
 
 hiveGuid_t kickoffTerminationGuid = NULL_GUID;
 hiveGuid_t exitProgramGuid = NULL_GUID;
+hiveGuid_t kickoffTermination(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]);
 
 void initPerNode(unsigned int nodeId, int argc, char** argv) {
 
   // distribution must be initilized in initPerNode
   initBlockDistributionWithCmdLineArgs(&distribution, 
                                        argc, argv);
+  // set-up the graph
+  loadGraphUsingCmdLineArgs(&graph,
+			    &distribution,
+			    argc,
+			    argv);
+
+  // should probably encapsulate into something
+  level = (u64 *)hiveMalloc(graph.num_local_vertices * sizeof(u64));
+  // initialize the level array
+  for (u64 i=0; i < graph.num_local_vertices; ++i) {
+    level[i] = UINT64_MAX;
+  }
   
   relaxGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
 
+  if (!nodeId) {
+    kickoffTerminationGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
+    hiveEdtCreateWithGuid(kickoffTermination, kickoffTerminationGuid, 0, NULL, hiveGetTotalNodes());
+    initializeTerminationDetection(kickoffTerminationGuid);
+  }
 }
 
 void bfs_output() {
@@ -90,7 +108,7 @@ hiveGuid_t relax(u32 paramc, u64 * paramv,
 
       incrementActiveCount(1);
       // route message
-      //fprintf(stderr, "2sending u=%" PRIu64 ", level= %" PRIu64 "\n", u, level[indexv]);
+      fprintf(stderr, "2sending u=%" PRIu64 ", level= %" PRIu64 "\n", u, neigbrlevel);
       bfs_send(u, neigbrlevel);
     }
   }
@@ -113,12 +131,12 @@ void bfs_send(vertex u,
                         relaxGuid,  // function guid
                         2, // number of parameters ?
                         send, // parameters
-                        0);// no idea what this is!
+                        1);// no idea what this is! -- number of dependencies
   // Signal the EDT
   hiveSignalEdt(relaxGuid, 
                 (*neighbDbguid), // relax function will get executed in this location
                 0, // what is slot ?
-                DB_MODE_NON_COHERENT_READ);// what is access mode ?
+                DB_MODE_PIN);// what is access mode ?
 
 }
 
@@ -126,26 +144,8 @@ void bfs_send(vertex u,
 void initPerWorker(unsigned int nodeId, 
                    unsigned int workerId, 
                    int argc, char** argv) {   
-
-  if (!nodeId && !workerId) {
-    kickoffTerminationGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
-    hiveEdtCreateWithGuid(kickoffTermination, kickoffTerminationGuid, 0, NULL, hiveGetTotalNodes());
-    initializeTerminationDetection(kickoffTerminationGuid);
-  }
   
   if (!workerId) {
-    // set-up the graph
-    loadGraphUsingCmdLineArgs(&graph,
-                              &distribution,
-                              argc,
-                              argv);
-
-    // should probably encapsulate into something
-    level = (u64 *)hiveMalloc(graph.num_local_vertices * sizeof(u64));
-    // initialize the level array
-    for (u64 i=0; i < graph.num_local_vertices; ++i) {
-      level[i] = UINT64_MAX;
-    }
 
     // find the source vertex
     vertex source;

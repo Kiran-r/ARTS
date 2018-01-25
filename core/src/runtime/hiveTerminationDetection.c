@@ -3,18 +3,19 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <assert.h>
-#include <stdatomic.h>
+//#include <stdatomic.h>
 #include "hiveRT.h"
 #include "hiveTerminationDetection.h"
+#include "hiveAtomics.h"
 
 // Termination detection counts                                                  
-static unsigned int activeCount = 0;
-static unsigned int finishedCount = 0;
-static unsigned int lastFinishedCount = 0;
+static volatile unsigned int activeCount = 0;
+static volatile unsigned int finishedCount = 0;
+static volatile unsigned int lastFinishedCount = 0;
 unsigned int terminationExitSlot = 0;
 
-unsigned int totalActiveCount = 0;
-unsigned int totalFinishedCount = 0;
+volatile unsigned int totalActiveCount = 0;
+volatile unsigned int totalFinishedCount = 0;
 
 // Termination detection phases
 enum {PHASE_1, PHASE_2} phase = PHASE_1;
@@ -32,26 +33,31 @@ typedef  struct {
 } counterVal;
 
 void incrementActiveCount(unsigned int n) {
-  __atomic_fetch_add(&activeCount, n, __ATOMIC_RELAXED);
+//  __atomic_fetch_add(&activeCount, n, __ATOMIC_RELAXED);
+  hiveAtomicAdd(&activeCount, n);
 }
 
 void incrementFinishedCount(unsigned int n) {
-  __atomic_fetch_add(&finishedCount, n, __ATOMIC_RELAXED);
+//  __atomic_fetch_add(&finishedCount, n, __ATOMIC_RELAXED);
+  hiveAtomicAdd(&finishedCount, n);
 }
 
 hiveGuid_t incrementTotalActiveCount(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
-    __atomic_fetch_add(&totalActiveCount, *paramv, __ATOMIC_RELAXED);
+//    __atomic_fetch_add(&totalActiveCount, *paramv, __ATOMIC_RELAXED);
+    hiveAtomicAdd(&totalActiveCount, *paramv);
 }
 
 hiveGuid_t incrementTotalFinishedCount(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
-    __atomic_fetch_add(&totalFinishedCount, *paramv, __ATOMIC_RELAXED);
+//    __atomic_fetch_add(&totalFinishedCount, *paramv, __ATOMIC_RELAXED);
+    hiveAtomicAdd(&totalFinishedCount, *paramv);
 }
 
 hiveGuid_t getTermCount(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
   printf("In getTermcount  on node %u worker %u\n", hiveGetCurrentNode(), hiveGetCurrentWorker());
-  unsigned int curActive, curFinished;
-  __atomic_load(&activeCount, &curActive, __ATOMIC_RELAXED);
-  __atomic_load(&finishedCount, &curFinished, __ATOMIC_RELAXED);
+  unsigned int curActive = activeCount;
+  unsigned int curFinished = curFinished;
+//  __atomic_load(&activeCount, &curActive, __ATOMIC_RELAXED);
+//  __atomic_load(&finishedCount, &curFinished, __ATOMIC_RELAXED);
   /*signal reductionOp EDT with the counter values for this rank*/
   hiveEdtCreate(incrementTotalActiveCount, 0, 1, (u64*)&curActive, 0);
   hiveEdtCreate(incrementTotalFinishedCount, 0, 1, (u64*)&curFinished, 0); 
@@ -66,10 +72,10 @@ hiveGuid_t reductionOp(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
   unsigned int nodeCount = hiveGetTotalNodes();
   unsigned int sum = 0;
   unsigned int totalCount = 0;
-  unsigned int curTotalActiveCount = 0;
-  unsigned int curTotalFinishedCount = 0;
-  __atomic_load(&totalActiveCount, &curTotalActiveCount, __ATOMIC_RELAXED);
-  __atomic_load(&totalFinishedCount, &curTotalFinishedCount, __ATOMIC_RELAXED);
+  unsigned int curTotalActiveCount = totalActiveCount;
+  unsigned int curTotalFinishedCount = totalFinishedCount;
+//  __atomic_load(&totalActiveCount, &curTotalActiveCount, __ATOMIC_RELAXED);
+//  __atomic_load(&totalFinishedCount, &curTotalFinishedCount, __ATOMIC_RELAXED);
   totalCount = curTotalActiveCount - curTotalFinishedCount;
   printf("Total count %u\n", totalCount);
   hiveSignalEdt(paramv[0], 0, 0, DB_MODE_SINGLE_VALUE);

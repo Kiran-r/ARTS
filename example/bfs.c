@@ -17,8 +17,6 @@ hiveGuid_t kickoffTerminationGuid = NULL_GUID;
 hiveGuid_t exitProgramGuid = NULL_GUID;
 hiveGuid_t kickoffTermination(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]);
 
-unsigned int countedVert = 0;
-
 void bfs_output() {
   fprintf(stderr, "Printing vertex levels....\n");
   u64 i;

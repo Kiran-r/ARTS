@@ -435,9 +435,11 @@ unsigned int flattenMask(struct hiveConfig * config, unsigned int numCores, stru
 
             while(next != NULL)
             {
+                assert(count < maskSize);
                 setThreadMask(&(*flat)[count], &unit[i], next);
                 (*flat)[count].groupPos = groupCount[next->groupId]++;
-                (*flat)[count].id = count++;
+                (*flat)[count].id = count;
+                ++count;
                 next = next->next;
             }
         }

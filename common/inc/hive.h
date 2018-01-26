@@ -15,6 +15,7 @@ extern "C" {
 #include "stdint.h"
 #include "stdlib.h"
 #include "stdio.h"
+#include "assert.h"
 
 void PRINTF( const char* format, ... );
 

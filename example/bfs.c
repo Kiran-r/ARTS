@@ -13,9 +13,12 @@ csr_graph graph;
 
 u64* level;
 
-hiveGuid_t kickoffTerminationGuid = NULL_GUID;
+hiveGuid_t initBFSGuid = NULL_GUID;
+hiveGuid_t startBFSGuid = NULL_GUID;
 hiveGuid_t exitProgramGuid = NULL_GUID;
-hiveGuid_t kickoffTermination(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]);
+hiveGuid_t startBFS(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]);
+
+hiveGuid_t runBFSGuid = NULL_GUID;
 
 void bfs_output() {
   fprintf(stderr, "Printing vertex levels....\n");
@@ -30,15 +33,11 @@ hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
   hiveShutdown();
 }
 
-hiveGuid_t kickoffTermination(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
-  exitProgramGuid = hiveEdtCreateWithGuid(exitProgram, 0, 0, NULL, 1);
-  hiveDetectTermination(exitProgramGuid, 0); 
-}
 
 void bfs_send(vertex u, u64 ulevel);
 
 hiveGuid_t relax(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
-//  fprintf(stderr, "calling relax\n");
+  fprintf(stderr, "calling relax\n");
   assert(paramc == 2);
   vertex v = (vertex)paramv[0];
   u64 vlevel = paramv[1];
@@ -70,28 +69,119 @@ hiveGuid_t relax(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
 
     // iterate over neighbors
     u64 neigbrlevel = level[indexv]+1;
+    incrementActiveCount(neighbor_cnt);
+    printf("Incremented active count by %" PRIu64 " for vertex  %" PRIu64 " \n", neighbor_cnt, v);
+ 
     for(u64 i=0; i < neighbor_cnt; ++i) {        
       vertex u = neighbors[i];
-      
       // route message
-//      fprintf(stderr, "2sending u=%" PRIu64 ", level= %" PRIu64 "\n", u, neigbrlevel);
+      fprintf(stderr, "sending u=%" PRIu64 ", level= %" PRIu64 "\n", u, neigbrlevel);
       bfs_send(u, neigbrlevel);
     }
   }
+  printf("Incremented finish count\n");
   incrementFinishedCount(1);
 }
+
+hiveGuid_t runBFS(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+
+}
+
+
+
 
 void bfs_send(vertex u, u64 ulevel) {
   hiveGuid_t* neighbDbguid = getGuidForVertex(u, &distribution);
   u64 send[2];
   send[0] = u;
   send[1] = ulevel;
-  incrementActiveCount(1);
   hiveGuid_t relaxGuid = hiveActiveMessageWithDb(relax, //function 
                                                  2, // number of parameters ?
                                                  send, // parameters
                                                  0, // additional deps
                                                  (*neighbDbguid)); // this is the guid to co-locate task with
+}
+
+
+hiveGuid_t relaxR(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+  fprintf(stderr, "calling relax root\n");
+  assert(paramc == 2);
+  vertex v = (vertex)paramv[0];
+  u64 vlevel = paramv[1];
+  
+  exitProgramGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
+  hiveEdtCreateWithGuid(exitProgram, exitProgramGuid, 0, NULL, 1);
+  hiveDetectTermination(exitProgramGuid, 0); 
+
+  local_index_t indexv = getLocalIndex(v, &distribution);
+  assert(indexv < graph.num_local_vertices);
+
+  u64 oldlevel = level[indexv];
+  bool success = false;
+  printf("oldlevel %" PRIu64 "\n", oldlevel);
+  printf("tentative level %" PRIu64 "\n", vlevel);
+  while(vlevel < oldlevel) {
+    // NOTE : This call depends on GNU (GCC)
+    success = __atomic_compare_exchange(&level[indexv],
+                                        &oldlevel,
+                                        &vlevel,
+                                        false,
+                                        __ATOMIC_RELAXED,
+                                        __ATOMIC_RELAXED);
+    oldlevel = level[indexv];
+  }
+
+  if (success) {
+    // notify neighbors
+    // get neighbors
+    vertex* neighbors = NULL;
+    u64 neighbor_cnt = 0;
+    getNeighbors(&graph, v,
+                 &neighbors,
+                 &neighbor_cnt);
+
+    // iterate over neighbors
+    u64 neigbrlevel = level[indexv]+1;
+    incrementActiveCount(neighbor_cnt);
+    printf("Incremented active count by %" PRIu64 " for vertex  %" PRIu64 " \n", neighbor_cnt, v);    
+
+    for(u64 i=0; i < neighbor_cnt; ++i) {        
+      vertex u = neighbors[i];
+      // route message
+      fprintf(stderr, "sending u=%" PRIu64 ", level= %" PRIu64 "\n", u, neigbrlevel);
+      bfs_send(u, neigbrlevel);
+    }
+  }
+  printf("Incremented finish count by one.\n");
+  incrementFinishedCount(1);
+}
+
+void relaxRoot(vertex u, u64 ulevel) {
+  hiveGuid_t* neighbDbguid = getGuidForVertex(u, &distribution);
+  u64 send[2];
+  send[0] = u;
+  send[1] = ulevel;
+  incrementActiveCount(1);
+  printf("Incremented active count for root\n");
+  hiveGuid_t relaxGuid = hiveActiveMessageWithDb(relaxR, //function 
+                                                 2, // number of parameters ?
+                                                 send, // parameters
+                                                 0, // additional deps
+                                                 (*neighbDbguid)); // this is the guid to co-locate task with
+ 
+ 
+}
+
+
+hiveGuid_t startBFS(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+  fprintf(stderr, "sending %" PRIu64 "\n", paramv[0]); 
+  relaxRoot(paramv[0], 0);  
+}
+
+hiveGuid_t initBFS(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+  startBFSGuid = hiveReserveGuidRoute(HIVE_EDT, hiveGetCurrentNode());
+  hiveEdtCreateWithGuid(startBFS, startBFSGuid, 1, (u64*)&paramv[0], hiveGetTotalNodes());
+  initializeTerminationDetection(startBFSGuid);
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv) {
@@ -112,36 +202,50 @@ void initPerNode(unsigned int nodeId, int argc, char** argv) {
     level[i] = UINT64_MAX;
   }
 
-  if (!nodeId) {
-    kickoffTerminationGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
-    hiveEdtCreateWithGuid(kickoffTermination, kickoffTerminationGuid, 0, NULL, hiveGetTotalNodes());
-    initializeTerminationDetection(kickoffTerminationGuid);
+  //  if (!nodeId) {
+  vertex source;
+  for (int i = 0; i < argc; ++i) {
+    if (strcmp("--source", argv[i]) == 0) {
+      sscanf(argv[i+1], "%" SCNu64, &source);
+      break; // for now one source
+    }
   }
+  assert(source < distribution.num_vertices);
+  //initBFSGuid = 
+  printLocalCSR(&graph);
+  // hiveShutdown();
+  if (getOwner(source, &distribution) == hiveGetCurrentNode()) {
+    initBFSGuid = hiveReserveGuidRoute(HIVE_EDT, hiveGetCurrentNode());
+    hiveEdtCreateWithGuid(initBFS, initBFSGuid, 1, (u64*)&source, hiveGetTotalNodes());
+  }
+  hiveSignalEdt(initBFSGuid, 0, hiveGetCurrentNode(), DB_MODE_SINGLE_VALUE);
+
+  
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv) {   
   
-  if (!workerId) {
-    // find the source vertex
-    vertex source;
-    for (int i=0; i < argc; ++i) {
-      if (strcmp("--source", argv[i]) == 0) {
-        sscanf(argv[i+1], "%" SCNu64, &source);
-      }
-    }
+  /* if (!workerId) { */
+  /*   // find the source vertex */
+  /*   vertex source; */
+  /*   for (int i=0; i < argc; ++i) { */
+  /*     if (strcmp("--source", argv[i]) == 0) { */
+  /*       sscanf(argv[i+1], "%" SCNu64, &source); */
+  /*     } */
+  /*   } */
 
-    assert(source < distribution.num_vertices);
+    /* assert(source < distribution.num_vertices); */
     // WE NEED A BARRIER HERE IN PARALLEL EXECUTION
 
     // is this source belong to current rank ?
-    if (getOwner(source, &distribution) == hiveGetCurrentNode()) {
-      // set level to zero
-      // note: we need the local index   
-      fprintf(stderr, "sending %" PRIu64 "\n", source); 
-      bfs_send(source, 0);     
-    }
+  /*   if (getOwner(source, &distribution) == hiveGetCurrentNode()) { */
+  /*     // set level to zero */
+  /*     // note: we need the local index    */
+  /*     fprintf(stderr, "sending %" PRIu64 "\n", source);  */
+  /*     bfs_send(source, 0);      */
+  /*   } */
 
-  }
+  /* } */
 }
 
 int main(int argc, char** argv)

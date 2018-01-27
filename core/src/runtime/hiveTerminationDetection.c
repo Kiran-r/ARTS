@@ -129,7 +129,7 @@ hiveGuid_t localTerminationInit(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t
   finishedCount = 0;
   printf("Finished initialization on rank: %u \n", nodeId);
   // we signal that initialization is done for this rank
-   hiveSignalEdt(paramv[0], 0, 0, DB_MODE_SINGLE_VALUE);
+   hiveSignalEdt(paramv[0], 0, nodeId, DB_MODE_SINGLE_VALUE);
 }
 
 void initializeTerminationDetection(hiveGuid_t kickoffTerminationGuid) {
@@ -137,7 +137,8 @@ void initializeTerminationDetection(hiveGuid_t kickoffTerminationGuid) {
   unsigned int nodeId = hiveGetCurrentNode();
   unsigned int workerId = hiveGetCurrentWorker();
   if (!nodeId && !workerId) {
-    for (unsigned int rank = 0; rank < numNodes; rank++) {
+  printf("In init termination\n");  
+  for (unsigned int rank = 0; rank < numNodes; rank++) {
       /*initialize termination counter on all ranks*/
       hiveEdtCreate(localTerminationInit, rank, 1, (u64*)&kickoffTerminationGuid, 0);
     }

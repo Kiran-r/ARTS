@@ -8,7 +8,7 @@
 #include "hiveTerminationDetection.h"
 #include "hiveAtomics.h"
 
-// Termination detection counts                                                  
+// Termination detection counts
 static volatile unsigned int activeCount = 0;
 static volatile unsigned int finishedCount = 0;
 static volatile unsigned int lastFinishedCount = 0;
@@ -28,7 +28,7 @@ hiveGuid_t terminationExitGuid = NULL_GUID;
 hiveGuid_t doneTerminationInitGuid = NULL_GUID;
 
 typedef  struct {
-  unsigned int curActiveCount; 
+  unsigned int curActiveCount;
   unsigned int curFinishedCount;
 } counterVal;
 
@@ -54,13 +54,13 @@ hiveGuid_t incrementTotalFinishedCount(u32 paramc, u64 * paramv, u32 depc, hiveE
 
 hiveGuid_t getTermCount(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
   printf("In getTermcount  on node %u worker %u\n", hiveGetCurrentNode(), hiveGetCurrentWorker());
-  unsigned int curActive = activeCount;
-  unsigned int curFinished = curFinished;
+  u64 curActive = activeCount;
+  u64 curFinished = curFinished;
 //  __atomic_load(&activeCount, &curActive, __ATOMIC_RELAXED);
 //  __atomic_load(&finishedCount, &curFinished, __ATOMIC_RELAXED);
   /*signal reductionOp EDT with the counter values for this rank*/
   hiveEdtCreate(incrementTotalActiveCount, 0, 1, (u64*)&curActive, 0);
-  hiveEdtCreate(incrementTotalFinishedCount, 0, 1, (u64*)&curFinished, 0); 
+  hiveEdtCreate(incrementTotalFinishedCount, 0, 1, (u64*)&curFinished, 0);
   hiveSignalEdt(paramv[0], 0, hiveGetCurrentNode(), DB_MODE_SINGLE_VALUE);
 }
 
@@ -137,7 +137,7 @@ void initializeTerminationDetection(hiveGuid_t kickoffTerminationGuid) {
   unsigned int nodeId = hiveGetCurrentNode();
   unsigned int workerId = hiveGetCurrentWorker();
   if (!nodeId && !workerId) {
-  printf("In init termination\n");  
+  printf("In init termination\n");
   for (unsigned int rank = 0; rank < numNodes; rank++) {
       /*initialize termination counter on all ranks*/
       hiveEdtCreate(localTerminationInit, rank, 1, (u64*)&kickoffTerminationGuid, 0);
@@ -146,11 +146,11 @@ void initializeTerminationDetection(hiveGuid_t kickoffTerminationGuid) {
 }
 
 //accept a guid. signal this guid when done
-void hiveDetectTermination(hiveGuid_t finishGuid, unsigned int slot) { 
+void hiveDetectTermination(hiveGuid_t finishGuid, unsigned int slot) {
   unsigned int numNodes = hiveGetTotalNodes();
   unsigned int nodeId = hiveGetCurrentNode();
   unsigned int workerId = hiveGetCurrentWorker();
-  
+
   printf("In hive detect termination  on node %u worker %u\n", hiveGetCurrentNode(), hiveGetCurrentWorker());
   /* Since everyone will call in the function, start termination from rank 0*/
   startTerminationGuid = hiveReserveGuidRoute(HIVE_EDT, 0);

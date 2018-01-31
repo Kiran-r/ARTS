@@ -95,10 +95,10 @@ hiveGuid_t startTermination(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t dep
   unsigned int numNodes = hiveGetTotalNodes();
   hiveGuid_t reductionOpGuid = hiveEdtCreate(reductionOp, 0, 0, NULL, numNodes*2);
   /*Now tell every rank to send their counter value*/
-  for (unsigned int rank = 0; rank < numNodes; rank++) {
-    hiveEdtCreate(getTermCount, rank, 1, (u64*)&reductionOpGuid, 0);
+    for (unsigned int rank = 0; rank < numNodes; rank++) {
+      hiveEdtCreate(getTermCount, rank, 1, (u64*)&reductionOpGuid, 0);
+    }
   }
-}
 
 //accept a guid. signal this guid when done
 void hiveDetectTermination(hiveGuid_t finishGuid, unsigned int slot) { 

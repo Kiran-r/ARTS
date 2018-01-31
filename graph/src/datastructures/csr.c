@@ -153,7 +153,7 @@ void printLocalCSR(const csr_graph* _csr) {
 
 void freeCSR(csr_graph* _csr) {
 #ifndef NO_HIVE_MALLOC
-  hiveFree(_csr->data);
+  hiveDbDestroy(*getGuidForCurrentNode(_csr->distribution));
 #else
   free(_csr->data);
 #endif

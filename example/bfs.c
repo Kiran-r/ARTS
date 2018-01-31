@@ -125,7 +125,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
       if (strcmp("--source", argv[i]) == 0) {
         sscanf(argv[i+1], "%" SCNu64, &source);
       }
-    }
+  }
 
     assert(source < distribution.num_vertices);
 

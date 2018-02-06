@@ -1,6 +1,7 @@
 #ifndef HIVEDBFUNCTIONS_H
 #define	HIVEDBFUNCTIONS_H
 
+hiveGuid_t hiveDbCreateRemote(unsigned int route, u64 size, bool pin);
 hiveGuid_t hiveDbCreate(void **addr, u64 size, bool pin);
 void * hiveDbCreateWithGuid(hiveGuid_t guid, u64 size, bool pin);
 void * hiveDbResize(hiveGuid_t guid, unsigned int size, bool copy);

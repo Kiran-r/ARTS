@@ -38,3 +38,9 @@ target_link_libraries(testCSR hive-graph ${LIBS})
 
 #add_executable(testDistribution testDistribution.c)
 #target_link_libraries(testDistribution ${LIBS})
+
+add_executable(testArrayDb testArrayDb.c)
+target_link_libraries(testArrayDb ${LIBS})
+
+add_executable(testForEach testForEach.c)
+target_link_libraries(testForEach ${LIBS})

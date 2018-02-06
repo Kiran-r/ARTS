@@ -31,6 +31,18 @@ void hiveDbCreateInternal(hiveGuid_t guid, void *addr, u64 size, u64 packetSize,
     }
 }
 
+hiveGuid_t hiveDbCreateRemote(unsigned int route, u64 size, bool pin)
+{
+    hiveGuid_t guid = hiveGuidCreateForRank(route, HIVE_DB);
+    void * ptr = hiveMalloc(sizeof(struct hiveDb));
+    struct hiveDb * db = (struct hiveDb*) ptr;
+    db->header.type = HIVE_DB;
+    db->header.size = size + sizeof(struct hiveDb);
+    db->dbList = (pin) ? (void*)0 : (void*)1;
+    
+    hiveRemoteMemoryMove(route, guid, ptr, sizeof(struct hiveDb), HIVE_REMOTE_DB_SEND_MSG, hiveFree);
+}
+
 //Creates a local DB only
 hiveGuid_t hiveDbCreate(void **addr, u64 size, bool pin)
 {

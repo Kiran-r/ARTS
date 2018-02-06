@@ -7,6 +7,7 @@
 #include "hiveGuid.h"
 #include "hiveUtil.h"
 #include "hiveTimer.h"
+#include "hiveArrayDb.h"
 void PRINTF( const char* format, ... );
 int hiveRT();
 #endif /* HIVERT_H */

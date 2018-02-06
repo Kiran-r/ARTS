@@ -261,19 +261,31 @@ void hiveRemoteHandleEdtMove(void * ptr)
 void hiveRemoteHandleDbMove(void * ptr)
 {   
     struct hiveRemoteMemoryMovePacket * packet = ptr ;
-    unsigned int size = packet->header.size-sizeof( struct hiveRemoteMemoryMovePacket );
+    unsigned int size = packet->header.size - sizeof(struct hiveRemoteMemoryMovePacket);
     
-    struct hiveDb * dbHeader = (struct hiveDb *)(packet+1); 
+    struct hiveDb * dbHeader = (struct hiveDb *)(packet+1);
     unsigned int dbSize  = dbHeader->header.size;
     
     HIVESETMEMSHOTTYPE(hiveDbMemorySize);
     struct hiveHeader * memPacket = hiveMalloc(dbSize);
     HIVESETMEMSHOTTYPE(hiveDefaultMemorySize);
     
-    memcpy(memPacket, packet+1, size);
+    if(size == dbSize)
+        memcpy(memPacket, packet+1, size);
+    else
+    {
+        memPacket->type = HIVE_DB;
+        memPacket->size = dbSize;
+    }
+    //We need a local pointer for this node
+    if(dbHeader->dbList)
+    {
+        struct hiveDb * newDb = (struct hiveDb*)memPacket;
+        newDb->dbList = hiveNewDbList();
+    }
     
-    hiveRouteTableAddItemRace(memPacket, (hiveGuid_t) packet->guid, hiveGlobalRankId, false);
-    hiveRouteTableFireOO(packet->guid, hiveOutOfOrderHandler);
+    if(hiveRouteTableAddItemRace(memPacket, (hiveGuid_t) packet->guid, hiveGlobalRankId, false))
+        hiveRouteTableFireOO(packet->guid, hiveOutOfOrderHandler);
 }
 
 void hiveRemoteHandleEventMove(void * ptr)

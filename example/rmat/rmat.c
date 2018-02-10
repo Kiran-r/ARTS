@@ -11,7 +11,7 @@
 
 #include <assert.h>
 
-#if HAVE_ALLOCA_H
+#if HAVE_ALLOCA
 # include <alloca.h>
 #elif defined __GNUC__
 # define alloca __builtin_alloca

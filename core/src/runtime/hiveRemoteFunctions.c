@@ -20,6 +20,7 @@
 #include "hiveEdtFunctions.h"
 #include "hiveServer.h"
 #include "hiveQueue.h"
+#include "hiveTerminationDetection.h"
 #include <unistd.h>
 
 #define DPRINTF( ... )
@@ -1106,3 +1107,57 @@ void hiveRemoteHandleSend(void * pack)
     void * args = (void*)(packet+1);
     packet->funPtr(args);
 }
+
+void hiveRemoteEpochInitSend(unsigned int rank, hiveGuid_t epochGuid, hiveGuid_t edtGuid, unsigned int slot)
+{
+    DPRINTF("Net Epoch Init Send: %u\n", rank);
+    struct hiveRemoteEpochInitPacket packet;
+    packet.epochGuid = epochGuid;
+    packet.edtGuid = edtGuid;
+    packet.slot = slot;
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_EPOCH_INIT);
+    hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
+}
+
+void hiveRemoteHandleEpochInitSend(void * pack)
+{
+    DPRINTF("Net Epoch Init Rec\n");
+    struct hiveRemoteEpochInitPacket * packet = pack;
+    createEpoch(&packet->epochGuid, packet->edtGuid, packet->slot);
+}
+
+void hiveRemoteEpochReq(unsigned int rank, hiveGuid_t guid)
+{
+    DPRINTF("Net Epoch Req Send: %u\n", rank);
+    struct hiveRemoteEpochReqPacket packet;
+    packet.epochGuid = guid;
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_EPOCH_REQ);
+    hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
+}
+
+void hiveRemoteHandleEpochReq(void * pack)
+{
+    DPRINTF("Net Epoch Req Rec\n");
+    struct hiveRemoteEpochReqPacket * packet = pack;
+    //For now the source and dest are the same...
+    sendEpoch(packet->epochGuid, packet->header.rank, packet->header.rank);
+}
+
+void hiveRemoteEpochSend(unsigned int rank, hiveGuid_t guid, unsigned int active, unsigned int finish)
+{
+    DPRINTF("Net Epoch Send Send: %u\n", rank);
+    struct hiveRemoteEpochSendPacket packet;
+    packet.epochGuid = guid;
+    packet.active = active;
+    packet.finish = finish;
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_EPOCH_SEND);
+    hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
+}
+
+void hiveRemoteHandleEpochSend(void * pack)
+{
+    DPRINTF("Net Epoch Send: Rec\n");
+    struct hiveRemoteEpochSendPacket * packet = pack;
+    reduceEpoch(packet->epochGuid, packet->active, packet->finish);
+}
+

@@ -11,9 +11,23 @@
 
 #include <assert.h>
 
-#ifdef HAVE_ALLOCA_H
-#include <alloca.h>
+#if HAVE_ALLOCA
+# include <alloca.h>
+#elif defined __GNUC__
+# define alloca __builtin_alloca
+#elif defined _AIX
+# define alloca __alloca
+#elif defined _MSC_VER
+# include <malloc.h>
+# define alloca _alloca
+#else
+# include <stddef.h>
+# ifdef  __cplusplus
+extern "C"
+# endif
+void *alloca (size_t);
 #endif
+
 
 #include "xalloc.h"
 #include "prng.h"
@@ -73,7 +87,7 @@ rmat_edge (struct packed_edge *out, int SCALE,
     }
     /* So long as +/- are monotonic, ensure a+b+c+d <= 1.0 */
     D = 1.0 - (A + B + C);
-	
+
     bit >>= 1;
   }
   /* Iterates SCALE times. */
@@ -185,7 +199,7 @@ rmat_edgelist (struct packed_edge *IJ_in, int64_t nedge, int SCALE,
   struct packed_edge * restrict IJ = IJ_in;
   int64_t* restrict iwork;
   double D = 1.0 - (A + B + C);
- 
+
   iwork = xmalloc_large_ext ((1L<<SCALE) * sizeof (*iwork));
 
   OMP("omp parallel") {

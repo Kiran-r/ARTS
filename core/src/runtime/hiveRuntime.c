@@ -21,6 +21,7 @@
 #include "hiveThreads.h"
 #include "hiveOutOfOrder.h"
 #include "hiveIntrospection.h"
+#include "hiveTerminationDetection.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include "hiveTimer.h"
@@ -237,6 +238,7 @@ void hiveRuntimeStop()
 void hiveHandleRemoteStolenEdt(struct hiveEdt *edt)
 {
     DPRINTF("push stolen %d\n",hiveThreadInfo.coreId);
+    incrementQueueEpoch(edt->epochGuid);
     hiveDequePushFront(hiveThreadInfo.myDeque, edt, 0);
 }
 
@@ -246,6 +248,7 @@ void hiveHandleReadyEdt(struct hiveEdt * edt)
     acquireDbs(edt);
     if(hiveAtomicSub(&edt->depcNeeded,1U) == 0)
     {
+        incrementQueueEpoch(edt->epochGuid);
         hiveDequePushFront(hiveThreadInfo.myDeque, edt, 0);
     }
 
@@ -273,6 +276,8 @@ static inline void hiveRunEdt(void *edtPacket)
 
     HIVECOUNTERTIMERENDINCREMENT(edtCounter);
     hiveUpdatePerformanceMetric(hiveEdtThroughput, hiveThread, 1, false);
+    
+    incrementFinishedEpoch(edt->epochGuid);
     hiveThreadInfo.currentEdtGuid = NULL_GUID;
 
     if(edt->outputEvent != NULL_GUID)

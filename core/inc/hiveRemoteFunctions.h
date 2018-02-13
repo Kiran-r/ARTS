@@ -79,4 +79,11 @@ void hiveRemoteHandlePutInDb(void * pack);
 void hiveRemoteSend(unsigned int rank, sendHandler_t funPtr, void * args, unsigned int size, bool free);
 void hiveRemoteHandleSend(void * pack);
 
+void hiveRemoteEpochInitSend(unsigned int rank, hiveGuid_t guid, hiveGuid_t edtGuid, unsigned int slot);
+void hiveRemoteHandleEpochInitSend(void * pack);
+void hiveRemoteEpochReq(unsigned int rank, hiveGuid_t guid);
+void hiveRemoteHandleEpochReq(void * pack);
+void hiveRemoteEpochSend(unsigned int rank, hiveGuid_t guid, unsigned int active, unsigned int finish);
+void hiveRemoteHandleEpochSend(void * pack);
+
 #endif

@@ -6,6 +6,7 @@ set(runtime_src
     hiveDbFunctions.c
     hiveDbList.c
     hiveArrayDb.c
+    hiveTerminationDetection.c
 )
 
 add_library(runtime OBJECT ${runtime_src})

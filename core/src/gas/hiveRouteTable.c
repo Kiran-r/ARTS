@@ -663,7 +663,7 @@ void hiveRouteTableFireOO(hiveGuid_t key, void (*callback)(void *, void*))
         hiveOutOfOrderListFireCallback(&item->ooList, item->data, callback);
 }
 
-bool hiveRouteTableAddOO(hiveGuid_t key, void * data, unsigned int rank )
+bool hiveRouteTableAddOO(hiveGuid_t key, void * data)
 {
     struct hiveRouteItem * item = NULL;
     if(hiveRouteTableReserveItemRace(key, &item, true) || checkItemState(item, reservedKey))

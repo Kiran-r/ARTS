@@ -14,6 +14,10 @@ void hiveOutOfOrderHandleRemoteDbFullSend(hiveGuid_t dbGuid, int rank, struct hi
 void hiveOutOfOrderGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size);
 void hiveOutOfOrderSignalEdtWithPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * ptr, unsigned int size, unsigned int slot);
 void hiveOutOfOrderPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size);
+void hiveOutOfOrderIncActiveEpoch(hiveGuid_t epochGuid);
+void hiveOutOfOrderIncFinishedEpoch(hiveGuid_t epochGuid);
+void hiveOutOfOrderSendEpoch(hiveGuid_t epochGuid, unsigned int source, unsigned int dest);
+void hiveOutOfOrderIncQueueEpoch(hiveGuid_t epochGuid);
 
 void hiveOutOfOrderHandler( void * handleMe, void * memoryPtr );
 

@@ -44,3 +44,7 @@ target_link_libraries(testArrayDb ${LIBS})
 
 add_executable(testForEach testForEach.c)
 target_link_libraries(testForEach ${LIBS})
+
+add_executable(testTerminationDetection testTerminationDetection.c)
+target_link_libraries(testTerminationDetection ${LIBS})
+

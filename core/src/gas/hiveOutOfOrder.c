@@ -11,6 +11,7 @@
 #include "hiveRemoteFunctions.h"
 #include "hiveGuid.h"
 #include "hiveAtomics.h"
+#include "hiveTerminationDetection.h"
 #include <string.h>
 #include <unistd.h>
 
@@ -29,7 +30,11 @@ enum hiveOutOfOrderType
     ooDbFullSend,
     ooGetFromDb,
     ooSignalEdtPtr,
-    ooPutInDb
+    ooPutInDb,
+    ooEpochActive,
+    ooEpochFinish,
+    ooEpochSend,
+    ooEpochIncQueue
 };
 
 struct ooSignalEdt
@@ -126,6 +131,20 @@ struct ooPutInDb
     unsigned int size;
 };
 
+struct ooEpoch
+{
+    enum hiveOutOfOrderType type;
+    hiveGuid_t guid;
+};
+
+struct ooEpochSend
+{
+    enum hiveOutOfOrderType type;
+    hiveGuid_t guid;
+    unsigned int source;
+    unsigned int dest;
+};
+
 struct ooGeneric
 {
     enum hiveOutOfOrderType type;
@@ -205,6 +224,33 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
             break;
             
         }
+        case ooEpochActive:
+        {
+//            PRINTF("ooActveFire\n");
+            struct ooEpoch * req = handleMe;
+            incrementActiveEpoch(req->guid);
+            break;
+        }
+        case ooEpochFinish:
+        {
+//            PRINTF("ooFinishFire\n");
+            struct ooEpoch * req = handleMe;
+            incrementFinishedEpoch(req->guid);
+            break;
+        }
+        case ooEpochSend:
+        {
+//            PRINTF("ooEpochSendFire\n");
+            struct ooEpochSend * req = handleMe;
+            sendEpoch(req->guid, req->source, req->dest);
+            break;
+        }
+        case ooEpochIncQueue:
+        {
+            struct ooEpoch * req = handleMe;
+            incrementQueueEpoch(req->guid);
+            break;
+        }
         default:
             PRINTF("OO Handler Error\n");
     }
@@ -221,7 +267,7 @@ void hiveOutOfOrderSignalEdt (hiveGuid_t waitOn, hiveGuid_t edtPacket, hiveGuid_
     edt->dataGuid = dataGuid;
     edt->slot = slot;
     edt->mode = mode;
-    bool res =  hiveRouteTableAddOO(waitOn, edt, hiveGuidGetRank(edtPacket));
+    bool res =  hiveRouteTableAddOO(waitOn, edt);
     if(!res)
     {
         hiveSignalEdt( edtPacket, dataGuid, slot, mode );
@@ -237,7 +283,7 @@ void hiveOutOfOrderEventSatisfy(hiveGuid_t waitOn, hiveGuid_t eventGuid, hiveGui
     event->type = ooEventSatisfy;
     event->eventGuid = eventGuid;
     event->dataGuid = dataGuid;
-    bool res =  hiveRouteTableAddOO( waitOn, event, hiveGuidGetRank(eventGuid) );
+    bool res =  hiveRouteTableAddOO( waitOn, event);
     if(!res)
     {
         hiveEventSatisfy( eventGuid, dataGuid );
@@ -254,7 +300,7 @@ void hiveOutOfOrderEventSatisfySlot(hiveGuid_t waitOn, hiveGuid_t eventGuid, hiv
     event->eventGuid = eventGuid;
     event->dataGuid = dataGuid;
     event->slot = slot;
-    bool res =  hiveRouteTableAddOO(waitOn, event, hiveGuidGetRank(eventGuid));
+    bool res =  hiveRouteTableAddOO(waitOn, event);
     if(!res)
     {
         hiveEventSatisfySlot(eventGuid, dataGuid, slot);
@@ -272,7 +318,7 @@ void hiveOutOfOrderAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 
     dep->destination = destination;
     dep->slot = slot;
     dep->mode = mode;
-    bool res = hiveRouteTableAddOO(waitOn, dep, hiveGuidGetRank(waitOn));
+    bool res = hiveRouteTableAddOO(waitOn, dep);
     if(!res)
     {
         hiveAddDependence(source, destination, slot, mode);
@@ -287,7 +333,7 @@ void hiveOutOfOrderHandleReadyEdt(hiveGuid_t triggerGuid, struct hiveEdt *edt)
     struct ooHandleReadyEdt * readyEdt = hiveMalloc(sizeof(struct ooHandleReadyEdt));
     readyEdt->type = ooHandleReadyEdt;
     readyEdt->edt = edt;
-    bool res = hiveRouteTableAddOO(triggerGuid, readyEdt, hiveGuidGetRank(triggerGuid));
+    bool res = hiveRouteTableAddOO(triggerGuid, readyEdt);
     if(!res)
     {
         hiveHandleReadyEdt(edt);
@@ -304,7 +350,7 @@ void hiveOutOfOrderHandleRemoteDbSend(int rank, hiveGuid_t dbGuid, hiveDbAccessM
     readySend->rank = rank;
     readySend->dataGuid = dbGuid;
     readySend->mode = mode;
-    bool res = hiveRouteTableAddOO(dbGuid, readySend, hiveGuidGetRank(dbGuid));
+    bool res = hiveRouteTableAddOO(dbGuid, readySend);
     if(!res)
     {
         struct hiveDb * db = hiveRouteTableLookupItem(dbGuid);
@@ -321,7 +367,7 @@ void hiveOutOfOrderHandleDbRequest(hiveGuid_t dbGuid, struct hiveEdt *edt, unsig
     req->type = ooDbRequestSatisfy;
     req->edt = edt;
     req->slot = slot;
-    bool res = hiveRouteTableAddOO(dbGuid, req, hiveGuidGetRank(dbGuid));
+    bool res = hiveRouteTableAddOO(dbGuid, req);
     if(!res)
     {
         struct hiveDb * db = hiveRouteTableLookupItem(dbGuid);
@@ -357,7 +403,7 @@ void hiveOutOfOrderHandleRemoteDbFullSend(hiveGuid_t dbGuid, int rank, struct hi
     dbSend->edt = edt;
     dbSend->slot = slot;
     dbSend->mode = mode;
-    bool res = hiveRouteTableAddOO(dbGuid, dbSend, hiveGuidGetRank(dbGuid));
+    bool res = hiveRouteTableAddOO(dbGuid, dbSend);
     if(!res)
     {
         struct hiveDb * db = hiveRouteTableLookupItem(dbGuid);
@@ -376,7 +422,7 @@ void hiveOutOfOrderGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int
     req->slot = slot;
     req->offset = offset;
     req->size = size;
-    bool res = hiveRouteTableAddOO(dbGuid, req, hiveGuidGetRank(dbGuid));
+    bool res = hiveRouteTableAddOO(dbGuid, req);
     if(!res)
     {
         hiveGetFromDb(req->edtGuid, req->dbGuid, req->slot, req->offset, req->size);
@@ -393,7 +439,7 @@ void hiveOutOfOrderSignalEdtWithPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void 
     req->size = size;
     req->slot = slot;
     req->ptr = ptr;
-    bool res = hiveRouteTableAddOO(edtGuid, req, hiveGuidGetRank(dbGuid));
+    bool res = hiveRouteTableAddOO(edtGuid, req);
     if(!res)
     {
         hiveSignalEdtPtr(req->edtGuid, req->dbGuid, req->ptr, req->size, req->slot);
@@ -411,11 +457,64 @@ void hiveOutOfOrderPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, un
     req->slot = slot;
     req->offset = offset;
     req->size = size;
-    bool res = hiveRouteTableAddOO(dbGuid, req, hiveGuidGetRank(dbGuid));
+    bool res = hiveRouteTableAddOO(dbGuid, req);
     if(!res)
     {
         hivePutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size);
         hiveFree(req->ptr);
         hiveFree(req);
     }
+}
+
+void hiveOutOfOrderIncActiveEpoch(hiveGuid_t epochGuid)
+{
+    struct ooEpoch * req = hiveMalloc(sizeof(struct ooEpoch));
+    req->type = ooEpochActive;
+    req->guid = epochGuid;
+    bool res =  hiveRouteTableAddOO(epochGuid, req);
+    if(!res)
+    {
+        incrementActiveEpoch(epochGuid);
+        hiveFree(req);
+    }   
+}
+
+void hiveOutOfOrderIncFinishedEpoch(hiveGuid_t epochGuid)
+{
+    struct ooEpoch * req = hiveMalloc(sizeof(struct ooEpoch));
+    req->type = ooEpochFinish;
+    req->guid = epochGuid;
+    bool res =  hiveRouteTableAddOO(epochGuid, req);
+    if(!res)
+    {
+        incrementFinishedEpoch(epochGuid);
+        hiveFree(req);
+    }   
+}
+
+void hiveOutOfOrderSendEpoch(hiveGuid_t epochGuid, unsigned int source, unsigned int dest)
+{
+    struct ooEpochSend * req = hiveMalloc(sizeof(struct ooEpochSend));
+    req->type = ooEpochSend;
+    req->source = source;
+    req->dest = dest;
+    bool res = hiveRouteTableAddOO(epochGuid, req);
+    if(!res)
+    {
+        sendEpoch(epochGuid, source, dest);
+        hiveFree(req);
+    }
+}
+
+void hiveOutOfOrderIncQueueEpoch(hiveGuid_t epochGuid)
+{
+    struct ooEpoch * req = hiveMalloc(sizeof(struct ooEpoch));
+    req->type = ooEpochIncQueue;
+    req->guid = epochGuid;
+    bool res =  hiveRouteTableAddOO(epochGuid, req);
+    if(!res)
+    {
+        incrementQueueEpoch(epochGuid);
+        hiveFree(req);
+    }   
 }

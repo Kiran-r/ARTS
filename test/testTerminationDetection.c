@@ -1,54 +1,60 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "hiveRT.h"
-#include "hiveTerminationDetection.h"
+#include "hiveAtomics.h"
 
+unsigned int counter = 0;
+unsigned int numDummy = 0;
+hiveGuid_t exitGuid = NULL_GUID;
 
-hiveGuid_t relaxGuid = NULL_GUID;
-hiveGuid_t kickoffTerminationGuid = NULL_GUID;
-hiveGuid_t exitProgramGuid = NULL_GUID;
-hiveGuid_t doneGuid = NULL_GUID;
-
-hiveGuid_t dummytask(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
-  incrementFinishedCount(1);
+hiveGuid_t dummytask(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
+{
+    hiveAtomicAdd(&counter, 1);
 }
 
-hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]){
+hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
+{
+    unsigned int numNodes = hiveGetTotalNodes();
+    for(unsigned int i=0; i<depc; i++)
+    {
+        unsigned int numEdts = depv[i].guid;
+        if(numEdts!=numNodes*numDummy+1)
+            PRINTF("Error: %u vs %u\n", numEdts, numNodes*numDummy+1);
+    }
+    PRINTF("Exit %u\n", counter);
     hiveShutdown();
 }
 
-hiveGuid_t kickoffTermination(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
-  unsigned int numNodes = hiveGetTotalNodes();
-  incrementActiveCount(numNodes);
-  printf("Spawning tasks on different rank\n");
-  for (unsigned int rank = 0; rank < numNodes; rank++) {
-    hiveEdtCreate(dummytask, rank, 0, 0, 0);
-  }
-  printf("kicking off termination detection  on node %u worker %u\n", hiveGetCurrentNode(), hiveGetCurrentWorker());
-  exitProgramGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
-  hiveEdtCreateWithGuid(exitProgram, exitProgramGuid, 0, NULL, 1);
-  hiveDetectTermination(exitProgramGuid, 0); 
-}
-
-void initPerNode(unsigned int nodeId, int argc, char** argv) {
-}
-
-void initPerWorker(unsigned int nId, int argc, char** argv)
+hiveGuid_t rootTask(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
 {
-  unsigned int workerId = hiveGetCurrentWorker();
-  unsigned int numNodes = hiveGetTotalNodes();
-  unsigned int nodeId = hiveGetCurrentNode();
-  if (!nodeId && !workerId) {
-    kickoffTerminationGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
-    hiveEdtCreateWithGuid(kickoffTermination, kickoffTerminationGuid, 0, NULL, hiveGetTotalNodes());
-    printf("Created kickoffterminationguid on node %u worker %u\n", nodeId, workerId);
-    initializeTerminationDetection(kickoffTerminationGuid);
-  }
+    hiveGuid_t guid = hiveGetCurrentEpochGuid();
+    PRINTF("Starting %lu %u\n", guid, hiveGuidGetRank(guid));
+    unsigned int numNodes = hiveGetTotalNodes();
+    for (unsigned int rank = 0; rank < numNodes * numDummy; rank++)
+        hiveEdtCreate(dummytask, rank % numNodes, 0, 0, 0);
 }
 
-
-int main(int argc, char** argv)
+void initPerNode(unsigned int nodeId, int argc, char** argv) 
 {
-  hiveRT(argc, argv);
-  return 0;
+    numDummy = (unsigned int) atoi(argv[1]);
+    exitGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
+}
+
+void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv) 
+{
+    if(!nodeId && !workerId)
+        hiveEdtCreateWithGuid(exitProgram, exitGuid, 0, NULL, hiveGetTotalNodes());
+    
+    if (!workerId) 
+    {
+        hiveGuid_t startGuid = hiveEdtCreate(rootTask, nodeId, 0, NULL, 1);
+        hiveInitializeEpoch(startGuid, exitGuid, nodeId);
+        hiveSignalEdt(startGuid, NULL_GUID, 0, DB_MODE_SINGLE_VALUE);
+    }
+}
+
+int main(int argc, char** argv) 
+{
+    hiveRT(argc, argv);
+    return 0;
 }

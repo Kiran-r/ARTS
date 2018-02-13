@@ -12,6 +12,7 @@
 #include "hiveOutOfOrder.h"
 #include "hiveRouteTable.h"
 #include "hiveDebug.h"
+#include "hiveTerminationDetection.h"
 #include <stdarg.h>
 #include <string.h>
 
@@ -23,6 +24,12 @@ void hiveSetThreadLocalEdtInfo(struct hiveEdt * edt)
 {
     hiveThreadInfo.currentEdtGuid = edt->currentEdt;
     currentEdt = edt;
+}
+
+hiveGuid_t hiveGetCurrentEpochGuid()
+{
+    if(currentEdt)
+        return currentEdt->epochGuid;
 }
 
 bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int edtSpace, hiveGuid_t eventGuid, hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc)
@@ -47,8 +54,15 @@ bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int e
         edt->paramc = paramc;
         edt->currentEdt = *guid;
         edt->outputEvent = NULL_GUID;
+        edt->epochGuid = NULL_GUID;
         edt->depcNeeded = depc;
 
+        if(currentEdt)
+        {
+            edt->epochGuid = currentEdt->epochGuid;
+            incrementActiveEpoch(edt->epochGuid);
+        }
+        
         if(paramc)
             memcpy((u64*) (edt+1), paramv, sizeof(u64) * paramc);
 
@@ -266,7 +280,7 @@ void hiveSignalEdt(hiveGuid_t edtPacket, hiveGuid_t dataGuid, u32 slot, hiveDbAc
                 edtDep[slot].mode = mode;
             }
             unsigned int res = hiveAtomicSub(&edt->depcNeeded, 1U);
-//            PRINTF("SIG: %lu %lu %u res: %u\n", edtPacket, dataGuid, slot, res);
+            DPRINTF("SIG: %lu %lu %u res: %u\n", edtPacket, dataGuid, slot, res);
             if(res == 0)
                 hiveHandleReadyEdt(edt);
         }

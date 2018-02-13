@@ -135,6 +135,7 @@ struct hiveEdt
     u32 depc;
     hiveGuid_t currentEdt;
     hiveGuid_t outputEvent;
+    hiveGuid_t epochGuid;
     volatile unsigned int depcNeeded;
     volatile unsigned int invalidateCount;
 } __attribute__ ((aligned));

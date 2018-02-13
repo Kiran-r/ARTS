@@ -373,6 +373,21 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
             hiveRemoteHandleSend(packet);
             break;
         }
+        case HIVE_EPOCH_INIT:
+        {
+            hiveRemoteHandleEpochInitSend(packet);
+            break;
+        }
+        case HIVE_EPOCH_REQ:
+        {
+            hiveRemoteHandleEpochReq(packet);
+            break;
+        }
+        case HIVE_EPOCH_SEND:
+        {
+            hiveRemoteHandleEpochSend(packet);
+            break;
+        }
         default:
         {
             PRINTF("Unknown Packet %d %d %d\n", packet->messageType, packet->size, packet->rank);

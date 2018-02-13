@@ -43,7 +43,7 @@ int hiveRouteTableLookupRank(hiveGuid_t key);
 bool hiveRouteTableUpdateItem(hiveGuid_t key, void * data, unsigned int rank, itemState state);
 struct hiveDbFrontierIterator * hiveRouteTableGetRankDuplicates(hiveGuid_t key, unsigned int rank);
 bool hiveRouteTableAddSent(hiveGuid_t key, void * edt, unsigned int slot, bool aggregate);
-bool hiveRouteTableAddOO(hiveGuid_t key, void * data, unsigned int rank );
+bool hiveRouteTableAddOO(hiveGuid_t key, void * data);
 void hiveRouteTableFireOO(hiveGuid_t key, void (*callback)(void *, void*) );
 void hiveRouteTableFireSent(hiveGuid_t key, void (*callback)(void *, void*) );
 unsigned int hiveRouteTablePopEw(hiveGuid_t key );

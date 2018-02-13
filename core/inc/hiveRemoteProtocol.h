@@ -38,7 +38,10 @@ enum hiveServerMessageType
     HIVE_REMOTE_GET_FROM_DB,
     HIVE_REMOTE_PUT_IN_DB,
     HIVE_REMOTE_SIGNAL_EDT_WITH_PTR,
-    HIVE_REMOTE_SEND
+    HIVE_REMOTE_SEND, 
+    HIVE_EPOCH_INIT,
+    HIVE_EPOCH_REQ, 
+    HIVE_EPOCH_SEND
 };
 
 //Header
@@ -235,6 +238,28 @@ struct __attribute__ ((__packed__)) hiveRemoteSend
 {
     struct hiveRemotePacket header;
     sendHandler_t funPtr;
+};
+
+struct __attribute__ ((__packed__)) hiveRemoteEpochInitPacket
+{
+    struct hiveRemotePacket header;
+    hiveGuid_t epochGuid;
+    hiveGuid_t edtGuid;
+    unsigned int slot;
+};
+
+struct __attribute__ ((__packed__)) hiveRemoteEpochReqPacket
+{
+    struct hiveRemotePacket header;
+    hiveGuid_t epochGuid;
+};
+
+struct __attribute__ ((__packed__)) hiveRemoteEpochSendPacket
+{
+    struct hiveRemotePacket header;
+    hiveGuid_t epochGuid;
+    unsigned int active;
+    unsigned int finish;
 };
 
 void outInit( unsigned int size );

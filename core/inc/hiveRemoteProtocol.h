@@ -220,6 +220,7 @@ struct __attribute__ ((__packed__)) hiveRemoteGetPutPacket
     struct hiveRemotePacket header;
     hiveGuid_t edtGuid;
     hiveGuid_t dbGuid;
+    hiveGuid_t epochGuid;
     unsigned int slot;
     unsigned int offset;
     unsigned int size;

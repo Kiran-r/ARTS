@@ -19,17 +19,29 @@
 #define DPRINTF( ... )
 
 __thread struct hiveEdt * currentEdt = NULL;
+__thread hiveGuid_t currentEpochGuid = NULL_GUID;
 
 void hiveSetThreadLocalEdtInfo(struct hiveEdt * edt)
 {
     hiveThreadInfo.currentEdtGuid = edt->currentEdt;
     currentEdt = edt;
+    currentEpochGuid = edt->epochGuid;
+}
+
+bool hiveSetCurrentEpochGuid(hiveGuid_t epochGuid)
+{
+    currentEpochGuid = epochGuid;
+    if(currentEdt)
+    {
+        currentEdt->epochGuid = epochGuid;
+        return true;
+    }
+    return false;
 }
 
 hiveGuid_t hiveGetCurrentEpochGuid()
 {
-    if(currentEdt)
-        return currentEdt->epochGuid;
+    return currentEpochGuid;
 }
 
 bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int edtSpace, hiveGuid_t eventGuid, hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc)
@@ -57,10 +69,10 @@ bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int e
         edt->epochGuid = NULL_GUID;
         edt->depcNeeded = depc;
 
-        if(currentEdt)
+        if(currentEpochGuid)
         {
-            edt->epochGuid = currentEdt->epochGuid;
-            incrementActiveEpoch(edt->epochGuid);
+            edt->epochGuid = currentEpochGuid;
+            incrementActiveEpoch(currentEpochGuid);
         }
         
         if(paramc)

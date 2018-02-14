@@ -34,6 +34,7 @@ void sendEpoch(hiveGuid_t epochGuid, unsigned int source, unsigned int dest);
 hiveEpoch_t * createEpoch(hiveGuid_t * guid, hiveGuid_t edtGuid, unsigned int slot);
 void hiveAddEdtToEpoch(hiveGuid_t edtGuid, hiveGuid_t epochGuid);
 hiveGuid_t hiveInitializeEpoch(hiveGuid_t startEdtGuid, hiveGuid_t finishEdtGuid, unsigned int slot);
+hiveGuid_t hiveInitializeAndStartEpoch(hiveGuid_t finishEdtGuid, unsigned int slot);
 void broadcastEpochRequest(hiveGuid_t epochGuid);
 bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int totalFinish);
 void reduceEpoch(hiveGuid_t epochGuid, unsigned int active, unsigned int finish);

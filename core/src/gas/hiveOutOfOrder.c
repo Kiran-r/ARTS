@@ -126,6 +126,7 @@ struct ooPutInDb
     void * ptr;
     hiveGuid_t edtGuid;
     hiveGuid_t dbGuid;
+    hiveGuid_t epochGuid;
     unsigned int slot;
     unsigned int offset;
     unsigned int size;
@@ -219,7 +220,7 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
         case ooPutInDb:
         {
             struct ooPutInDb * req = handleMe;
-            hivePutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size);
+            internalPutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size, req->epochGuid);
             hiveFree(req->ptr);
             break;
             
@@ -447,7 +448,7 @@ void hiveOutOfOrderSignalEdtWithPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void 
     }
 }
 
-void hiveOutOfOrderPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+void hiveOutOfOrderPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epochGuid)
 {
     struct ooPutInDb * req = hiveMalloc(sizeof(struct ooPutInDb));
     req->type = ooPutInDb;
@@ -457,10 +458,11 @@ void hiveOutOfOrderPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, un
     req->slot = slot;
     req->offset = offset;
     req->size = size;
+    req->epochGuid = epochGuid;
     bool res = hiveRouteTableAddOO(dbGuid, req);
     if(!res)
     {
-        hivePutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size);
+        internalPutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size, req->epochGuid);
         hiveFree(req->ptr);
         hiveFree(req);
     }

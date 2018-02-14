@@ -168,6 +168,28 @@ void broadcastEpochRequest(hiveGuid_t epochGuid)
     }
 }
 
+hiveGuid_t hiveInitializeAndStartEpoch(hiveGuid_t finishEdtGuid, unsigned int slot)
+{
+    if(hiveGetCurrentEpochGuid() == NULL_GUID)
+    {
+        hiveGuid_t guid = NULL_GUID;
+        hiveEpoch_t * epoch = createEpoch(&guid, finishEdtGuid, slot);
+        
+        if(hiveSetCurrentEpochGuid(guid))
+            hiveAtomicAdd(&epoch->activeCount, 1);
+        
+        for(unsigned int i=0; i<hiveGlobalRankCount; i++)
+        {
+            if(i != hiveGlobalRankId)
+                hiveRemoteEpochInitSend(i, guid, finishEdtGuid, slot);
+        }
+        
+        return guid;
+    }
+    PRINTF("Nested Epoch not supported...\n");
+    return NULL_GUID;
+}
+
 hiveGuid_t hiveInitializeEpoch(hiveGuid_t startEdtGuid, hiveGuid_t finishEdtGuid, unsigned int slot)
 {
     struct hiveEdt * edt = hiveRouteTableLookupItem(startEdtGuid);
@@ -182,9 +204,6 @@ hiveGuid_t hiveInitializeEpoch(hiveGuid_t startEdtGuid, hiveGuid_t finishEdtGuid
             if(i != hiveGlobalRankId)
                 hiveRemoteEpochInitSend(i, guid, finishEdtGuid, slot);
         }
-        
-//        epoch->checkinCount = hiveGlobalRankCount;
-//        broadcastEpochRequest(guid);
         
         edt->epochGuid = guid;
         return guid;

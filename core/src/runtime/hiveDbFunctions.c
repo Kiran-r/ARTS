@@ -14,6 +14,7 @@
 #include "hiveDeque.h"
 #include "hiveDebug.h"
 #include "hiveEdtFunctions.h"
+#include "hiveTerminationDetection.h"
 #include <string.h>
 #define DPRINTF( ... )
 
@@ -441,13 +442,16 @@ void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, uns
     }
 }
 
-void hivePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epochGuid)
 {
     if(hiveIsGuidLocal(dbGuid))
     {
         struct hiveDb * db = hiveRouteTableLookupItem(dbGuid);
         if(db)
         {
+            //Do this so when we increment finished we can check the term status
+            incrementQueueEpoch(epochGuid);
+            
             void * data = (void*)(((char*) (db+1)) + offset);
             memcpy(data, ptr, size);
             
@@ -455,18 +459,35 @@ void hivePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int
             {
                 hiveSignalEdt(edtGuid, dbGuid, slot, DB_MODE_PIN);
             }
+            DPRINTF("FINISHING PUT %lu\n", epochGuid);
+            incrementFinishedEpoch(epochGuid);
         }
         else
         {
             void * cpyPtr = hiveMalloc(size);
             memcpy(cpyPtr, ptr, size);
-            hiveOutOfOrderPutInDb(cpyPtr, edtGuid, dbGuid, slot, offset, size);
+            hiveOutOfOrderPutInDb(cpyPtr, edtGuid, dbGuid, slot, offset, size, epochGuid);
         }
     }
     else
     {
         void * cpyPtr = hiveMalloc(size);
         memcpy(cpyPtr, ptr, size);
-        hiveRemotePutInDb(cpyPtr, edtGuid, dbGuid, slot, offset, size);
+        hiveRemotePutInDb(cpyPtr, edtGuid, dbGuid, slot, offset, size, epochGuid);
     }
+}
+
+
+void hivePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+{
+    hiveGuid_t epochGuid = hiveGetCurrentEpochGuid();
+    DPRINTF("EPOCH %lu\n", epochGuid);
+    incrementActiveEpoch(epochGuid);
+    internalPutInDb(ptr, edtGuid, dbGuid, slot, offset, size, epochGuid);
+}
+
+void hivePutInDbEpoch(void * ptr, hiveGuid_t epochGuid, hiveGuid_t dbGuid, unsigned int offset, unsigned int size)
+{
+    incrementActiveEpoch(epochGuid);
+    internalPutInDb(ptr, NULL_GUID, dbGuid, 0, offset, size, epochGuid);
 }

@@ -635,12 +635,13 @@ void hiveRemoteHandleGetFromDb(void * pack)
     hiveGetFromDb(packet->edtGuid, packet->dbGuid, packet->slot, packet->offset, packet->size);
 }
 
-void hiveRemotePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+void hiveRemotePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epochGuid)
 {
     unsigned int rank = hiveGuidGetRank(dbGuid);
     struct hiveRemoteGetPutPacket packet;
     packet.edtGuid = edtGuid;
     packet.dbGuid = dbGuid;
+    packet.epochGuid = epochGuid;
     packet.slot = slot;
     packet.offset = offset;
     packet.size = size;
@@ -654,7 +655,7 @@ void hiveRemoteHandlePutInDb(void * pack)
 {
     struct hiveRemoteGetPutPacket * packet = pack;
     void * data = (void*)(packet+1);
-    hivePutInDb(data, packet->edtGuid, packet->dbGuid, packet->slot, packet->offset, packet->size);
+    internalPutInDb(data, packet->edtGuid, packet->dbGuid, packet->slot, packet->offset, packet->size, packet->epochGuid);
 }
 
 void hiveRemoteSignalEdtWithPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * ptr, unsigned int size, unsigned int slot)

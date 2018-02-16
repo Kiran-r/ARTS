@@ -767,7 +767,17 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
     }
     else
         configVariables = hiveConfigGetVariables( configFile );
- 
+
+    char *isSlurm = getenv("SLURM_NNODES");
+    foundVariable = hiveConfigFindVariable(&configVariables, "launcher");
+    if (isSlurm) {
+      // ONCE_PRINTF("Reading nodes for slurm...\n");
+        config->launcher = hiveConfigMakeNewVar("slurm");
+    } else if (strncmp(foundVariable->value, "local", 5) == 0) {
+        config->launcher = hiveConfigMakeNewVar("local");
+    } else
+        config->launcher = hiveConfigMakeNewVar("ssh");
+
     char * killSet = getenv("killMode");
     if(killSet == NULL)
     {
@@ -817,16 +827,6 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
         config->printTopology = 0;
     }
     
-    if( (foundVariableChar = hiveConfigFindVariableChar(configVariables,"remoteWorkStealing")) != NULL)
-    {
-        config->remoteWorkStealing = strtol( foundVariableChar, &end , 10);
-    }
-    else
-    {
-        config->remoteWorkStealing = 0;
-        ONCE_PRINTF("Defaulting to no remote work stealing\n");
-    }
-    
     if( (foundVariable = hiveConfigFindVariable(&configVariables,"threads")) != NULL)
         config->threadCount = strtol( foundVariable->value, &end , 10);
     else
@@ -844,7 +844,7 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
     
     if( (foundVariable = hiveConfigFindVariable(&configVariables,"ports")) != NULL)
         config->ports = strtol( foundVariable->value, &end , 10);
-    else
+    else if (strncmp(config->launcher, "local", 5) != 0) 
     {
         ONCE_PRINTF("Defaulting to 1 connection per node\n");
         config->ports = 1;
@@ -852,7 +852,7 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
     
     if( (foundVariable = hiveConfigFindVariable(&configVariables,"outgoing")) != NULL)
         config->senderCount = strtol( foundVariable->value, &end , 10);
-    else
+    else if (strncmp(config->launcher, "local", 5) != 0) 
     {
         ONCE_PRINTF("Defaulting to 1 sender\n");
         config->senderCount = 1;
@@ -860,10 +860,10 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
     
     if( (foundVariable = hiveConfigFindVariable(&configVariables,"incoming")) != NULL)
         config->recieverCount = strtol( foundVariable->value, &end , 10);
-    else
+    else if (strncmp(config->launcher, "local", 5) != 0) 
     {
         ONCE_PRINTF("Defaulting to 1 reciever\n");
-        config->recieverCount =1;
+        config->recieverCount = 1;
     }
     
     if( (foundVariable = hiveConfigFindVariable(&configVariables,"sockets")) != NULL)
@@ -900,32 +900,14 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
         config->protocol = hiveConfigMakeNewVar( "tcp" );
     }
 
-    
-    char *isSlurm = getenv("SLURM_NNODES");
-    if(isSlurm)
-    {
-        //ONCE_PRINTF("Reading nodes for slurm...\n");
-        config->launcher = hiveConfigMakeNewVar( "slurm" );
-    }
-    else
-        config->launcher = hiveConfigMakeNewVar( "ssh" );
-
-    /*if( (foundVariable = hiveConfigFindVariable(&configVariables, "launcher")) != NULL)
-        config->launcher = hiveConfigMakeNewVar( foundVariable->value );
-    else
-    {
-        ONCE_PRINTF("No launcher given: defaulting to ssh\n");
-
-        config->launcher = hiveConfigMakeNewVar( "ssh" );
-    }*/
     if( (foundVariable = hiveConfigFindVariable(&configVariables, "masterNode")) != NULL)
         config->masterNode = hiveConfigMakeNewVar( foundVariable->value );
-    else
+    else if (strncmp(config->launcher, "local", 5) != 0) 
     {
-        if(strncmp(config->launcher, "slurm", 5 )!=0)
-            ONCE_PRINTF("No master given: defaulting to first node in node list\n");
+      if (strncmp(config->launcher, "slurm", 5) != 0)
+        ONCE_PRINTF("No master given: defaulting to first node in node list\n");
 
-        config->masterNode = NULL;
+      config->masterNode = NULL;
     }
     
     if( (foundVariable = hiveConfigFindVariable(&configVariables, "prefix")) != NULL)
@@ -981,31 +963,30 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
     //WARNING: Slurm Launcher Set!  
     if(strncmp(config->launcher, "slurm", 5 )==0)
     {
-        ONCE_PRINTF("Using Slurm\n");
-        
-        config->masterBoot = false;
-        char * threadsTemp = getenv("SLURM_CPUS_PER_TASK");
-        if(threadsTemp != NULL)
-            config->threadCount = strtol(threadsTemp,&end, 10);
-        
-        char* slurmNodes;
+      ONCE_PRINTF("Using Slurm\n");
 
-        slurmNodes = getenv("SLURM_NNODES");
-        
-        config->nodes = strtol(slurmNodes,&end, 10);
-        
-        char * nodeList = getenv("SLURM_STEP_NODELIST");
-        DPRINTF("nodes: %s\n", nodeList);
-        
-        hiveConfigCreateRoutingTable( &config, nodeList );
-        
+      config->masterBoot = false;
+      char *threadsTemp = getenv("SLURM_CPUS_PER_TASK");
+      if (threadsTemp != NULL)
+        config->threadCount = strtol(threadsTemp, &end, 10);
 
-        //if(config->masterNode == NULL)
-        {
-            unsigned int length = strlen(config->table[0].ipAddress)+1;
-            config->masterNode = hiveMalloc(sizeof(char)*length);
+      char *slurmNodes;
 
-            strncpy( config->masterNode, config->table[0].ipAddress, length );
+      slurmNodes = getenv("SLURM_NNODES");
+
+      config->nodes = strtol(slurmNodes, &end, 10);
+
+      char *nodeList = getenv("SLURM_STEP_NODELIST");
+      DPRINTF("nodes: %s\n", nodeList);
+
+      hiveConfigCreateRoutingTable(&config, nodeList);
+
+      // if(config->masterNode == NULL)
+      {
+        unsigned int length = strlen(config->table[0].ipAddress) + 1;
+        config->masterNode = hiveMalloc(sizeof(char) * length);
+
+        strncpy(config->masterNode, config->table[0].ipAddress, length);
         }
         int i;
         for(i=0; i<config->tableLength; i++)
@@ -1020,15 +1001,17 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
     }
     else if(strncmp(config->launcher, "ssh", 5 )==0)
     {
-        config->launcherData = hiveRemoteLauncherCreate( argc, argv, config, config->killMode, hiveRemoteLauncherSSHStartupProcesses, hiveRemoteLauncherSSHCleanupProcesses );
-        config->masterBoot = true;
-        
+      config->launcherData =
+          hiveRemoteLauncherCreate(argc, argv, config, config->killMode,
+                                   hiveRemoteLauncherSSHStartupProcesses,
+                                   hiveRemoteLauncherSSHCleanupProcesses);
+      config->masterBoot = true;
 
-        if( (foundVariable = hiveConfigFindVariable(&configVariables,"nodeCount")) != NULL)
-            config->nodes = strtol( foundVariable->value, &end , 10);
-        else
-        {
-            config->nodes = 1;
+      if ((foundVariable =
+               hiveConfigFindVariable(&configVariables, "nodeCount")) != NULL)
+        config->nodes = strtol(foundVariable->value, &end, 10);
+      else {
+        config->nodes = 1;
         }
         char * nodeList=0;
         if( (foundVariable = hiveConfigFindVariable(&configVariables, "nodes")) != NULL)
@@ -1064,12 +1047,43 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
                 }
             }
     }
+    else if(strncmp(config->launcher, "local",5) == 0)
+    {
+        ONCE_PRINTF("Running in Local Mode.\n");
+        config->masterBoot = false;
+        config->masterNode = NULL;
+        // OS Threads
+        char * threadsOS = getenv("OS_THREAD_COUNT");
+        if(threadsOS != NULL)
+            config->osThreadCount = strtol(threadsOS, &end, 10);
+        else if(!config->osThreadCount)
+            config->osThreadCount = 0; // Default to single thread.
+        // OS Threads
+        char *threadsUSER = getenv("USER_THREAD_COUNT");
+        if (threadsUSER != NULL)
+            config->threadCount = strtol(threadsUSER, &end, 10);
+        else if (!config->threadCount)
+            config->threadCount = 4; // Default to single thread.
+        config->nodes = 1;
+        config->tableLength = 1; // for GUID
+        config->masterRank = 0;    
+    }
     else
     {
         ONCE_PRINTF("Unknown launcher: %s\n", config->launcher);
         exit(1);
     }
-    
+
+    if ((foundVariableChar = hiveConfigFindVariableChar(
+             configVariables, "remoteWorkStealing")) != NULL) {
+        config->remoteWorkStealing = strtol(foundVariableChar, &end, 10);
+    } 
+    else if (strncmp(config->launcher, "local", 5) != 0) 
+    {
+        config->remoteWorkStealing = 0;
+        ONCE_PRINTF("Defaulting to no remote work stealing\n");
+    }
+
     if( (foundVariable = hiveConfigFindVariable(&configVariables,"stackSize")) != NULL)
         config->stackSize = strtoull( foundVariable->value, &end , 10);
     else
@@ -1087,31 +1101,32 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
 
     if( (foundVariable = hiveConfigFindVariable(&configVariables,"port")) != NULL)
         config->port = strtol( foundVariable->value, &end , 10);
-    else
+    else if (strncmp(config->launcher, "local", 5) != 0) 
     {
         ONCE_PRINTF("Defaulting port to %d\n", 75563);
         config->port = 75563;
     }
     if( (foundVariable = hiveConfigFindVariable(&configVariables,"routeTableSize")) != NULL)
         config->routeTableSize = strtol( foundVariable->value, &end , 10);
-    else
-    {
+    else {
         ONCE_PRINTF("Defaulting routing table size to 2^20\n");
         config->routeTableSize = 20;
     }
 
     int routeTableEntries = 1;
 
-    for(int i=0; i< config->routeTableSize; i++)
-        routeTableEntries*=2;
-    
-    config->routeTableEntries = routeTableEntries;
+    if (config->launcher != NULL) { //&&
+        //(strncmp(config->launcher, "local", 5) != 0)) {
+      for (int i = 0; i < config->routeTableSize; i++)
+        routeTableEntries *= 2;
+      config->routeTableEntries = routeTableEntries;
+    }
     
     if( (foundVariable = hiveConfigFindVariable(&configVariables,"pin")) != NULL)
         config->pinThreads = strtol( foundVariable->value, &end , 10);
     else
     {
-        config->pinThreads = 1;
+        config->pinThreads = 1; // default thread pinning 
     }
     
     DPRINTF("Config Parsed\n");

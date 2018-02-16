@@ -65,7 +65,7 @@ hiveThreadInit( struct hiveConfig * config  )
     gConfig = config;
     struct threadMask * mask = getThreadMask(config);
     nodeThreadList = hiveMalloc(sizeof (pthread_t) * hiveNodeInfo.totalThreadCount);
-    unsigned int i, threadCount=hiveNodeInfo.totalThreadCount;
+    unsigned int i = 0, threadCount=hiveNodeInfo.totalThreadCount;
     if(config->stackSize)
     {
         void * stack;

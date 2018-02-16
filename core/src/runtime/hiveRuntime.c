@@ -93,21 +93,22 @@ void hiveRuntimeGlobalCleanup()
 void hiveThreadZeroNodeStart()
 {
     hiveStartInspector(1);
-
+    
     if(initPerNode)
     {
         globalGuidOn = 1;
         initPerNode(hiveGlobalRankId, mainArgc, mainArgv);
-        if(!hiveGlobalRankId)
+        if(!hiveGlobalRankId) 
+        {
             setGuidGeneratorAfterParallelStart();
-        globalGuidOn = 0;
+            //globalGuidOn = 0;
+        }
     }
 
     hiveStartInspector(2);
     HIVESTARTCOUNTING(2);
     hiveAtomicSub(&hiveNodeInfo.readyToParallelStart, 1U);
     while(hiveNodeInfo.readyToParallelStart){ }
-
     if(initPerWorker && hiveThreadInfo.worker)
         initPerWorker(hiveGlobalRankId, hiveThreadInfo.groupId, mainArgc, mainArgv);
 

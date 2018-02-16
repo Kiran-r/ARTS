@@ -29,7 +29,8 @@ int hiveRT(int argc, char **argv)
 
     hiveGlobalRankId = 0;
     hiveGlobalRankCount = config->tableLength;
-    hiveServerSetup(config);
+    if(strncmp(config->launcher, "local", 5) != 0) 
+        hiveServerSetup(config);
     hiveGlobalMasterRankId= config->masterRank;
     if(hiveGlobalRankId == config->masterRank && config->masterBoot)
         config->launcherData->launchProcesses(config->launcherData);
@@ -39,7 +40,7 @@ int hiveRT(int argc, char **argv)
         hiveRemoteSetupOutgoing();
         if(!hiveRemoteSetupIncoming())
             return -1;
-    }
+    } 
 
     hiveGuidTableInit(config->routeTableSize);
     hiveThreadInit(config);

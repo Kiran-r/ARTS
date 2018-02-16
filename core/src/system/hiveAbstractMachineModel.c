@@ -57,6 +57,7 @@ void addAThread( struct unitMask * mask, bool workOn, bool networkOutOn, bool ne
     next->groupPos = groupPos;
     next->pin = pin;
     next->next = NULL;
+    next->id = mask->coreId; 
 }
 
 #ifdef HWLOC

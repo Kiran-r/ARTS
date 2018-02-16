@@ -21,6 +21,7 @@
 #include "hiveServer.h"
 #include "hiveQueue.h"
 #include "hiveTerminationDetection.h"
+#include "hiveArrayDb.h"
 #include <unistd.h>
 
 #define DPRINTF( ... )
@@ -1162,3 +1163,45 @@ void hiveRemoteHandleEpochSend(void * pack)
     reduceEpoch(packet->epochGuid, packet->active, packet->finish);
 }
 
+void hiveRemoteAtomicAddInArrayDb(unsigned int rank, hiveGuid_t dbGuid, unsigned int index, unsigned int toAdd, hiveGuid_t edtGuid, unsigned int slot, hiveGuid_t epochGuid)
+{
+    struct hiveRemoteAtomicAddInArrayDbPacket packet;
+    packet.dbGuid = dbGuid;
+    packet.edtGuid = edtGuid;
+    packet.epochGuid = epochGuid;
+    packet.slot = slot;
+    packet.index = index;
+    packet.toAdd = toAdd;
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_ATOMIC_ADD_ARRAYDB);
+    hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
+}
+
+void hiveRemoteHandleAtomicAddInArrayDb(void * pack)
+{
+    struct hiveRemoteAtomicAddInArrayDbPacket * packet = pack;
+    struct hiveDb * db = hiveRouteTableLookupItem(packet->dbGuid);
+    internalAtomicAddInArrayDb(packet->dbGuid, packet->index, packet->toAdd, packet->edtGuid, packet->slot, packet->epochGuid);
+    
+}
+
+void hiveRemoteAtomicCompareAndSwapInArrayDb(unsigned int rank, hiveGuid_t dbGuid, unsigned int index, unsigned int oldValue, unsigned int newValue, hiveGuid_t edtGuid, unsigned int slot, hiveGuid_t epochGuid)
+{
+    struct hiveRemoteAtomicCompareAndSwapInArrayDbPacket packet;
+    packet.dbGuid = dbGuid;
+    packet.edtGuid = edtGuid;
+    packet.epochGuid = epochGuid;
+    packet.slot = slot;
+    packet.index = index;
+    packet.oldValue = oldValue;
+    packet.newValue = newValue;
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_ATOMIC_CAS_ARRAYDB);
+    hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
+}
+
+void hiveRemoteHandleAtomicCompareAndSwapInArrayDb(void * pack)
+{
+    struct hiveRemoteAtomicCompareAndSwapInArrayDbPacket * packet = pack;
+    struct hiveDb * db = hiveRouteTableLookupItem(packet->dbGuid);
+    internalAtomicCompareAndSwapInArrayDb(packet->dbGuid, packet->index, packet->oldValue, packet->newValue, packet->edtGuid, packet->slot, packet->epochGuid);
+    
+}

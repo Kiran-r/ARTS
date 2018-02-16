@@ -85,5 +85,9 @@ void hiveRemoteEpochReq(unsigned int rank, hiveGuid_t guid);
 void hiveRemoteHandleEpochReq(void * pack);
 void hiveRemoteEpochSend(unsigned int rank, hiveGuid_t guid, unsigned int active, unsigned int finish);
 void hiveRemoteHandleEpochSend(void * pack);
+void hiveRemoteAtomicAddInArrayDb(unsigned int rank, hiveGuid_t dbGuid, unsigned int index, unsigned int toAdd, hiveGuid_t edtGuid, unsigned int slot, hiveGuid_t epochGuid);
+void hiveRemoteHandleAtomicAddInArrayDb(void * pack);
+void hiveRemoteAtomicCompareAndSwapInArrayDb(unsigned int rank, hiveGuid_t dbGuid, unsigned int index, unsigned int oldValue, unsigned int newValue, hiveGuid_t edtGuid, unsigned int slot, hiveGuid_t epochGuid);
+void hiveRemoteHandleAtomicCompareAndSwapInArrayDb(void * pack);
 
 #endif

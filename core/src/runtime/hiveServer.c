@@ -388,6 +388,16 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
             hiveRemoteHandleEpochSend(packet);
             break;
         }
+        case HIVE_ATOMIC_ADD_ARRAYDB:
+        {
+            hiveRemoteHandleAtomicAddInArrayDb(packet);
+            break;
+        }
+        case HIVE_ATOMIC_CAS_ARRAYDB:
+        {
+            hiveRemoteHandleAtomicCompareAndSwapInArrayDb(packet);
+            break;
+        }
         default:
         {
             PRINTF("Unknown Packet %d %d %d\n", packet->messageType, packet->size, packet->rank);

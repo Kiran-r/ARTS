@@ -21,6 +21,10 @@ void hivePutInArrayDb(void * ptr, hiveGuid_t edtGuid, unsigned int slot, hiveArr
 void hiveForEachInArrayDb(hiveArrayDb_t * array, hiveEdt_t funcPtr, u32 paramc, u64 * paramv);
 hiveGuid_t hiveGatherArrayDb(hiveArrayDb_t * array, hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u64 depc);
 void hiveForEachInArrayDbAtData(hiveArrayDb_t * array, unsigned int stride, unsigned int blockSize, hiveEdt_t funcPtr, u32 paramc, u64 * paramv);
+void hiveAtomicAddInArrayDb(hiveArrayDb_t * array, unsigned int index, unsigned int toAdd, hiveGuid_t edtGuid, unsigned int slot);
+void internalAtomicAddInArrayDb(hiveGuid_t dbGuid, unsigned int index, unsigned int toAdd, hiveGuid_t edtGuid, unsigned int slot, hiveGuid_t epochGuid);
+void hiveAtomicCompareAndSwapInArrayDb(hiveArrayDb_t * array, unsigned int index, unsigned int oldValue, unsigned int newValue, hiveGuid_t edtGuid, unsigned int slot);
+void internalAtomicCompareAndSwapInArrayDb(hiveGuid_t dbGuid, unsigned int index, unsigned int oldValue, unsigned int newValue, hiveGuid_t edtGuid, unsigned int slot, hiveGuid_t epochGuid);
 
 #endif /* HIVEARRAYDB_H */
 

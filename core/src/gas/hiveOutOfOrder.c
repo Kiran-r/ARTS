@@ -12,6 +12,7 @@
 #include "hiveGuid.h"
 #include "hiveAtomics.h"
 #include "hiveTerminationDetection.h"
+#include "hiveArrayDb.h"
 #include <string.h>
 #include <unistd.h>
 
@@ -34,7 +35,9 @@ enum hiveOutOfOrderType
     ooEpochActive,
     ooEpochFinish,
     ooEpochSend,
-    ooEpochIncQueue
+    ooEpochIncQueue,
+    ooAtomicAddInArrayDb,
+    ooAtomicCompareAndSwapInArrayDb
 };
 
 struct ooSignalEdt
@@ -146,6 +149,29 @@ struct ooEpochSend
     unsigned int dest;
 };
 
+struct ooAtomicAddInArrayDb
+{
+    enum hiveOutOfOrderType type;
+    hiveGuid_t dbGuid;
+    hiveGuid_t edtGuid;
+    hiveGuid_t epochGuid;
+    unsigned int slot;
+    unsigned int index;
+    unsigned int toAdd;
+};
+
+struct ooAtomicCompareAndSwapInArrayDb
+{
+    enum hiveOutOfOrderType type;
+    hiveGuid_t dbGuid;
+    hiveGuid_t edtGuid;
+    hiveGuid_t epochGuid;
+    unsigned int slot;
+    unsigned int index;
+    unsigned int oldValue;
+    unsigned int newValue;
+};
+
 struct ooGeneric
 {
     enum hiveOutOfOrderType type;
@@ -251,6 +277,17 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
             struct ooEpoch * req = handleMe;
             incrementQueueEpoch(req->guid);
             break;
+        }
+        case ooAtomicAddInArrayDb:
+        {
+            struct ooAtomicAddInArrayDb * req = handleMe;
+            internalAtomicAddInArrayDb(req->dbGuid, req->index, req->toAdd, req->edtGuid, req->slot, req->epochGuid);
+            break;
+        }
+        case ooAtomicCompareAndSwapInArrayDb:
+        {
+            struct ooAtomicCompareAndSwapInArrayDb * req = handleMe;
+            internalAtomicCompareAndSwapInArrayDb(req->dbGuid, req->index, req->oldValue, req->newValue, req->edtGuid, req->slot, req->epochGuid);
         }
         default:
             PRINTF("OO Handler Error\n");
@@ -519,4 +556,43 @@ void hiveOutOfOrderIncQueueEpoch(hiveGuid_t epochGuid)
         incrementQueueEpoch(epochGuid);
         hiveFree(req);
     }   
+}
+
+void hiveOutOfOrderAtomicAddInArrayDb(hiveGuid_t dbGuid,  unsigned int index, unsigned int toAdd, hiveGuid_t edtGuid, unsigned int slot, hiveGuid_t epochGuid)
+{
+    struct ooAtomicAddInArrayDb * req = hiveMalloc(sizeof(struct ooAtomicAddInArrayDb));
+    req->type = ooAtomicAddInArrayDb;
+    req->edtGuid = edtGuid;
+    req->dbGuid = dbGuid;
+    req->epochGuid = epochGuid;
+    req->slot = slot;
+    req->index = index;
+    req->toAdd = toAdd;
+    bool res = hiveRouteTableAddOO(dbGuid, req);
+    if(!res)
+    {
+        PRINTF("edtGuid OO2: %lu\n", req->edtGuid);
+        internalAtomicAddInArrayDb(req->dbGuid, req->index, req->toAdd, req->edtGuid, req->slot, req->epochGuid);
+        hiveFree(req);
+    }
+}
+
+void hiveOutOfOrderAtomicCompareAndSwapInArrayDb(hiveGuid_t dbGuid,  unsigned int index, unsigned int oldValue, unsigned int newValue, hiveGuid_t edtGuid, unsigned int slot, hiveGuid_t epochGuid)
+{
+    struct ooAtomicCompareAndSwapInArrayDb * req = hiveMalloc(sizeof(struct ooAtomicCompareAndSwapInArrayDb));
+    req->type = ooAtomicAddInArrayDb;
+    req->edtGuid = edtGuid;
+    req->dbGuid = dbGuid;
+    req->epochGuid = epochGuid;
+    req->slot = slot;
+    req->index = index;
+    req->oldValue = oldValue;
+    req->newValue = newValue;
+    bool res = hiveRouteTableAddOO(dbGuid, req);
+    if(!res)
+    {
+        PRINTF("edtGuid OO2: %lu\n", req->edtGuid);
+        internalAtomicCompareAndSwapInArrayDb(req->dbGuid, req->index, req->oldValue, req->newValue, req->edtGuid, req->slot, req->epochGuid);
+        hiveFree(req);
+    }
 }

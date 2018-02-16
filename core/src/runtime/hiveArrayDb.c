@@ -6,6 +6,11 @@
 #include "hiveDbFunctions.h"
 #include "hiveEdtFunctions.h"
 #include "hiveRemoteFunctions.h"
+#include "hiveDbFunctions.h"
+#include "hiveTerminationDetection.h"
+#include "hiveRouteTable.h"
+#include "hiveOutOfOrder.h"
+#include "hiveAtomics.h"
 
 unsigned int hiveGetSizeArrayDb(hiveArrayDb_t * array)
 {
@@ -151,4 +156,84 @@ void hiveForEachInArrayDbAtData(hiveArrayDb_t * array, unsigned int stride, unsi
         args[3] = i;
         hiveActiveMessageWithDb(loopPolicy, paramc+4, args, 0, getGuidFromIndex(array, i));
     }
+}
+
+void internalAtomicAddInArrayDb(hiveGuid_t dbGuid, unsigned int index, unsigned int toAdd, hiveGuid_t edtGuid, unsigned int slot, hiveGuid_t epochGuid)
+{
+    struct hiveDb * db = hiveRouteTableLookupItem(dbGuid);
+    if(db)
+    {
+        hiveArrayDb_t * array = (hiveArrayDb_t*)(db+1);
+        //Do this so when we increment finished we can check the term status
+        incrementQueueEpoch(epochGuid);
+        
+        unsigned int offset = getOffsetFromIndex(array, index);
+        unsigned int * data = (unsigned int*)(((char*) array) + offset);
+        unsigned int result = hiveAtomicAdd(data, toAdd);
+//        PRINTF("index: %u result: %u\n", index, result);
+        
+        if(edtGuid)
+        {
+//            PRINTF("Signaling edtGuid: %lu\n", edtGuid);
+            hiveSignalEdt(edtGuid, result, slot, DB_MODE_SINGLE_VALUE);
+        }
+
+        incrementFinishedEpoch(epochGuid);
+    }
+    else
+    {
+        hiveOutOfOrderAtomicAddInArrayDb(dbGuid, index, toAdd, edtGuid, slot, epochGuid);
+    }
+}
+
+void hiveAtomicAddInArrayDb(hiveArrayDb_t * array, unsigned int index, unsigned int toAdd, hiveGuid_t edtGuid, unsigned int slot)
+{
+    hiveGuid_t dbGuid = getGuidFromIndex(array, index);
+    hiveGuid_t epochGuid = hiveGetCurrentEpochGuid();
+    incrementActiveEpoch(epochGuid);
+    unsigned int rank = hiveGuidGetRank(dbGuid);
+    if(rank==hiveGlobalRankId)
+        internalAtomicAddInArrayDb(dbGuid, index, toAdd, edtGuid, slot, epochGuid);
+    else
+        hiveRemoteAtomicAddInArrayDb(rank, dbGuid, index, toAdd, edtGuid, slot, epochGuid);
+}
+
+void internalAtomicCompareAndSwapInArrayDb(hiveGuid_t dbGuid, unsigned int index, unsigned int oldValue, unsigned int newValue, hiveGuid_t edtGuid, unsigned int slot, hiveGuid_t epochGuid)
+{
+    struct hiveDb * db = hiveRouteTableLookupItem(dbGuid);
+    if(db)
+    {
+        hiveArrayDb_t * array = (hiveArrayDb_t*)(db+1);
+        //Do this so when we increment finished we can check the term status
+        incrementQueueEpoch(epochGuid);
+        
+        unsigned int offset = getOffsetFromIndex(array, index);
+        unsigned int * data = (unsigned int*)(((char*) array) + offset);
+        unsigned int result = hiveAtomicCswap(data, oldValue, newValue);
+//        PRINTF("index: %u result: %u\n", index, result);
+        
+        if(edtGuid)
+        {
+//            PRINTF("Signaling edtGuid: %lu\n", edtGuid);
+            hiveSignalEdt(edtGuid, result, slot, DB_MODE_SINGLE_VALUE);
+        }
+
+        incrementFinishedEpoch(epochGuid);
+    }
+    else
+    {
+        hiveOutOfOrderAtomicCompareAndSwapInArrayDb(dbGuid, index, oldValue, newValue, edtGuid, slot, epochGuid);
+    }
+}
+
+void hiveAtomicCompareAndSwapInArrayDb(hiveArrayDb_t * array, unsigned int index, unsigned int oldValue, unsigned int newValue, hiveGuid_t edtGuid, unsigned int slot)
+{
+    hiveGuid_t dbGuid = getGuidFromIndex(array, index);
+    hiveGuid_t epochGuid = hiveGetCurrentEpochGuid();
+    incrementActiveEpoch(epochGuid);
+    unsigned int rank = hiveGuidGetRank(dbGuid);
+    if(rank==hiveGlobalRankId)
+        internalAtomicCompareAndSwapInArrayDb(dbGuid, index, oldValue, newValue, edtGuid, slot, epochGuid);
+    else
+        hiveRemoteAtomicCompareAndSwapInArrayDb(rank, dbGuid, index, oldValue, newValue, edtGuid, slot, epochGuid);
 }

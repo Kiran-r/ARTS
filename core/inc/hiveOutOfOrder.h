@@ -18,6 +18,8 @@ void hiveOutOfOrderIncActiveEpoch(hiveGuid_t epochGuid);
 void hiveOutOfOrderIncFinishedEpoch(hiveGuid_t epochGuid);
 void hiveOutOfOrderSendEpoch(hiveGuid_t epochGuid, unsigned int source, unsigned int dest);
 void hiveOutOfOrderIncQueueEpoch(hiveGuid_t epochGuid);
+void hiveOutOfOrderAtomicAddInArrayDb(hiveGuid_t dbGuid,  unsigned int index, unsigned int toAdd, hiveGuid_t edtGuid, unsigned int slot, hiveGuid_t epochGuid);
+void hiveOutOfOrderAtomicCompareAndSwapInArrayDb(hiveGuid_t dbGuid,  unsigned int index, unsigned int oldValue, unsigned int newValue, hiveGuid_t edtGuid, unsigned int slot, hiveGuid_t epochGuid);
 
 void hiveOutOfOrderHandler( void * handleMe, void * memoryPtr );
 

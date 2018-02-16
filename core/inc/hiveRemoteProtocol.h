@@ -41,7 +41,9 @@ enum hiveServerMessageType
     HIVE_REMOTE_SEND, 
     HIVE_EPOCH_INIT,
     HIVE_EPOCH_REQ, 
-    HIVE_EPOCH_SEND
+    HIVE_EPOCH_SEND,
+    HIVE_ATOMIC_ADD_ARRAYDB,
+    HIVE_ATOMIC_CAS_ARRAYDB
 };
 
 //Header
@@ -261,6 +263,29 @@ struct __attribute__ ((__packed__)) hiveRemoteEpochSendPacket
     hiveGuid_t epochGuid;
     unsigned int active;
     unsigned int finish;
+};
+
+struct __attribute__ ((__packed__)) hiveRemoteAtomicAddInArrayDbPacket
+{
+    struct hiveRemotePacket header;
+    hiveGuid_t dbGuid;
+    hiveGuid_t edtGuid;
+    hiveGuid_t epochGuid;
+    unsigned int slot;
+    unsigned int index;
+    unsigned int toAdd;
+};
+
+struct __attribute__ ((__packed__)) hiveRemoteAtomicCompareAndSwapInArrayDbPacket
+{
+    struct hiveRemotePacket header;
+    hiveGuid_t dbGuid;
+    hiveGuid_t edtGuid;
+    hiveGuid_t epochGuid;
+    unsigned int slot;
+    unsigned int index;
+    unsigned int oldValue;
+    unsigned int newValue;
 };
 
 void outInit( unsigned int size );

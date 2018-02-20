@@ -11,6 +11,7 @@
 #include "hiveRemoteLauncher.h"
 #include "hiveIntrospection.h"
 #include "hiveDebug.h"
+#include <string.h>
 
 extern struct hiveConfig * config;
 
@@ -29,7 +30,7 @@ int hiveRT(int argc, char **argv)
 
     hiveGlobalRankId = 0;
     hiveGlobalRankCount = config->tableLength;
-    if(strncmp(config->launcher, "local", 5) != 0) 
+    if(strncmp(config->launcher, "local", 5) != 0)
         hiveServerSetup(config);
     hiveGlobalMasterRankId= config->masterRank;
     if(hiveGlobalRankId == config->masterRank && config->masterBoot)
@@ -40,7 +41,7 @@ int hiveRT(int argc, char **argv)
         hiveRemoteSetupOutgoing();
         if(!hiveRemoteSetupIncoming())
             return -1;
-    } 
+    }
 
     hiveGuidTableInit(config->routeTableSize);
     hiveThreadInit(config);

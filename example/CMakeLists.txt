@@ -19,5 +19,8 @@ target_link_libraries(simpleReduction ${LIBS})
 add_executable(bfs bfs.c)
 target_link_libraries(bfs hive-graph ${LIBS})
 
+add_executable(graph_search graph_search.c)
+target_link_libraries(graph_search hive-graph ${LIBS})
+
 add_subdirectory(csr)
 add_subdirectory(rmat)

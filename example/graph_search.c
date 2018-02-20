@@ -22,15 +22,28 @@ typedef struct {
   double propertyVal;
 } vertexProperty;
 
+struct visitor
+{
+    vertex source;
+    unsigned int step;
+    unsigned int numNeighbors;
+    vertex neighbors[];
+};
+
 hiveGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv, 
 				     u32 depc, hiveEdtDep_t depv[]) {
   for(unsigned int i = 0; i < depc; i++) {
     unsigned int * data = depv[i].ptr;
     PRINTF("%u: %u\n", i, *data);
   }
+  
+  visitor * v = depv[depc-1].ptr;
+  
   // TODO: Print info , sample new source, and start next step
   hiveShutdown();
 }
+
+
 
 hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 {
@@ -43,10 +56,23 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
   /* TODO: I need to pass in several things to the continuation 
      for printing: source, # steps, actual neighbor ids, 
      indicator_computations etc. What to do about them? */
+  
+  u64 * args = hiveMalloc()
+  
+  unsigned int dbSize = sizeof(visitor) + numNeighbors*sizeof(vertex);
+  void * ptr = NULL;
+  hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, false);
+  visitor * v = ptr;
+  v->source = source;
+  //... keep filling in
+  
   hiveGuid_t GatherNeighborPropertyValGuid = hiveEdtCreate(
                                              GatherNeighborPropertyVal, 
                                              hiveGetCurrentNode(), 0, 
-					     NULL, neighbor_cnt);
+					     NULL, neighbor_cnt + 1);
+  
+  hiveSignalEdt(startVertexPropertyReadEpochGuid, dbGuid, neighbor_cnt, DB_MODE_NON_COHERENT_READ);
+  
   for (unsigned int i = 0; i < neighbor_cnt; i++) {
     vertex neib = neighbors[i];
     hiveGetFromArrayDb(GatherNeighborPropertyValGuid, i, vertexPropertymap,

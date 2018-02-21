@@ -12,8 +12,12 @@ if(CMAKE_COMPILER_IS_GNUCC OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         message("Debug Build")
-        set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O0 -g -DCNC_DEBUG_TRACE -fsanitize=address -fsanitize=signed-integer-overflow")
-        #set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O0 -g -DCNC_DEBUG_TRACE")
+        if (CMAKE_C_COMPILER_VERSION VERSION_GREATER 7.0)
+          set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O0 -g -DCNC_DEBUG_TRACE -fsanitize=address -fsanitize=signed-integer-overflow")
+        else()
+          #set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O0 -g -DCNC_DEBUG_TRACE -fsanitize=address")
+          set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O0 -g -DCNC_DEBUG_TRACE")
+        endif()
 
         if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
             set(CMAKE_C_FLAGS "-std=gnu99 -O0 -g -DCNC_DEBUG_TRACE")
@@ -83,9 +87,8 @@ elseif(${MALLOC} MATCHES "FOA")
     add_definitions(-DFOA)
 endif()
 
-
 if(APPLE)
-    set(RT_LIB "")   
+    set(RT_LIB "")
 else()
     find_library(RT_LIB rt)
 endif()
@@ -103,7 +106,7 @@ endif()
 if(INSPECTOR)
     message("Inspection on")
     add_definitions(-DINSPECTOR)
-    
+
 endif()
 
 message("Using ${MALLOC} malloc.")

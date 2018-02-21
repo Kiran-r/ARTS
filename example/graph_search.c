@@ -193,7 +193,7 @@ hiveGuid_t startRandomWalk(u32 paramc, u64 * paramv,
 hiveGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv, 
 				 u32 depc, hiveEdtDep_t depv[]) {    
   // TODO: check how many times to signal the exit EDT
-  hiveGuid_t exitGuid = hiveEdtCreate(exitProgram, 0, 0, NULL, num_seeds);
+  hiveGuid_t exitGuid = hiveEdtCreate(exitProgram, 0, 0, NULL, 1);
   hiveGuid_t startGuid = hiveEdtCreate(startRandomWalk, 0, 0, NULL, 1);
   hiveInitializeEpoch(startGuid, exitGuid, 0);
   
@@ -257,7 +257,8 @@ void initPerNode(unsigned int nodeId, int argc, char** argv) {
 			    &distribution,
 			    argc,
 			    argv);
-
+  // Reserve a guid for clean-up EDT.
+  // hiveReserveGuidRoute(unsigne, )
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, 

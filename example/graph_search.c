@@ -88,21 +88,7 @@ hiveGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
     }
   }
 
-  /* unsigned int dbSize = sizeof(randomWalkInfo) +  (depc - 1) * sizeof(vertexProperty); */
-  /* void * ptr = NULL; */
-  /* hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, false); */
-  
-  /* randomWalkInfo * randWalkInfo = ptr; */
-  
-  /* randWalkInfo->source = srcInfo->source; */
-  /* randWalkInfo->step = srcInfo->step; */
-  /* randWalkInfo->numNeighbors = depc - 2; */
-  /* randWalkInfo->seed = srcInfo->seed; */
-  /* memcpy(&(randWalkInfo->neighborProperty), &depv, (depc - 1) * sizeof(vertexProperty));   */
-    
-  // u32 slotNo = srcInfo->seed * num_steps - srcInfo->step;  
-  // TODO: Print info , sample new source, and start next step
-  // hiveSignalEdt(printRandomWalkInfoGuid, dbGuid, slotNo, DB_MODE_NON_COHERENT_READ);
+ 
   /*spawn next step*/
   if (srcInfo->step > 0) {
     vertex source = maxWeightedNeighbor->v;

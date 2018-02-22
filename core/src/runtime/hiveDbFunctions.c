@@ -249,8 +249,9 @@ void acquireDbs(struct hiveEdt * edt)
             {
                 case DB_MODE_PIN:
                     
-                    if(hiveIsGuidLocal(depv[i].guid))
-                    {
+//                    if(hiveIsGuidLocal(depv[i].guid))
+//                    {
+                    ;
                         int validRank = -1;
                         struct hiveDb * dbTemp = hiveRouteTableLookupDb(depv[i].guid, &validRank);
                         if(dbTemp)
@@ -262,13 +263,13 @@ void acquireDbs(struct hiveEdt * edt)
                         {
                             hiveOutOfOrderHandleDbRequest(depv[i].guid, edt, i);
                         }
-                    }
-                    else
-                    {
-                        PRINTF("Cannot acquire DB %lu because it is pinned on %u\n", depv[i].guid, hiveGuidGetRank(depv[i].guid));
-                        depv[i].ptr = NULL;
-                        hiveAtomicSub(&edt->depcNeeded, 1U);
-                    }
+//                    }
+//                    else
+//                    {
+//                        PRINTF("Cannot acquire DB %lu because it is pinned on %u\n", depv[i].guid, hiveGuidGetRank(depv[i].guid));
+//                        depv[i].ptr = NULL;
+//                        hiveAtomicSub(&edt->depcNeeded, 1U);
+//                    }
                     break;
                     
                 case DB_MODE_NON_COHERENT_READ:
@@ -419,9 +420,9 @@ bool hiveAddDbDuplicate(struct hiveDb * db, unsigned int rank, struct hiveEdt * 
     return hivePushDbToList(db->dbList, rank, write, exclusive, hiveGuidGetRank(db->guid) == rank, false, edt, slot, mode);
 }
 
-void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+void internalGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank)
 {
-    if(hiveIsGuidLocal(dbGuid))
+    if(rank==hiveGlobalRankId)
     {
         struct hiveDb * db = hiveRouteTableLookupItem(dbGuid);
         if(db)
@@ -429,6 +430,7 @@ void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, uns
             void * data = (void*)(((char*) (db+1)) + offset);
             void * ptr = hiveMalloc(size);
             memcpy(ptr, data, size);
+            DPRINTF("GETTING: %u From: %p\n", *(unsigned int*)ptr, data);
             hiveSignalEdtPtr(edtGuid, dbGuid, ptr, size, slot);
         }
         else
@@ -438,13 +440,25 @@ void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, uns
     }
     else
     {
-        hiveRemoteGetFromDb(edtGuid, dbGuid, slot, offset, size);
+        DPRINTF("Sending to %u\n", rank);
+        hiveRemoteGetFromDb(edtGuid, dbGuid, slot, offset, size, rank);
     }
 }
 
-void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epochGuid)
+void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
 {
-    if(hiveIsGuidLocal(dbGuid))
+    unsigned int rank = hiveGuidGetRank(dbGuid);
+    internalGetFromDb(edtGuid, dbGuid, slot, offset, size, rank);
+}
+
+void hiveGetFromDbAt(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank)
+{
+    internalGetFromDb(edtGuid, dbGuid, slot, offset, size, rank);
+}
+
+void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epochGuid, unsigned int rank)
+{
+    if(rank==hiveGlobalRankId)
     {
         struct hiveDb * db = hiveRouteTableLookupItem(dbGuid);
         if(db)
@@ -454,7 +468,7 @@ void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned
             
             void * data = (void*)(((char*) (db+1)) + offset);
             memcpy(data, ptr, size);
-            
+            DPRINTF("PUTTING %u From: %p\n", *((unsigned int *)data), data);
             if(edtGuid)
             {
                 hiveSignalEdt(edtGuid, dbGuid, slot, DB_MODE_PIN);
@@ -473,21 +487,30 @@ void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned
     {
         void * cpyPtr = hiveMalloc(size);
         memcpy(cpyPtr, ptr, size);
-        hiveRemotePutInDb(cpyPtr, edtGuid, dbGuid, slot, offset, size, epochGuid);
+        hiveRemotePutInDb(cpyPtr, edtGuid, dbGuid, slot, offset, size, epochGuid, rank);
     }
 }
 
-
-void hivePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+void hivePutInDbAt(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank)
 {
     hiveGuid_t epochGuid = hiveGetCurrentEpochGuid();
     DPRINTF("EPOCH %lu\n", epochGuid);
     incrementActiveEpoch(epochGuid);
-    internalPutInDb(ptr, edtGuid, dbGuid, slot, offset, size, epochGuid);
+    internalPutInDb(ptr, edtGuid, dbGuid, slot, offset, size, epochGuid, rank);
+}
+
+void hivePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+{
+    unsigned int rank = hiveGuidGetRank(dbGuid);
+    hiveGuid_t epochGuid = hiveGetCurrentEpochGuid();
+    DPRINTF("EPOCH %lu\n", epochGuid);
+    incrementActiveEpoch(epochGuid);
+    internalPutInDb(ptr, edtGuid, dbGuid, slot, offset, size, epochGuid, rank);
 }
 
 void hivePutInDbEpoch(void * ptr, hiveGuid_t epochGuid, hiveGuid_t dbGuid, unsigned int offset, unsigned int size)
 {
+    unsigned int rank = hiveGuidGetRank(dbGuid);
     incrementActiveEpoch(epochGuid);
-    internalPutInDb(ptr, NULL_GUID, dbGuid, 0, offset, size, epochGuid);
+    internalPutInDb(ptr, NULL_GUID, dbGuid, 0, offset, size, epochGuid, rank);
 }

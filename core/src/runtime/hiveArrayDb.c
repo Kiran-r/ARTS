@@ -21,35 +21,32 @@ void * copyDb(void * ptr, unsigned int size, hiveGuid_t guid)
     return (void*) (newDb+1);
 }
 
-hiveGuid_t hiveNewArrayDb(hiveArrayDb_t **addr, unsigned int elementSize, unsigned int elementsPerBlock, unsigned int numBlocks)
+hiveGuid_t hiveNewArrayDb(hiveArrayDb_t **addr, unsigned int elementSize, unsigned int numElements)
 {
-    unsigned int allocSize = sizeof(hiveArrayDb_t) + numBlocks * sizeof(hiveGuid_t) + elementSize * elementsPerBlock;
+    unsigned int numBlocks = hiveGlobalRankCount;
+    unsigned int elementsPerBlock = numElements / numBlocks;
+    if(!elementsPerBlock)
+    {
+        elementsPerBlock = 1;
+        numBlocks = numElements;
+    }
+    
+    unsigned int allocSize = sizeof(hiveArrayDb_t) + elementSize * elementsPerBlock;
     hiveArrayDb_t * block = NULL;
     hiveGuid_t guid = NULL_GUID;
     if(numBlocks)
     {
         guid = hiveDbCreate((void**)&block, allocSize, true);
-
-        block->blockId = 0;
         block->elementSize = elementSize;
         block->elementsPerBlock = elementsPerBlock;
         block->numBlocks = numBlocks;
-        hiveGuid_t * list = (hiveGuid_t *) &block->head[0];
-        list[0] = guid;
         
-        unsigned int current = hiveGlobalRankId+1;
-        for(unsigned int i=1; i<numBlocks; i++, current++)
-            list[i] = hiveGuidCreateForRank(current % hiveGlobalRankCount, HIVE_DB);
-        
-        current = hiveGlobalRankId+1;
-        for(unsigned int i=1; i<numBlocks; i++, current++)
+        struct hiveDb * toSend = ((struct hiveDb *)block) - 1;
+        for(unsigned int i=0; i<hiveGlobalRankCount; i++)
         {
-            if(!hiveDbCreateWithGuidAndData(list[i], block, allocSize, true))
+            if(i!=hiveGlobalRankId)
             {
-                hiveArrayDb_t * ptr = copyDb((void*)block, allocSize + sizeof(struct hiveDb), list[i]);
-                ptr->blockId = i;
-                struct hiveDb * toSend = ((struct hiveDb *)ptr) - 1;
-                hiveRemoteMemoryMove(current % hiveGlobalRankCount, list[i], toSend, allocSize + sizeof(struct hiveDb), HIVE_REMOTE_DB_MOVE_MSG, hiveFree);
+                hiveRemoteMemoryMoveNoFree(i, guid, toSend, allocSize + sizeof(struct hiveDb), HIVE_REMOTE_DB_MOVE_MSG);
             }
         }
     }
@@ -57,31 +54,39 @@ hiveGuid_t hiveNewArrayDb(hiveArrayDb_t **addr, unsigned int elementSize, unsign
     return guid;
 }
 
+hiveGuid_t getArrayDbGuid(hiveArrayDb_t * array)
+{
+    struct hiveDb * db = ((struct hiveDb *)array) - 1;
+    return db->guid;
+}
+
 unsigned int getOffsetFromIndex(hiveArrayDb_t * array, unsigned int index)
 {    
-    unsigned int base = sizeof(hiveArrayDb_t) + sizeof(hiveGuid_t)*array->numBlocks;
+    unsigned int base = sizeof(hiveArrayDb_t);
     unsigned int local = (index % array->elementsPerBlock) * array->elementSize;
     return base + local;
 }
 
-hiveGuid_t getGuidFromIndex(hiveArrayDb_t * array, unsigned int index)
+unsigned int getRankFromIndex(hiveArrayDb_t * array, unsigned int index)
 {
-    hiveGuid_t * list = (hiveGuid_t *)array->head;
-    return list[index/array->elementsPerBlock];
+    return index/array->elementsPerBlock;
 }
 
 void hiveGetFromArrayDb(hiveGuid_t edtGuid, unsigned int slot, hiveArrayDb_t * array, unsigned int index)
 {
-    hiveGuid_t guid = getGuidFromIndex(array, index);
+    hiveGuid_t guid = getArrayDbGuid(array);
+    unsigned int rank = getRankFromIndex(array, index);
     unsigned int offset = getOffsetFromIndex(array, index);
-    hiveGetFromDb(edtGuid, guid, slot, offset, array->elementSize);
+    PRINTF("Getting i: %u From Rank: %u\n", index, rank);
+    hiveGetFromDbAt(edtGuid, guid, slot, offset, array->elementSize, rank);
 }
 
 void hivePutInArrayDb(void * ptr, hiveGuid_t edtGuid, unsigned int slot, hiveArrayDb_t * array, unsigned int index)
 {
-    hiveGuid_t guid = getGuidFromIndex(array, index);
+    hiveGuid_t guid = getArrayDbGuid(array);
+    unsigned int rank = getRankFromIndex(array, index);
     unsigned int offset = getOffsetFromIndex(array, index);
-    hivePutInDb(ptr, edtGuid, guid, slot, offset, array->elementSize);
+    hivePutInDbAt(ptr, edtGuid, guid, slot, offset, array->elementSize, rank);
 }
 
 void hiveForEachInArrayDb(hiveArrayDb_t * array, hiveEdt_t funcPtr, u32 paramc, u64 * paramv)
@@ -93,7 +98,7 @@ void hiveForEachInArrayDb(hiveArrayDb_t * array, hiveEdt_t funcPtr, u32 paramc, 
     for(unsigned int i=0; i<size; i++)
     {
         args[0] = i;
-        unsigned int route = hiveGuidGetRank(getGuidFromIndex(array, i));
+        unsigned int route = getRankFromIndex(array, i);
         hiveGuid_t guid = hiveEdtCreate(funcPtr, route, paramc+1, args, 1);
         hiveGetFromArrayDb(guid, 0, array, i);
     }
@@ -103,12 +108,12 @@ hiveGuid_t hiveGatherArrayDb(hiveArrayDb_t * array, hiveEdt_t funcPtr, unsigned 
 {
     unsigned int offset = getOffsetFromIndex(array, 0);
     unsigned int size = array->elementSize * array->elementsPerBlock;
-    hiveGuid_t * list = (hiveGuid_t *) &array->head[0];
+    hiveGuid_t arrayGuid = getArrayDbGuid(array);
     
     hiveGuid_t guid = hiveEdtCreate(funcPtr, route, paramc, paramv, array->numBlocks + depc);
     for(unsigned int i=0; i<array->numBlocks; i++)
     {
-        hiveGetFromDb(guid, list[i], i, offset, size);
+        hiveGetFromDbAt(guid, arrayGuid, i, offset, size, i);
     }
 }
 
@@ -133,14 +138,15 @@ hiveGuid_t loopPolicy(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     depv[0].ptr = (void*)raw;
 }
 
-void hiveForEachInArrayDbAtData(hiveArrayDb_t * array, unsigned int stride, unsigned int blockSize, hiveEdt_t funcPtr, u32 paramc, u64 * paramv)
+void hiveForEachInArrayDbAtData(hiveArrayDb_t * array, unsigned int stride, hiveEdt_t funcPtr, u32 paramc, u64 * paramv)
 {
+    unsigned int blockSize = array->elementsPerBlock;
     unsigned int size = hiveGetSizeArrayDb(array);
     if(size%stride)
     {
         PRINTF("WARNING: Size is not divisible by stride!");
     }
-    
+    hiveGuid_t guid = getArrayDbGuid(array);
     u64 * args = hiveMalloc(sizeof(u64) * (paramc+4));
     memcpy(&args[4], paramv, sizeof(u64) * paramc);
     args[0] = (u64)funcPtr;
@@ -149,6 +155,6 @@ void hiveForEachInArrayDbAtData(hiveArrayDb_t * array, unsigned int stride, unsi
     {
         args[2] = (i+blockSize < size) ? i+blockSize : size;
         args[3] = i;
-        hiveActiveMessageWithDb(loopPolicy, paramc+4, args, 0, getGuidFromIndex(array, i));
+        hiveActiveMessageWithDbAt(loopPolicy, paramc+4, args, 0, guid, getRankFromIndex(array, i));
     }
 }

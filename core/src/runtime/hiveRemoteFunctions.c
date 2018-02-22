@@ -242,6 +242,14 @@ void hiveRemoteMemoryMove(unsigned int route, hiveGuid_t guid, void * ptr, unsig
     hiveRouteTableRemoveItem(guid);
 }
 
+void hiveRemoteMemoryMoveNoFree(unsigned int route, hiveGuid_t guid, void * ptr, unsigned int memSize, unsigned messageType)
+{
+    struct hiveRemoteMemoryMovePacket packet;
+    hiveFillPacketHeader(&packet.header, sizeof(packet)+memSize, messageType);
+    packet.guid = guid;
+    hiveRemoteSendRequestPayloadAsync(route, (char *)&packet, sizeof(packet), ptr, memSize);
+}
+
 void hiveRemoteHandleEdtMove(void * ptr)
 {
     struct hiveRemoteMemoryMovePacket * packet = ptr ;    
@@ -616,9 +624,8 @@ void hiveRemoteHandleSendAlreadyLocal(void * pack)
     hiveDbRequestCallback(packet->edt, packet->slot, dbRes);
 }
 
-void hiveRemoteGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+void hiveRemoteGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank)
 {
-    unsigned int rank = hiveGuidGetRank(dbGuid);
     struct hiveRemoteGetPutPacket packet;
     packet.edtGuid = edtGuid;
     packet.dbGuid = dbGuid;
@@ -632,12 +639,11 @@ void hiveRemoteGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slo
 void hiveRemoteHandleGetFromDb(void * pack)
 {
     struct hiveRemoteGetPutPacket * packet = pack;
-    hiveGetFromDb(packet->edtGuid, packet->dbGuid, packet->slot, packet->offset, packet->size);
+    hiveGetFromDbAt(packet->edtGuid, packet->dbGuid, packet->slot, packet->offset, packet->size, hiveGlobalRankId);
 }
 
-void hiveRemotePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epochGuid)
+void hiveRemotePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epochGuid, unsigned int rank)
 {
-    unsigned int rank = hiveGuidGetRank(dbGuid);
     struct hiveRemoteGetPutPacket packet;
     packet.edtGuid = edtGuid;
     packet.dbGuid = dbGuid;
@@ -655,7 +661,7 @@ void hiveRemoteHandlePutInDb(void * pack)
 {
     struct hiveRemoteGetPutPacket * packet = pack;
     void * data = (void*)(packet+1);
-    internalPutInDb(data, packet->edtGuid, packet->dbGuid, packet->slot, packet->offset, packet->size, packet->epochGuid);
+    internalPutInDb(data, packet->edtGuid, packet->dbGuid, packet->slot, packet->offset, packet->size, packet->epochGuid, hiveGlobalRankId);
 }
 
 void hiveRemoteSignalEdtWithPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * ptr, unsigned int size, unsigned int slot)

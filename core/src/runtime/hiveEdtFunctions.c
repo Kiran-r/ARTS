@@ -813,6 +813,14 @@ hiveGuid_t hiveActiveMessageWithDb(hiveEdt_t funcPtr, u32 paramc, u64 * paramv, 
     return guid;
 }
 
+hiveGuid_t hiveActiveMessageWithDbAt(hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, hiveGuid_t dbGuid, unsigned int rank)
+{
+    hiveGuid_t guid = hiveEdtCreate(funcPtr, rank, paramc, paramv, depc+1);
+//    PRINTF("AM -> %lu rank: %u depc: %u\n", guid, rank, depc+1);
+    hiveSignalEdt(guid, dbGuid, 0, DB_MODE_PIN); //DB_MODE_NON_COHERENT_READ);
+    return guid;
+}
+
 hiveGuid_t hiveActiveMessageWithBuffer(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u32 depc, void * data, unsigned int size)
 {
     void * ptr = hiveMalloc(size);

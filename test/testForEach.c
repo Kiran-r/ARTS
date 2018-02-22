@@ -43,8 +43,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     if(!nodeId && !workerId)
     {
         hiveGuid_t checkGuid = hiveEdtCreate(check, 0, 0, NULL, 32);
-        hiveGuid_t guid = hiveNewArrayDb(&array, sizeof(unsigned int), 4, 8);
-        hiveForEachInArrayDbAtData(array, 1, 4, edtFunc, 1, &checkGuid);
+        hiveGuid_t guid = hiveNewArrayDb(&array, sizeof(unsigned int), 32);
+        hiveForEachInArrayDbAtData(array, 1, edtFunc, 1, &checkGuid);
 //        hiveForEachInArrayDb(array, edtFunc, 1, &checkGuid);
     }
 }

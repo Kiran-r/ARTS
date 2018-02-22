@@ -207,7 +207,7 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
         case ooGetFromDb:
         {
             struct ooGetFromDb * req = handleMe;
-            hiveGetFromDb(req->edtGuid, req->dbGuid, req->slot, req->offset, req->size);
+            hiveGetFromDbAt(req->edtGuid, req->dbGuid, req->slot, req->offset, req->size, hiveGlobalRankId);
             break;
             
         }
@@ -220,7 +220,7 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
         case ooPutInDb:
         {
             struct ooPutInDb * req = handleMe;
-            internalPutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size, req->epochGuid);
+            internalPutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size, req->epochGuid, hiveGlobalRankId);
             hiveFree(req->ptr);
             break;
             
@@ -426,7 +426,7 @@ void hiveOutOfOrderGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int
     bool res = hiveRouteTableAddOO(dbGuid, req);
     if(!res)
     {
-        hiveGetFromDb(req->edtGuid, req->dbGuid, req->slot, req->offset, req->size);
+        hiveGetFromDbAt(req->edtGuid, req->dbGuid, req->slot, req->offset, req->size, hiveGlobalRankId);
         hiveFree(req);
     }
 }
@@ -462,7 +462,7 @@ void hiveOutOfOrderPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, un
     bool res = hiveRouteTableAddOO(dbGuid, req);
     if(!res)
     {
-        internalPutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size, req->epochGuid);
+        internalPutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size, req->epochGuid, hiveGlobalRankId);
         hiveFree(req->ptr);
         hiveFree(req);
     }

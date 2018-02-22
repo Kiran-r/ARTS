@@ -5,7 +5,6 @@
 
 typedef struct  hiveArrayDb
 {
-    unsigned int blockId;
     unsigned int elementSize;
     unsigned int elementsPerBlock;
     unsigned int numBlocks;
@@ -13,14 +12,15 @@ typedef struct  hiveArrayDb
 } hiveArrayDb_t;
 
 unsigned int hiveGetSizeArrayDb(hiveArrayDb_t * array);
-hiveGuid_t hiveNewArrayDb(hiveArrayDb_t **addr, unsigned int elementSize, unsigned int elementsPerBlock, unsigned int numBlocks);
+hiveGuid_t hiveNewArrayDb(hiveArrayDb_t **addr, unsigned int elementSize, unsigned int numElements);
 unsigned int getOffsetFromIndex(hiveArrayDb_t * array, unsigned int index);
-hiveGuid_t getGuidFromIndex(hiveArrayDb_t * array, unsigned int index);
+unsigned int getRankFromIndex(hiveArrayDb_t * array, unsigned int index);
+hiveGuid_t getArrayDbGuid(hiveArrayDb_t * array);
 void hiveGetFromArrayDb(hiveGuid_t edtGuid, unsigned int slot, hiveArrayDb_t * array, unsigned int index);
 void hivePutInArrayDb(void * ptr, hiveGuid_t edtGuid, unsigned int slot, hiveArrayDb_t * array, unsigned int index);
 void hiveForEachInArrayDb(hiveArrayDb_t * array, hiveEdt_t funcPtr, u32 paramc, u64 * paramv);
 hiveGuid_t hiveGatherArrayDb(hiveArrayDb_t * array, hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u64 depc);
-void hiveForEachInArrayDbAtData(hiveArrayDb_t * array, unsigned int stride, unsigned int blockSize, hiveEdt_t funcPtr, u32 paramc, u64 * paramv);
+void hiveForEachInArrayDbAtData(hiveArrayDb_t * array, unsigned int stride, hiveEdt_t funcPtr, u32 paramc, u64 * paramv);
 
 #endif /* HIVEARRAYDB_H */
 

@@ -29,7 +29,7 @@ hiveGuid_t epochEnd(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
     elementsPerBlock = atoi(argv[1]);
-    blocks = atoi(argv[2]);
+    blocks = hiveGetTotalNodes();
     if(!nodeId)
         PRINTF("ElementsPerBlock: %u Blocks: %u\n", elementsPerBlock, blocks);
 }
@@ -42,7 +42,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         hiveGuid_t endEpochGuid = hiveEdtCreate(epochEnd, 0, 0, NULL, 1);
         hiveInitializeAndStartEpoch(endEpochGuid, 0);
         
-        hiveGuid_t guid = hiveNewArrayDb(&array, sizeof(unsigned int), elementsPerBlock, blocks);
+        hiveGuid_t guid = hiveNewArrayDb(&array, sizeof(unsigned int), elementsPerBlock * blocks);
         for(unsigned int i=0; i<elementsPerBlock*blocks; i++)
             hivePutInArrayDb(&i, NULL_GUID, 0, array, i);
     }

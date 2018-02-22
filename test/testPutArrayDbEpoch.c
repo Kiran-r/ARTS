@@ -29,15 +29,17 @@ hiveGuid_t epochEnd(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 hiveGuid_t epochStart(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 {
     PRINTF("Launching\n");
-    hiveGuid_t guid = hiveNewArrayDb(&array, sizeof(unsigned int), elementsPerBlock, blocks);
+    hiveGuid_t guid = hiveNewArrayDb(&array, sizeof(unsigned int), elementsPerBlock * blocks);
     for(unsigned int i=0; i<elementsPerBlock*blocks; i++)
+    {
         hivePutInArrayDb(&i, NULL_GUID, 0, array, i);
+    }
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
     elementsPerBlock = atoi(argv[1]);
-    blocks = atoi(argv[2]);
+    blocks = hiveGetTotalNodes();
     if(!nodeId)
         PRINTF("ElementsPerBlock: %u Blocks: %u\n", elementsPerBlock, blocks);
 }

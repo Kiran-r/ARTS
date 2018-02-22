@@ -70,14 +70,15 @@ void hiveRemoteDbFullSend(struct hiveRemoteDbFullRequestPacket * pack);
 void hiveRemoteHandleDbFullRecieved(struct hiveRemoteDbFullSendPacket * packet);
 void hiveRemoteSendAlreadyLocal(int rank, hiveGuid_t guid, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode);
 void hiveRemoteHandleSendAlreadyLocal(void * pack);
-void hiveRemoteGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size);
+void hiveRemoteGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank);
 void hiveRemoteHandleGetFromDb(void * pack);
 void hiveRemoteSignalEdtWithPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * ptr, unsigned int size, unsigned int slot);
 void hiveRemoteHandleSignalEdtWithPtr(void * pack);
-void hiveRemotePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epochGuid);
+void hiveRemotePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epochGuid, unsigned int rank);
 void hiveRemoteHandlePutInDb(void * pack);
 void hiveRemoteSend(unsigned int rank, sendHandler_t funPtr, void * args, unsigned int size, bool free);
 void hiveRemoteHandleSend(void * pack);
+void hiveRemoteMemoryMoveNoFree(unsigned int route, hiveGuid_t guid, void * ptr, unsigned int memSize, unsigned messageType);
 
 void hiveRemoteEpochInitSend(unsigned int rank, hiveGuid_t guid, hiveGuid_t edtGuid, unsigned int slot);
 void hiveRemoteHandleEpochInitSend(void * pack);

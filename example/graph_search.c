@@ -10,9 +10,10 @@
 
 hive_block_dist_t distribution;
 csr_graph graph;
-hiveArrayDb_t * vertexPropertymap = NULL;
 char* _file = NULL;
 hiveGuid_t printRandomWalkInfoGuid = NULL_GUID;
+
+hiveGuid_t vertexPropertymapGuid = NULL_GUID;
 
 /*Default values as in python code*/
 int num_seeds = 25;
@@ -203,9 +204,11 @@ hiveGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
 
 hiveGuid_t startVertexPropertyRead(u32 paramc, u64 * paramv, 
 				   u32 depc, hiveEdtDep_t depv[]) {
+    
+  hiveArrayDb_t * vertexPropertymap = NULL;
   // Allocate vertex property map and populate it from node 0
   hiveNewArrayDb(&vertexPropertymap, sizeof(vertexProperty), 
-		 getBlockSize(&distribution), hiveGetTotalNodes());
+		 getBlockSize(&distribution) * hiveGetTotalNodes());
 
   PRINTF("[INFO] Reading in and constructing the vertex property map ...\n");
   FILE *file = fopen(_file, "r");
@@ -248,7 +251,10 @@ hiveGuid_t startVertexPropertyRead(u32 paramc, u64 * paramv,
 
 
 void initPerNode(unsigned int nodeId, int argc, char** argv) {
-     
+  
+  //This is the dbGuid we will need to aquire to do gets and puts to the arrayDb
+  hiveGuid_t vertexPropertymapGuid = hiveReserveGuidRoute(HIVE_DB, hiveGlobalRankId);
+  
   // distribution must be initialized in initPerNode
   initBlockDistributionWithCmdLineArgs(&distribution, 
                                        argc, argv);
@@ -286,7 +292,10 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId,
  
     /*Start an epoch to read in the property value*/
     hiveGuid_t endVertexPropertyReadEpochGuid 
-      = hiveEdtCreate(endVertexPropertyRead, 0, 0, NULL, 1);
+      = hiveEdtCreate(endVertexPropertyRead, 0, 0, NULL, 2);
+    hiveSignalEdt(endVertexPropertyRead, 
+		  NULL_GUID, 1, DB_MODE_PIN);
+    
     hiveGuid_t startVertexPropertyReadEpochGuid 
       = hiveEdtCreate(startVertexPropertyRead, 0, 0, NULL, 1);
     hiveInitializeEpoch(startVertexPropertyReadEpochGuid, 

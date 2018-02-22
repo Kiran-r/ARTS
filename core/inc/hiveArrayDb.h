@@ -13,6 +13,7 @@ typedef struct  hiveArrayDb
 
 unsigned int hiveGetSizeArrayDb(hiveArrayDb_t * array);
 hiveGuid_t hiveNewArrayDb(hiveArrayDb_t **addr, unsigned int elementSize, unsigned int numElements);
+hiveArrayDb_t * hiveNewArrayDbWithGuid(hiveGuid_t guid, unsigned int elementSize, unsigned int numElements);
 unsigned int getOffsetFromIndex(hiveArrayDb_t * array, unsigned int index);
 unsigned int getRankFromIndex(hiveArrayDb_t * array, unsigned int index);
 hiveGuid_t getArrayDbGuid(hiveArrayDb_t * array);

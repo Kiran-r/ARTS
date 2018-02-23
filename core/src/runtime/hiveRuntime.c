@@ -93,16 +93,14 @@ void hiveRuntimeGlobalCleanup()
 void hiveThreadZeroNodeStart()
 {
     hiveStartInspector(1);
-    
+
     if(initPerNode)
     {
         globalGuidOn = 1;
         initPerNode(hiveGlobalRankId, mainArgc, mainArgv);
-        if(!hiveGlobalRankId) 
-        {
+        if(!hiveGlobalRankId)
             setGuidGeneratorAfterParallelStart();
-            //globalGuidOn = 0;
-        }
+        globalGuidOn = 0;
     }
 
     hiveStartInspector(2);
@@ -277,7 +275,7 @@ static inline void hiveRunEdt(void *edtPacket)
 
     HIVECOUNTERTIMERENDINCREMENT(edtCounter);
     hiveUpdatePerformanceMetric(hiveEdtThroughput, hiveThread, 1, false);
-    
+
     incrementFinishedEpoch(edt->epochGuid);
     hiveThreadInfo.currentEdtGuid = NULL_GUID;
 

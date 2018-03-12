@@ -11,13 +11,13 @@
 hive_block_dist_t distribution;
 csr_graph graph;
 char* _file = NULL;
-hiveGuid_t printRandomWalkInfoGuid = NULL_GUID;
-
-hiveGuid_t vertexPropertymapGuid = NULL_GUID;
+hiveGuid_t vertexPropertyMapGuid = NULL_GUID;
 
 /*Default values as in python code*/
 int num_seeds = 25;
 int num_steps = 1500;
+
+int fixedSeed = -1;
 
 typedef struct {
     vertex v;
@@ -32,49 +32,15 @@ typedef struct {
     // vertex neighbors[];
 } sourceInfo;
 
-typedef struct {
-    vertex source;
-    unsigned int step;
-    unsigned int numNeighbors;
-    vertex seed;
-    vertexProperty neighborProperty[];
-} randomWalkInfo;
-
 hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]);
-
-/* hiveGuid_t printRandomWalkInfo(u32 paramc, u64 * paramv,  */
-/* 				     u32 depc, hiveEdtDep_t depv[]) { */
-/*   PRINTF("Printing Random Walk info\n"); */
-/*   for(unsigned int i = 0; i < depc; i++) { */
-/*     randomWalkInfo * data = depv[i].ptr; */
-/*     for(unsigned int j = 0; j < data->numNeighbors; j++) { */
-/*       PRINTF("Seed: %u, Step: %u, Neighbor: %u, Weight: %u, Visited: %d, Indicator computation: \n", data->seed, data->step, data->neighborProperty[j].v, data->neighborProperty[j].propertyVal,  (data->source == data->neighborProperty[j].v) ); */
-/*     } */
-/*   } */
-
-/*   hiveShutdown(); */
-
-/* } */
 
 hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
     hiveShutdown();
 }
 
-hiveGuid_t printRandomWalkInfo(u32 paramc, u64 * paramv,
-        u32 depc, hiveEdtDep_t depv[]) {
-    PRINTF("Printing Random Walk info\n");
-    for (unsigned int i = 0; i < depc; i++) {
-        randomWalkInfo * data = depv[i].ptr;
-        for (unsigned int j = 0; j < data->numNeighbors; j++) {
-            PRINTF("Seed: %u, Step: %u, Neighbor: %u, Weight: %u, Visited: %d, Indicator computation: \n", data->seed, data->step, data->neighborProperty[j].v, data->neighborProperty[j].propertyVal, (data->source == data->neighborProperty[j].v));
-        }
-    }
-    // hiveShutdown();
-}
-
 hiveGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
         u32 depc, hiveEdtDep_t depv[]) {
-    sourceInfo* srcInfo = depv[depc - 1].ptr;
+    sourceInfo * srcInfo = depv[depc - 1].ptr;
     vertexProperty * maxWeightedNeighbor = depv[0].ptr;
     for (unsigned int i = 0; i < depc - 1; i++) {
         vertexProperty * data = depv[i].ptr;
@@ -91,28 +57,23 @@ hiveGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
     if (srcInfo->step > 0) {
         vertex source = maxWeightedNeighbor->v;
         node_t rank = getOwner(source, &distribution);
-        printf("Source is located on rank %d\n", rank);
         /*Spawn an edt at rank that is the owner of current seed vertex*/
         u64 packed_values[3] = {source, srcInfo->step - 1, srcInfo->seed};
-        hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 3,
-                (u64*) & packed_values, 0);
+        hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 3, (u64*) & packed_values, 1);
+//        PRINTF("New Edt: %lu Source is located on rank %d Guid: %lu\n", visitSourceGuid, rank, vertexPropertyMapGuid);
+        hiveSignalEdt(visitSourceGuid, vertexPropertyMapGuid, 0, DB_MODE_PIN);     
     }
 }
 
-hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
-    // hiveShutdown();
+hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) { 
     vertex* neighbors = NULL;
-    u64 neighbor_cnt = 0;
+    u64 neighbor_cnt = 0;    
     vertex source = (vertex) paramv[0];
     int nSteps = (int) paramv[1];
     vertex seed = (vertex) paramv[2];
-    printf("Current Source  %" PRIu64 "\n", source);
-    // hiveShutdown();
+//    PRINTF("Current Source  %" PRIu64 "\n", source);
 
     getNeighbors(&graph, source, &neighbors, &neighbor_cnt);
-
-    // TODO: what if no neighbors? if (neighbor_cnt) 
-
     if (neighbor_cnt) {
         unsigned int dbSize = sizeof (sourceInfo); // + neighbor_cnt * sizeof(vertex);
         void * ptr = NULL;
@@ -121,22 +82,21 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
         srcInfo->source = source;
         srcInfo->step = nSteps;
         srcInfo->seed = seed;
-        printf("Exploring from Source  %" PRIu64 " steps: %d \n", source, num_steps + 1 - nSteps);
+//        PRINTF("Exploring from Source  %" PRIu64 " steps: %d \n", source, num_steps + 1 - nSteps);
         // memcpy(&(srcInfo->neighbors), &neighbors, neighbor_cnt * sizeof(vertex));
         /* //... keep filling in */
-
+        
         hiveGuid_t GatherNeighborPropertyValGuid = hiveEdtCreate(
                 GatherNeighborPropertyVal,
                 hiveGetCurrentNode(), 0,
                 NULL, neighbor_cnt + 1);
-
-        hiveSignalEdt(GatherNeighborPropertyValGuid, dbGuid, neighbor_cnt, DB_MODE_NON_COHERENT_READ);
-
         
-        hiveArrayDb_t * vertexPropertymap = depv[0].ptr;
+        hiveSignalEdt(GatherNeighborPropertyValGuid, dbGuid, neighbor_cnt, DB_MODE_ONCE_LOCAL);
+        
+        hiveArrayDb_t * vertexPropertyMap = depv[0].ptr;
         for (unsigned int i = 0; i < neighbor_cnt; i++) {
             vertex neib = neighbors[i];
-            hiveGetFromArrayDb(GatherNeighborPropertyValGuid, i, vertexPropertymap,
+            hiveGetFromArrayDb(GatherNeighborPropertyValGuid, i, vertexPropertyMap,
                     neib);
         }
     }
@@ -153,9 +113,8 @@ hiveGuid_t check(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
 
 hiveGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
         u32 depc, hiveEdtDep_t depv[]) {
-    // TODO: check how many times to signal the exit EDT
     hiveGuid_t exitGuid = hiveEdtCreate(exitProgram, 0, 0, NULL, 1);    
-    hiveInitializeAndStartEpoch(exitProgram, 0);
+    hiveInitializeAndStartEpoch(exitGuid, 0);
     
     u64* seeds = (u64*) malloc(sizeof (u64) * num_seeds);
 
@@ -165,36 +124,34 @@ hiveGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
     /*   hiveGetFromArrayDb(edtGuid, i, vertexPropertymap, i); */
 
     /*Sample seeds*/
-    printf("Num seeds: %d \n", num_seeds);
-    for (int i = 0; i < num_seeds; i++) {
-        seeds[i] = rand() % distribution.num_vertices;
-        printf("seed chosen %d,\n", seeds[i]);
+    if(fixedSeed > -1)
+    {
+        seeds[0] = fixedSeed;
     }
-    // hiveShutdown();
-    /* Create an EDT for printing all info at the end. */
-    // printRandomWalkInfoGuid = hiveEdtCreate(printRandomWalkInfo, 0, 0, NULL, num_seeds * num_steps); 
-
+    else
+    {
+        for (int i = 0; i < num_seeds; i++) {
+            seeds[i] = rand() % distribution.num_vertices;
+//            PRINTF("Seed chosen %d,\n", seeds[i]);
+        }
+    }
+    
     /*Start walk from each seed in parallel*/
     for (int i = 0; i < num_seeds; i++) {
         vertex source = seeds[i];
         node_t rank = getOwner(source, &distribution);
-        printf("Source is located on rank %d\n", rank);
+//        PRINTF("Source is located on rank %d\n", rank);
         /*Spawn an edt at rank that is the owner of current seed vertex*/
         u64 packed_values[3] = {source, num_steps, source};
-        hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 3,
-                (u64*) & packed_values, 1);
-        hiveSignalEdt(visitSourceGuid, vertexPropertymap, 0, DB_MODE_PIN);
-        /*TODO: check: Since we are passing along stepcount as an argument, 
-          we pass the source as the depv*/
-        //  hiveSignalEdt(visitSourceGuid, NULL_GUID, 0, DB_MODE_SINGLE_VALUE);
+        hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 3, (u64*) &packed_values, 1);
+        hiveSignalEdt(visitSourceGuid, vertexPropertyMapGuid, 0, DB_MODE_PIN);
     }
-    
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv) {
 
     //This is the dbGuid we will need to aquire to do gets and puts to the arrayDb
-    vertexPropertymapGuid = hiveReserveGuidRoute(HIVE_DB, hiveGlobalRankId);
+    vertexPropertyMapGuid = hiveReserveGuidRoute(HIVE_DB, 0);
 
     // distribution must be initialized in initPerNode
     initBlockDistributionWithCmdLineArgs(&distribution,
@@ -204,8 +161,6 @@ void initPerNode(unsigned int nodeId, int argc, char** argv) {
             &distribution,
             argc,
             argv);
-    // Reserve a guid for clean-up EDT.
-    // hiveReserveGuidRoute(unsigne, )
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId,
@@ -231,52 +186,60 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId,
             }
         }
 
+        // How many seeds  
+        for (int i = 0; i < argc; ++i) {
+            if (strcmp("--fixed", argv[i]) == 0) {
+                sscanf(argv[i + 1], "%d", &fixedSeed);
+                num_seeds = 1;
+            }
+        }
+        
         //Start an epoch to read in the property value
         hiveGuid_t endVertexPropertyReadEpochGuid
                 = hiveEdtCreate(endVertexPropertyRead, 0, 0, NULL, 2);
+        
         //Signal the property map guid
-        hiveSignalEdt(endVertexPropertyRead, vertexPropertymap, 1, DB_MODE_PIN);
+        hiveSignalEdt(endVertexPropertyReadEpochGuid, vertexPropertyMapGuid, 1, DB_MODE_PIN);
 
+        //Start the epoch
         hiveInitializeAndStartEpoch(endVertexPropertyReadEpochGuid, 0);
 
         // Allocate vertex property map and populate it from node 0
-        hiveArrayDb_t * vertexPropertymap = hiveNewArrayDbWithGuid(vertexPropertymap, 
-                sizeof (vertexProperty), getBlockSize(&distribution) * hiveGetTotalNodes());
+        hiveArrayDb_t * vertexPropertyMap = hiveNewArrayDbWithGuid(vertexPropertyMapGuid, 
+                sizeof (vertexProperty), distribution.num_vertices);
 
+        //Read in property file
         PRINTF("[INFO] Reading in and constructing the vertex property map ...\n");
         FILE *file = fopen(_file, "r");
         PRINTF("File to be opened %s\n", _file);
         if (file == NULL) {
             PRINTF("[ERROR] File containing property value can't be open -- %s", _file);
-            // hiveShutdown();
+            hiveShutdown();
         }
 
         PRINTF("Started reading the vertex property file..\n");
         char str[MAXCHAR];
         u64 index = 0;
         while (fgets(str, MAXCHAR, file) != NULL) {
-            //      PRINTF("here \n");
             graph_sz_t vertex;
             double vPropertyVal;
             char* token = strtok(str, "\t");
             int i = 0;
             while (token != NULL) {
-                // printf("Iteration %d", it);
                 if (i == 0) { // vertex
                     vertex = atoll(token);
-                    printf("Vertex=%llu ", vertex);
+//                    PRINTF("Vertex=%llu ", vertex);
                     ++i;
                 } else if (i == 1) { // property
                     vPropertyVal = atof(token);
-                    printf("propval=%f\n", vPropertyVal);
+//                    PRINTF("propval=%f\n", vPropertyVal);
                     i = 0;
                 }
-
                 token = strtok(NULL, " ");
             }
             vertexProperty vPropVal = {.v = vertex, .propertyVal = vPropertyVal};
 
-            hivePutInArrayDb(&vPropVal, NULL_GUID, 0, vertexPropertymap, index);
+            hivePutInArrayDb(&vPropVal, NULL_GUID, 0, vertexPropertyMap, index);
             index++;
         }
         fclose(file);

@@ -58,7 +58,7 @@ void initCSR(csr_graph* _csr,
 
   _csr->columns[0] = t;
   _csr->row_indices[src_ind] = 0;
-  _csr->row_indices[src_ind+1] = 1;
+  _csr->row_indices[src_ind+1] = (_edges->used) ? 1 : 0;
 
   //  PRINTF("Test=%" PRIu64 "\n",  _csr->columns[0]); 
 
@@ -211,7 +211,7 @@ void getNeighbors(csr_graph* _csr,
 
   // get the local index for the vertex
   local_index_t i = getLocalIndex(v, _csr->distribution);
-  // get the column start position
+  // get the column start position  
   graph_sz_t start = _csr->row_indices[i];
   graph_sz_t end = _csr->row_indices[i+1];
 
@@ -258,7 +258,7 @@ int loadGraphNoWeight(const char* _file,
         target = atoll(token);
         i = 0;
       }
-
+      
       //printf("src=%llu, target=%llu\n", src, target);
       token = strtok(NULL, " ");
     }

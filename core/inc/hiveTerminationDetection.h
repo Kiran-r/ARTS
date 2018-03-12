@@ -22,6 +22,7 @@ typedef struct {
     volatile unsigned int lastActiveCount;
     volatile unsigned int lastFinishedCount;
     volatile u64 queued;
+    volatile u64 outstanding;
     unsigned int terminationExitSlot;
     hiveGuid_t terminationExitGuid;
     hiveGuid_t guid;

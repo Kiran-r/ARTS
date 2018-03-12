@@ -6,6 +6,7 @@
 #include "hiveDbFunctions.h"
 #include "hiveEdtFunctions.h"
 #include "hiveRemoteFunctions.h"
+#include "hiveDebug.h"
 
 unsigned int hiveGetSizeArrayDb(hiveArrayDb_t * array)
 {
@@ -30,6 +31,8 @@ hiveArrayDb_t * hiveNewArrayDbWithGuid(hiveGuid_t guid, unsigned int elementSize
         elementsPerBlock = 1;
         numBlocks = numElements;
     }
+    
+//    PRINTF("Elements: %u Blocks: %u Element Size: %u\n", numElements, numBlocks, elementSize);
     
     unsigned int allocSize = sizeof(hiveArrayDb_t) + elementSize * elementsPerBlock;
     hiveArrayDb_t * block = NULL;
@@ -69,6 +72,7 @@ unsigned int getOffsetFromIndex(hiveArrayDb_t * array, unsigned int index)
 {    
     unsigned int base = sizeof(hiveArrayDb_t);
     unsigned int local = (index % array->elementsPerBlock) * array->elementSize;
+//    PRINTF("array: %p base: %u index: %u elementsPerBlock: %u mod: %u elementSize: %u\n", array, base, index, array->elementsPerBlock, index%array->elementsPerBlock, array->elementSize);
     return base + local;
 }
 
@@ -79,11 +83,19 @@ unsigned int getRankFromIndex(hiveArrayDb_t * array, unsigned int index)
 
 void hiveGetFromArrayDb(hiveGuid_t edtGuid, unsigned int slot, hiveArrayDb_t * array, unsigned int index)
 {
-    hiveGuid_t guid = getArrayDbGuid(array);
-    unsigned int rank = getRankFromIndex(array, index);
-    unsigned int offset = getOffsetFromIndex(array, index);
-    PRINTF("Getting i: %u From Rank: %u\n", index, rank);
-    hiveGetFromDbAt(edtGuid, guid, slot, offset, array->elementSize, rank);
+    if(index < array->elementsPerBlock*array->numBlocks)
+    {
+        hiveGuid_t guid = getArrayDbGuid(array);
+        unsigned int rank = getRankFromIndex(array, index);
+        unsigned int offset = getOffsetFromIndex(array, index);
+//        PRINTF("Get index: %u rank: %u offset: %u\n", index, rank, offset);
+        hiveGetFromDbAt(edtGuid, guid, slot, offset, array->elementSize, rank);
+    }
+    else
+    {
+        PRINTF("Index >= Array Size: %u >= %u * %u\n", index, array->elementsPerBlock, array->numBlocks);
+        hiveDebugGenerateSegFault();
+    } 
 }
 
 void hivePutInArrayDb(void * ptr, hiveGuid_t edtGuid, unsigned int slot, hiveArrayDb_t * array, unsigned int index)

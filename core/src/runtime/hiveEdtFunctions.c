@@ -60,7 +60,7 @@ bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int e
             createdGuid = true;
             *guid = hiveGuidCreateForRank(route, HIVE_EDT);
         }
-
+        
         edt->funcPtr = funcPtr;
         edt->depc = depc;
         edt->paramc = paramc;
@@ -262,7 +262,6 @@ void hiveEventDestroy(hiveGuid_t guid)
 
 void hiveSignalEdt(hiveGuid_t edtPacket, hiveGuid_t dataGuid, u32 slot, hiveDbAccessMode_t mode)
 {
-    
     HIVEEDTCOUNTERTIMERSTART(signalEdtCounter);
     if(currentEdt && currentEdt->invalidateCount > 0)
         hiveOutOfOrderSignalEdt(currentEdt->currentEdt, edtPacket, dataGuid, slot, mode);

@@ -527,7 +527,7 @@ void hiveRemoteDbForwardFull(int destRank, int sourceRank, hiveGuid_t dataGuid, 
 
 void hiveRemoteDbFullSendNow(int rank, struct hiveDb * db, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
 {
-    PRINTF("SEND FULL NOW: %u -> %u\n", hiveGlobalRankId, rank);
+    DPRINTF("SEND FULL NOW: %u -> %u\n", hiveGlobalRankId, rank);
     struct hiveRemoteDbFullSendPacket packet;
     packet.edt = edt;
     packet.slot = slot;

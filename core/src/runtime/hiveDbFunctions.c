@@ -247,11 +247,22 @@ void acquireDbs(struct hiveEdt * edt)
             int owner = hiveGuidGetRank(depv[i].guid);
             switch(depv[i].mode)
             {
+                case DB_MODE_ONCE_LOCAL:
+                {
+                    struct hiveDb * dbTemp = hiveRouteTableLookupItem(depv[i].guid);
+                    if(dbTemp)
+                    {
+                        dbFound = dbTemp;
+                        hiveAtomicSub(&edt->depcNeeded, 1U);
+                    }
+                    else
+                        hiveOutOfOrderHandleDbRequest(depv[i].guid, edt, i);
+                    break;
+                }
                 case DB_MODE_PIN:
-                    
+                {
 //                    if(hiveIsGuidLocal(depv[i].guid))
 //                    {
-                    ;
                         int validRank = -1;
                         struct hiveDb * dbTemp = hiveRouteTableLookupDb(depv[i].guid, &validRank);
                         if(dbTemp)
@@ -271,7 +282,7 @@ void acquireDbs(struct hiveEdt * edt)
 //                        hiveAtomicSub(&edt->depcNeeded, 1U);
 //                    }
                     break;
-                    
+                }
                 case DB_MODE_NON_COHERENT_READ:
                 case DB_MODE_CDAG_WRITE:
                     if(owner == hiveGlobalRankId) //Owner Rank
@@ -284,13 +295,13 @@ void acquireDbs(struct hiveEdt * edt)
                             {
                                 if(validRank == hiveGlobalRankId) //Owner rank and we have the valid copy
                                 {
-                                    DPRINTF("%lu Locally resolved\n", depv[i].guid);
+                                    PRINTF("$$$$$$$$$$$$ %lu Locally resolved\n", depv[i].guid);
                                     dbFound = dbTemp;
                                     hiveAtomicSub(&edt->depcNeeded, 1U);
                                 }
                                 else //Owner rank but someone else has valid copy
                                 {
-                                    DPRINTF("%lu Foward to current owner\n", depv[i].guid);
+                                    PRINTF("@@@@@@@@@@@@@ %lu Foward to current owner\n", depv[i].guid);
                                     if(depv[i].mode == DB_MODE_NON_COHERENT_READ)
                                         hiveRemoteDbRequest(depv[i].guid, validRank, edt, i, depv[i].mode, true);
                                     else
@@ -299,7 +310,7 @@ void acquireDbs(struct hiveEdt * edt)
                             }
                             else  //We can't read right now due to an exclusive access or cdag write in progress
                             {
-                                DPRINTF("%lu Queue in frontier\n", depv[i].guid);
+                                PRINTF("############### %lu Queue in frontier\n", depv[i].guid);
                             }
                         }
                         else //The Db hasn't been created yet
@@ -310,11 +321,12 @@ void acquireDbs(struct hiveEdt * edt)
                     }
                     else
                     {
+                        PRINTF(">>>>>>>>>>>>>>>>> %lu\n", depv[i].guid);
                         int validRank = -1;
                         struct hiveDb * dbTemp = hiveRouteTableLookupDb(depv[i].guid, &validRank);
                         if(dbTemp) //We have found an entry
                         {
-                            DPRINTF("%lu found a valid local copy\n", depv[i].guid);
+                            PRINTF("----------- %lu found a valid local copy\n", depv[i].guid);
                             dbFound = dbTemp;
                             hiveAtomicSub(&edt->depcNeeded, 1U);
                         }
@@ -322,13 +334,13 @@ void acquireDbs(struct hiveEdt * edt)
                         if(depv[i].mode == DB_MODE_CDAG_WRITE)
                         {
                             //We can't aggregate read requests for cdag write
-                            DPRINTF("%lu requesting a copy in write mode\n", depv[i].guid);
+                            PRINTF("============ %lu requesting a copy in write mode\n", depv[i].guid);
                             hiveRemoteDbFullRequest(depv[i].guid, owner, edt, i, depv[i].mode);
                         }
                         else if(!dbTemp)
                         {
                             //We can aggregate read requests for reads
-                            DPRINTF("%lu requesting a copy in read mode\n", depv[i].guid);
+                            PRINTF("++++++++++++ %lu requesting a copy in read mode\n", depv[i].guid);
                             hiveRemoteDbRequest(depv[i].guid, owner, edt, i, depv[i].mode, true);
                         }
                     }
@@ -370,6 +382,7 @@ void releaseDbs(unsigned int depc, hiveEdtDep_t * depv)
 {
     for(int i=0; i<depc; i++)
     {
+//        PRINTF(">>>>>>>>>>>>>>>>>>>>>>> %lu\n", depv[i].guid);
         if(   depv[i].guid != NULL_GUID &&
             ( depv[i].mode == DB_MODE_CDAG_WRITE ||
               depv[i].mode == DB_MODE_EXCLUSIVE_WRITE ))
@@ -379,13 +392,16 @@ void releaseDbs(unsigned int depc, hiveEdtDep_t * depv)
             {
                 struct hiveDb * db = ((struct hiveDb *)depv[i].ptr - 1);
                 hiveProgressFrontier(db, hiveGlobalRankId);
-
             }
             else
             {
                 hiveRemoteUpdateDb(depv[i].guid, false);
             }
 //            hiveRouteTableReturnDb(depv[i].guid, false);
+        }
+        else if(depv[i].mode == DB_MODE_ONCE_LOCAL)
+        {
+            hiveRouteTableInvalidateItem(depv[i].guid);
         }
         else if(depv[i].mode == DB_MODE_PTR)
         {

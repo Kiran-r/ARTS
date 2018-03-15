@@ -49,13 +49,12 @@ hiveGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
 				     u32 depc, hiveEdtDep_t depv[]) {
   sourceInfo * srcInfo = depv[depc - 1].ptr;
   vertexProperty * maxWeightedNeighbor = depv[0].ptr;
-  unsigned int j = depc/2;
-  for (unsigned int i = 0; i < depc/2 - 1; i++) {
+  for (unsigned int i = 0; i < srcInfo->numNeighbors; i++) {
     vertexProperty * data = depv[i].ptr;
     // TODO: For now, its inefficiently getting both v and id, could have discarded v.
-    vertexID * vId = depv[i + j].ptr;
+    vertexID * vId = depv[i + srcInfo->numNeighbors].ptr;
     /*For now, just printing in-place*/
-    PRINTF("Seed: %u, Step: %u, Neighbor: %u, NeiborID: %u Weight: %f, Visited: %d, Indicator computation: \n", srcInfo->seed, num_steps - srcInfo->step + 1, data->v, vId->id, data->propertyVal, srcInfo->source == data->v ? 1 : 0);
+    PRINTF("Seed: %u, Step: %u, Neighbor: %u, Weight: %f, Visited: %d, Indicator computation: \n", srcInfo->seed, num_steps - srcInfo->step + 1, data->v, data->propertyVal, srcInfo->source == data->v ? 1 : 0);
     /*For now we are doing in-place max-weighted sampling for next source*/
     if (data->propertyVal > maxWeightedNeighbor->propertyVal) {
       maxWeightedNeighbor->v = data->v;
@@ -92,6 +91,7 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
     srcInfo->source = source;
     srcInfo->step = nSteps;
     srcInfo->seed = seed;
+    srcInfo->numNeighbors = neighbor_cnt;
     //        PRINTF("Exploring from Source  %" PRIu64 " steps: %d \n", source, num_steps + 1 - nSteps);
     // memcpy(&(srcInfo->neighbors), &neighbors, neighbor_cnt * sizeof(vertex));
     /* //... keep filling in */

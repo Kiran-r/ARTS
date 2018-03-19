@@ -54,7 +54,7 @@ hiveGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
     // TODO: For now, its inefficiently getting both v and id, could have discarded v.
     vertexID * vId = depv[i + srcInfo->numNeighbors].ptr;
     /*For now, just printing in-place*/
-    PRINTF("Seed: %u, Step: %u, Neighbor: %u, Weight: %f, Visited: %d, Indicator computation: \n", srcInfo->seed, num_steps - srcInfo->step + 1, data->v, data->propertyVal, srcInfo->source == data->v ? 1 : 0);
+    PRINTF("Seed: %u, Step: %u, Neighbor: %u, neibID: %llu Weight: %f, Visited: %d, Indicator computation: \n", srcInfo->seed, num_steps - srcInfo->step + 1, data->v,vId->id, data->propertyVal, srcInfo->source == data->v ? 1 : 0);
     /*For now we are doing in-place max-weighted sampling for next source*/
     if (data->propertyVal > maxWeightedNeighbor->propertyVal) {
       maxWeightedNeighbor->v = data->v;
@@ -70,7 +70,11 @@ hiveGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
     u64 packed_values[3] = {source, srcInfo->step - 1, srcInfo->seed};
     hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 3, (u64*) & packed_values, 1);
     //        PRINTF("New Edt: %lu Source is located on rank %d Guid: %lu\n", visitSourceGuid, rank, vertexPropertyMapGuid);
+    // hiveGuid_t vertexPropertyMapGuid= depv[2 *  srcInfo->numNeighbors + 1].guid;
+    // hiveGuid_t vertexIDMapGuid= depv[2 *  srcInfo->numNeighbors + 2].guid;
+    // hiveArrayDb_t * vertexIDMap = depv[2 *  srcInfo->numNeighbors + 2].ptr;
     hiveSignalEdt(visitSourceGuid, vertexPropertyMapGuid, 0, DB_MODE_PIN);     
+    hiveSignalEdt(visitSourceGuid, vertexIDMapGuid, 1, DB_MODE_PIN);
   }
 }
 
@@ -92,16 +96,18 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
     srcInfo->step = nSteps;
     srcInfo->seed = seed;
     srcInfo->numNeighbors = neighbor_cnt;
-    //        PRINTF("Exploring from Source  %" PRIu64 " steps: %d \n", source, num_steps + 1 - nSteps);
+    PRINTF("Exploring from Source  %" PRIu64 " steps: %d with neighbors %d\n", source, num_steps + 1 - nSteps, neighbor_cnt);
     // memcpy(&(srcInfo->neighbors), &neighbors, neighbor_cnt * sizeof(vertex));
     /* //... keep filling in */
-        
+    // TODO: Do the slots have to have same datasize?
     hiveGuid_t GatherNeighborPropertyValGuid = hiveEdtCreate(
 						      GatherNeighborPropertyVal,
 						      hiveGetCurrentNode(), 0,
 						      NULL, 2 * neighbor_cnt + 1);
         
     hiveSignalEdt(GatherNeighborPropertyValGuid, dbGuid, 2 * neighbor_cnt, DB_MODE_ONCE_LOCAL);
+    // hiveSignalEdt(GatherNeighborPropertyValGuid, depv[0].guid, 2 * neighbor_cnt + 1, DB_MODE_ONCE_LOCAL);
+    // hiveSignalEdt(GatherNeighborPropertyValGuid, depv[1].guid, 2 * neighbor_cnt + 2, DB_MODE_ONCE_LOCAL);
         
     hiveArrayDb_t * vertexPropertyMap = depv[0].ptr;
     for (unsigned int i = 0; i < neighbor_cnt; i++) {
@@ -113,8 +119,9 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
     hiveArrayDb_t * vertexIDMap = depv[1].ptr;
     for (unsigned int i = 0; i < neighbor_cnt; i++) {
       vertex neib = neighbors[i];
-      hiveGetFromArrayDb(GatherNeighborPropertyValGuid, neighbor_cnt * i, 
-			 vertexIDMap, neib);
+      PRINTF("Vertex=%llu indexing at %u \n", neib, neighbor_cnt + i);
+      hiveGetFromArrayDb(GatherNeighborPropertyValGuid, neighbor_cnt + i,
+    			 vertexIDMap, neib);
     }
   }
 }
@@ -163,7 +170,7 @@ hiveGuid_t endVertexIDMapRead(u32 paramc, u64 * paramv,
     hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 3, (u64*) &packed_values, 2);
     // TODO: why pass vertexpropertguid as an argument?
     hiveSignalEdt(visitSourceGuid, vertexPropertyMapGuid, 0, DB_MODE_PIN);
-       // TODO: why pass vertexpropertguid as an argument?
+
     hiveSignalEdt(visitSourceGuid, vertexIDMapGuid, 1, DB_MODE_PIN);
   }
 }
@@ -184,7 +191,7 @@ hiveGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
   //Start the epoch
   hiveInitializeAndStartEpoch(endVertexIDMapReadEpochGuid, 0);
 
-  // Allocate vertex property map and populate it from node 0
+  // Allocate vertex ID map and populate it from node 0
   hiveArrayDb_t * vertexIDMap = hiveNewArrayDbWithGuid(vertexIDMapGuid,
 						       sizeof (vertexID), 
 						       distribution.num_vertices);
@@ -229,108 +236,110 @@ hiveGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
 
 void initPerNode(unsigned int nodeId, int argc, char** argv) {
 
-    //This is the dbGuid we will need to aquire to do gets and puts to the score property arrayDb
-    vertexPropertyMapGuid = hiveReserveGuidRoute(HIVE_DB, 0);
-    vertexIDMapGuid = hiveReserveGuidRoute(HIVE_DB, 0);
+  //This is the dbGuid we will need to aquire to do gets and puts to the score property arrayDb
+  vertexPropertyMapGuid = hiveReserveGuidRoute(HIVE_DB, 0);
+  vertexIDMapGuid = hiveReserveGuidRoute(HIVE_DB, 0);
 
-    // distribution must be initialized in initPerNode
-    initBlockDistributionWithCmdLineArgs(&distribution,
-            argc, argv);
-    // read the edgelist and construct the graph
-    loadGraphUsingCmdLineArgs(&graph,
-            &distribution,
-            argc,
-            argv);
+  // distribution must be initialized in initPerNode
+  initBlockDistributionWithCmdLineArgs(&distribution,
+				       argc, argv);
+  // read the edgelist and construct the graph
+  loadGraphUsingCmdLineArgs(&graph,
+			    &distribution,
+			    argc,
+			    argv);
 
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId,
-        int argc, char** argv) {
-    if (!nodeId && !workerId) {
-        for (int i = 0; i < argc; ++i) {
-            if (strcmp("--propertyfile", argv[i]) == 0) {
-                _file = argv[i + 1];
-            }
-        }
-
-        // How many seeds
-        for (int i = 0; i < argc; ++i) {
-            if (strcmp("--num-seeds", argv[i]) == 0) {
-                sscanf(argv[i + 1], "%d", &num_seeds);
-            }
-        }
-
-        // How many steps
-        for (int i = 0; i < argc; ++i) {
-            if (strcmp("--num-steps", argv[i]) == 0) {
-                sscanf(argv[i + 1], "%d", &num_steps);
-            }
-        }
-
-        for (int i = 0; i < argc; ++i) {
-            if (strcmp("--idfile", argv[i]) == 0) {
-              _id_file = argv[i + 1];  
-            }
-        }
-
-        /* // How many seeds   */
-        /* for (int i = 0; i < argc; ++i) { */
-        /*     if (strcmp("--fixed", argv[i]) == 0) { */
-        /*         sscanf(argv[i + 1], "%d", &fixedSeed); */
-        /*         num_seeds = 1; */
-        /*     } */
-        /* } */
-        
-        //Start an epoch to read in the property value
-        hiveGuid_t endVertexPropertyReadEpochGuid
-                = hiveEdtCreate(endVertexPropertyRead, 0, 0, NULL, 2);
-        
-        //Signal the property map guid
-        hiveSignalEdt(endVertexPropertyReadEpochGuid, vertexPropertyMapGuid, 1, DB_MODE_PIN);
-
-        //Start the epoch
-        hiveInitializeAndStartEpoch(endVertexPropertyReadEpochGuid, 0);
-
-        // Allocate vertex property map and populate it from node 0
-        hiveArrayDb_t * vertexPropertyMap = hiveNewArrayDbWithGuid(vertexPropertyMapGuid,
-                sizeof (vertexProperty), distribution.num_vertices);
-
-        //Read in property file
-        PRINTF("[INFO] Reading in and constructing the vertex property map ...\n");
-        FILE *file = fopen(_file, "r");
-        PRINTF("File to be opened %s\n", _file);
-        if (file == NULL) {
-            PRINTF("[ERROR] File containing property value can't be open -- %s", _file);
-            hiveShutdown();
-        }
-
-        PRINTF("Started reading the vertex property file..\n");
-        char str[MAXCHAR];
-        u64 index = 0;
-        while (fgets(str, MAXCHAR, file) != NULL) {
-            graph_sz_t vertex;
-            double vPropertyVal;
-            char* token = strtok(str, "\t");
-            int i = 0;
-            while (token != NULL) {
-                if (i == 0) { // vertex
-                    vertex = atoll(token);
-                    // PRINTF("Vertex=%llu ", vertex);
-                    ++i;
-                } else if (i == 1) { // property
-                    vPropertyVal = atof(token);
-                    // PRINTF("propval=%f\n", vPropertyVal);
-                    i = 0;
-                }
-                token = strtok(NULL, " ");
-            }
-            vertexProperty vPropVal = {.v = vertex, .propertyVal = vPropertyVal};
-
-            hivePutInArrayDb(&vPropVal, NULL_GUID, 0, vertexPropertyMap, index);
-            index++;
-        }
-        fclose(file);
+		   int argc, char** argv) {
+  if (!nodeId && !workerId) {
+    for (int i = 0; i < argc; ++i) {
+      if (strcmp("--propertyfile", argv[i]) == 0) {
+	_file = argv[i + 1];
+      }
     }
+
+    // How many seeds
+    for (int i = 0; i < argc; ++i) {
+      if (strcmp("--num-seeds", argv[i]) == 0) {
+	sscanf(argv[i + 1], "%d", &num_seeds);
+      }
+    }
+
+    // How many steps
+    for (int i = 0; i < argc; ++i) {
+      if (strcmp("--num-steps", argv[i]) == 0) {
+	sscanf(argv[i + 1], "%d", &num_steps);
+      }
+    }
+
+    for (int i = 0; i < argc; ++i) {
+      if (strcmp("--idfile", argv[i]) == 0) {
+	_id_file = argv[i + 1];  
+      }
+    }
+
+    /* // How many seeds   */
+    /* for (int i = 0; i < argc; ++i) { */
+    /*     if (strcmp("--fixed", argv[i]) == 0) { */
+    /*         sscanf(argv[i + 1], "%d", &fixedSeed); */
+    /*         num_seeds = 1; */
+    /*     } */
+    /* } */
+        
+    //Start an epoch to read in the property value
+    hiveGuid_t endVertexPropertyReadEpochGuid
+      = hiveEdtCreate(endVertexPropertyRead, 0, 0, NULL, 2);
+        
+    //Signal the property map guid
+    hiveSignalEdt(endVertexPropertyReadEpochGuid, vertexPropertyMapGuid, 1, DB_MODE_PIN);
+
+    //Start the epoch
+    hiveInitializeAndStartEpoch(endVertexPropertyReadEpochGuid, 0);
+
+    // Allocate vertex property map and populate it from node 0
+    hiveArrayDb_t * vertexPropertyMap = hiveNewArrayDbWithGuid(
+					       vertexPropertyMapGuid,
+					       sizeof (vertexProperty), 
+					       distribution.num_vertices);
+
+    //Read in property file
+    PRINTF("[INFO] Reading in and constructing the vertex property map ...\n");
+    FILE *file = fopen(_file, "r");
+    PRINTF("File to be opened %s\n", _file);
+    if (file == NULL) {
+      PRINTF("[ERROR] File containing property value can't be open -- %s", _file);
+      hiveShutdown();
+    }
+
+    PRINTF("Started reading the vertex property file..\n");
+    char str[MAXCHAR];
+    u64 index = 0;
+    while (fgets(str, MAXCHAR, file) != NULL) {
+      graph_sz_t vertex;
+      double vPropertyVal;
+      char* token = strtok(str, "\t");
+      int i = 0;
+      while (token != NULL) {
+	if (i == 0) { // vertex
+	  vertex = atoll(token);
+	  // PRINTF("Vertex=%llu ", vertex);
+	  ++i;
+	} else if (i == 1) { // property
+	  vPropertyVal = atof(token);
+	  // PRINTF("propval=%f\n", vPropertyVal);
+	  i = 0;
+	}
+	token = strtok(NULL, " ");
+      }
+      vertexProperty vPropVal = {.v = vertex, .propertyVal = vPropertyVal};
+
+      hivePutInArrayDb(&vPropVal, NULL_GUID, 0, vertexPropertyMap, index);
+      index++;
+    }
+    fclose(file);
+  }
 }
 
 int main(int argc, char** argv) {

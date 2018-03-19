@@ -68,11 +68,8 @@ hiveGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
     node_t rank = getOwner(source, &distribution);
     /*Spawn an edt at rank that is the owner of current seed vertex*/
     u64 packed_values[3] = {source, srcInfo->step - 1, srcInfo->seed};
-    hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 3, (u64*) & packed_values, 1);
+    hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 3, (u64*) & packed_values, 2);
     //        PRINTF("New Edt: %lu Source is located on rank %d Guid: %lu\n", visitSourceGuid, rank, vertexPropertyMapGuid);
-    // hiveGuid_t vertexPropertyMapGuid= depv[2 *  srcInfo->numNeighbors + 1].guid;
-    // hiveGuid_t vertexIDMapGuid= depv[2 *  srcInfo->numNeighbors + 2].guid;
-    // hiveArrayDb_t * vertexIDMap = depv[2 *  srcInfo->numNeighbors + 2].ptr;
     hiveSignalEdt(visitSourceGuid, vertexPropertyMapGuid, 0, DB_MODE_PIN);     
     hiveSignalEdt(visitSourceGuid, vertexIDMapGuid, 1, DB_MODE_PIN);
   }
@@ -96,18 +93,15 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
     srcInfo->step = nSteps;
     srcInfo->seed = seed;
     srcInfo->numNeighbors = neighbor_cnt;
-    PRINTF("Exploring from Source  %" PRIu64 " steps: %d with neighbors %d\n", source, num_steps + 1 - nSteps, neighbor_cnt);
+    // PRINTF("Exploring from Source  %" PRIu64 " steps: %d with neighbors %d\n", source, num_steps + 1 - nSteps, neighbor_cnt);
     // memcpy(&(srcInfo->neighbors), &neighbors, neighbor_cnt * sizeof(vertex));
     /* //... keep filling in */
-    // TODO: Do the slots have to have same datasize?
     hiveGuid_t GatherNeighborPropertyValGuid = hiveEdtCreate(
 						      GatherNeighborPropertyVal,
 						      hiveGetCurrentNode(), 0,
 						      NULL, 2 * neighbor_cnt + 1);
         
     hiveSignalEdt(GatherNeighborPropertyValGuid, dbGuid, 2 * neighbor_cnt, DB_MODE_ONCE_LOCAL);
-    // hiveSignalEdt(GatherNeighborPropertyValGuid, depv[0].guid, 2 * neighbor_cnt + 1, DB_MODE_ONCE_LOCAL);
-    // hiveSignalEdt(GatherNeighborPropertyValGuid, depv[1].guid, 2 * neighbor_cnt + 2, DB_MODE_ONCE_LOCAL);
         
     hiveArrayDb_t * vertexPropertyMap = depv[0].ptr;
     for (unsigned int i = 0; i < neighbor_cnt; i++) {
@@ -119,7 +113,7 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
     hiveArrayDb_t * vertexIDMap = depv[1].ptr;
     for (unsigned int i = 0; i < neighbor_cnt; i++) {
       vertex neib = neighbors[i];
-      PRINTF("Vertex=%llu indexing at %u \n", neib, neighbor_cnt + i);
+      // PRINTF("Vertex=%llu indexing at %u \n", neib, neighbor_cnt + i);
       hiveGetFromArrayDb(GatherNeighborPropertyValGuid, neighbor_cnt + i,
     			 vertexIDMap, neib);
     }
@@ -164,7 +158,7 @@ hiveGuid_t endVertexIDMapRead(u32 paramc, u64 * paramv,
   for (int i = 0; i < num_seeds; i++) {
     vertex source = seeds[i];
     node_t rank = getOwner(source, &distribution);
-    PRINTF("Source is located on rank %d\n", rank);
+    // PRINTF("Source is located on rank %d\n", rank);
     /*Spawn an edt at rank that is the owner of current seed vertex*/
     u64 packed_values[3] = {source, num_steps, source};
     hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 3, (u64*) &packed_values, 2);
@@ -217,11 +211,11 @@ hiveGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
     while (token != NULL) {
       if (i == 0) { // vertex
 	vertex = atoll(token);
-	PRINTF("Vertex=%llu ", vertex);
+	// PRINTF("Vertex=%llu ", vertex);
 	++i;
       } else if (i == 1) { // id
 	id = atoll(token);
-	PRINTF("id=%llu\n", id);
+	// PRINTF("id=%llu\n", id);
 	i = 0;
       }
       token = strtok(NULL, " ");
@@ -347,57 +341,3 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-
-/*Sample seeds: data structures?*/
-/*Sampling and strting the random walk should only happen from node 0*/
-/*TODO: Accumulate in hiveEdgeVector?*/
-/*or hiveDb? is hiveDb more heavy-weight?*/
-
-/*   vertex seed = rand() % distribution.num_vertices; */
-/*   u64 indicator_computations = 0; */
-
-/*   /\*for each seed*\/ */
-/*   for (int seed_no = 0; seed_no < num_seeds; seed_no++) { */
-/*     vertex source = seed; */
-/*     /\*TODO: For each step*\/ */
-/*     for (int step = 0; step < num_steps; step++) { */
-/*       /\*Get the neighbors*\/ */
-/*       vertex* neighbors = NULL; */
-/*       u64 neighbor_cnt = 0; */
-/*       double* weights = NULL; */
-/*       /\*Check whether the seed vertex belongs to the current node*\/ */
-/*       if (getOwner(seed, &distribution) ==  hiveGetCurrentNode()) { */
-/* 	/\*If the current locality is the owner of the seed, get the 	  neighbors' scores*\/ */
-/* 	getNeighbors(&graph, seed, &neighbors, &neighbor_cnt); */
-/* 	weights = (double*) hiveMalloc(sizeof(double)); */
-/* 	for(u64 i=0; i < neighbor_cnt; ++i) { */
-/* 	  /\*Get the scores of the neighbors*\/ */
-/* 	  //TODO: copy locally from global array */
-/* 	  vertex u = neighbors[i]; */
-/* 	  hiveGetFromArrayDb(0, 0, array, u); */
-/* 	} */
-/* 	indicator_computations += neighbor_cnt; */
-/* 	/\*Sample a neighbour based on one of the strategies: */
-/* 	  random, argmax, argmin, weighted_random*\/ */
-/* 	/\*TODO: Implement sampling strategies*\/ */
-/* 	vertex source = sample(); */
-/* 	/\*for each neighbor, print the following information:*\/ */
-/* 	for(u64 i=0; i < neighbor_cnt; ++i) { */
-/* 	  /\*TODO: *\/ */
-/* 	  /\*  for neib_id, (neib, weight) in enumerate(zip(neibs, weights)): */
-/*                 yield { */
-/*                     "seed"    : int(seed), */
-/*                     "step"    : int(step), */
-/*                     "neib_id" : int(neib_id), */
-/*                     "neib"    : int(neib), */
-/*                     "weight"  : float(weight), */
-/*                     "visited" : int(neib == source), */
-/*                     "indicator_computations" : int(indicator_computations), */
-/*                 } */
-
-/* *\/ */
-/* 	} */
-
-/*       } */
-/*     } */
-/*   } */

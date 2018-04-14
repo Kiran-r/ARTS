@@ -34,7 +34,8 @@ enum hiveOutOfOrderType
     ooEpochActive,
     ooEpochFinish,
     ooEpochSend,
-    ooEpochIncQueue
+    ooEpochIncQueue,
+    ooDbMove
 };
 
 struct ooSignalEdt
@@ -250,6 +251,12 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
         {
             struct ooEpoch * req = handleMe;
             incrementQueueEpoch(req->guid);
+            break;
+        }
+        case ooDbMove:
+        {
+            struct ooRemoteDbSend * req = handleMe;
+            hiveDbMove(req->dataGuid, req->rank);
             break;
         }
         default:
@@ -517,6 +524,20 @@ void hiveOutOfOrderIncQueueEpoch(hiveGuid_t epochGuid)
     if(!res)
     {
         incrementQueueEpoch(epochGuid);
+        hiveFree(req);
+    }   
+}
+
+void hiveOutOfOrderDbMove(hiveGuid_t dataGuid, unsigned int rank)
+{
+    struct ooRemoteDbSend * req = hiveMalloc(sizeof(struct ooRemoteDbSend));
+    req->type = ooDbMove;
+    req->dataGuid = dataGuid;
+    req->rank = rank;
+    bool res =  hiveRouteTableAddOO(dataGuid, req);
+    if(!res)
+    {
+        hiveDbMove(dataGuid, rank);
         hiveFree(req);
     }   
 }

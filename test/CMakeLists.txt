@@ -53,3 +53,9 @@ target_link_libraries(testPutArrayDbEpoch ${LIBS})
 
 add_executable(testPutArrayDbEpoch2 testPutArrayDbEpoch2.c)
 target_link_libraries(testPutArrayDbEpoch2 ${LIBS})
+
+add_executable(testDbMove testDbMove.c)
+target_link_libraries(testDbMove ${LIBS})
+
+add_executable(testDbOnce testDbOnce.c)
+target_link_libraries(testDbOnce ${LIBS})

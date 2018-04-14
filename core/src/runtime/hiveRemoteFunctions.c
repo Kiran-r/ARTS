@@ -1168,3 +1168,19 @@ void hiveRemoteHandleEpochSend(void * pack)
     reduceEpoch(packet->epochGuid, packet->active, packet->finish);
 }
 
+void hiveDbMoveRequest(hiveGuid_t dbGuid, unsigned int destRank)
+{
+    struct hiveRemoteDbRequestPacket packet;
+    packet.dbGuid = dbGuid;
+    packet.mode = DB_MODE_ONCE;
+    packet.header.size = sizeof(packet);
+    packet.header.messageType = HIVE_REMOTE_DB_MOVE_REQ;
+    packet.header.rank = destRank;
+    hiveRemoteSendRequestAsync(hiveGuidGetRank(dbGuid), (char *)&packet, sizeof(packet));
+}
+
+void hiveDbMoveRequestHandle(void * pack)
+{
+    struct hiveRemoteDbRequestPacket * packet = pack;
+    hiveDbMove(packet->dbGuid, packet->header.rank);
+}

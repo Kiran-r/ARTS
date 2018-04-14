@@ -18,6 +18,7 @@ void hiveOutOfOrderIncActiveEpoch(hiveGuid_t epochGuid);
 void hiveOutOfOrderIncFinishedEpoch(hiveGuid_t epochGuid);
 void hiveOutOfOrderSendEpoch(hiveGuid_t epochGuid, unsigned int source, unsigned int dest);
 void hiveOutOfOrderIncQueueEpoch(hiveGuid_t epochGuid);
+void hiveOutOfOrderDbMove(hiveGuid_t dataGuid, unsigned int rank);
 
 void hiveOutOfOrderHandler( void * handleMe, void * memoryPtr );
 

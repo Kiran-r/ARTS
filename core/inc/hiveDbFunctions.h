@@ -24,5 +24,6 @@ void hivePutInDbEpoch(void * ptr, hiveGuid_t epochGuid, hiveGuid_t dbGuid, unsig
 void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epoch, unsigned int rank);
 void hivePutInDbAt(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank);
 void hiveGetFromDbAt(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank);
+void hiveDbMove(hiveGuid_t dbGuid, unsigned int rank);
 #endif	/* hiveDBFUNCTIONS_H */
 

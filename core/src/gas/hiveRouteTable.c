@@ -768,7 +768,7 @@ bool hiveRouteTableInvalidateItem(hiveGuid_t key)
             freeItem(location);
             return true;
         }
-        PRINTF("Marked %lu as invalid %lu\n", key, location->lock);
+        DPRINTF("Marked %lu as invalid %lu\n", key, location->lock);
     }
     return false;
 }

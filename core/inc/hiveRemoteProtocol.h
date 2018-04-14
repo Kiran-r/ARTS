@@ -41,7 +41,8 @@ enum hiveServerMessageType
     HIVE_REMOTE_SEND, 
     HIVE_EPOCH_INIT,
     HIVE_EPOCH_REQ, 
-    HIVE_EPOCH_SEND
+    HIVE_EPOCH_SEND,
+    HIVE_REMOTE_DB_MOVE_REQ
 };
 
 //Header

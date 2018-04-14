@@ -58,10 +58,10 @@ else()
 endif()
 
 #Get HWLOC Libs and includes
-find_library(HWLOC_LIB hwloc)
-find_path(HWLOC_INCLUDE hwloc.h)
+find_library(HWLOC_LIB names "hwloc" PATHS /home/suet688/hwloc/hwloc/lib NO_DEFAULT_PATH)
+find_path(HWLOC_INCLUDE hwloc.h PATHS /home/suet688/hwloc/hwloc/include)
 
-if(HWLOC_LIB AND HWLOC_INCLUDE)
+if(HWLOC_LIB)
     include_directories(${HWLOC_INCLUDE})
     add_definitions(-DHWLOC)
     message("Using Hwloc")

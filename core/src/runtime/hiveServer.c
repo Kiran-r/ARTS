@@ -388,6 +388,11 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
             hiveRemoteHandleEpochSend(packet);
             break;
         }
+        case HIVE_REMOTE_DB_MOVE_REQ:
+        {
+            hiveDbMoveRequestHandle(packet);
+            break;
+        }
         default:
         {
             PRINTF("Unknown Packet %d %d %d\n", packet->messageType, packet->size, packet->rank);

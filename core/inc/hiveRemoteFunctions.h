@@ -87,4 +87,8 @@ void hiveRemoteHandleEpochReq(void * pack);
 void hiveRemoteEpochSend(unsigned int rank, hiveGuid_t guid, unsigned int active, unsigned int finish);
 void hiveRemoteHandleEpochSend(void * pack);
 
+
+void hiveDbMoveRequest(hiveGuid_t dbGuid, unsigned int destRank);
+void hiveDbMoveRequestHandle(void * pack);
+
 #endif

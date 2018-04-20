@@ -61,17 +61,59 @@ else()
     endif()
 endif()
 
-#Get HWLOC Libs and includes
-find_library(HWLOC_LIB hwloc)
-find_path(HWLOC_INCLUDE hwloc.h)
+find_package(PkgConfig)
 
-if(HWLOC_LIB AND HWLOC_INCLUDE)
-    include_directories(${HWLOC_INCLUDE})
-    add_definitions(-DHWLOC)
-    message("Using Hwloc")
+#Get HWLOC Libs and includes
+
+##TODO: enable pkgconfig option
+if(HWLOC_ROOT)
+    #TODO: Find HWLOC version. Assuming version 2 and above used
+    if(PKG_CONFIG_FOUND)
+        set(ENV{PKG_CONFIG_PATH} "${HWLOC_ROOT}/lib/pkgconfig")
+    endif()
+    message("Assuming HWLOC Version 2")
+    set(HWLOC_V2 ON)
+    message("HWLOC PATH:${HWLOC_ROOT}")
+    find_path(Hwloc_INCLUDE_DIRS
+      NAMES hwloc.h
+      PATHS ${HWLOC_ROOT}
+      PATH_SUFFIXES
+    )
+    message("HWLOC INC PATH:${Hwloc_INCLUDE_DIRS}")
+    if(Hwloc_INCLUDE_DIRS)
+        set(HWLOC_INCLUDE ${Hwloc_INCLUDE_DIRS})
+    endif()
+
+    find_library(Hwloc_LIBRARIES
+      NAMES hwloc
+      PATHS ${HWLOC_ROOT}/lib ${HWLOC_ROOT}/lib64
+      #PATHS_SUFFIXES debug
+    )
+    message("HWLOC LIBRARY PATH:${Hwloc_LIBRARIES}")
+    if(Hwloc_LIBRARIES)
+        set(HWLOC_LIB ${Hwloc_LIBRARIES})
+    endif()
+
+    if(Hwloc_INCLUDE_DIRS AND Hwloc_LIBRARIES)
+        include_directories(${Hwloc_INCLUDE_DIRS})
+        add_definitions(-DHWLOC)
+        message("Using Hwloc!")
+    else()
+        message("Hwloc not found!")
+    endif()
+
 else()
-    message("Hwloc not found.")
-    set(HWLOC_LIB "")
+    find_library(HWLOC_LIB hwloc)
+    find_path(HWLOC_INCLUDE hwloc.h)
+
+    if(HWLOC_LIB AND HWLOC_INCLUDE)
+        include_directories(${HWLOC_INCLUDE})
+        add_definitions(-DHWLOC)
+        message("Using Hwloc")
+    else()
+        message("Hwloc not found.")
+        set(HWLOC_LIB "")
+    endif()
 endif()
 
 #<-------------------------------------------

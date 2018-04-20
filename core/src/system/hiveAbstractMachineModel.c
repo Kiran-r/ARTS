@@ -57,7 +57,7 @@ void addAThread( struct unitMask * mask, bool workOn, bool networkOutOn, bool ne
     next->groupPos = groupPos;
     next->pin = pin;
     next->next = NULL;
-    next->id = mask->coreId; 
+    next->id = mask->coreId;
 }
 
 #ifdef HWLOC
@@ -74,7 +74,9 @@ hwloc_topology_t getTopology()
 {
     hwloc_topology_t topology;
     hwloc_topology_init(&topology);
+#ifndef HWLOC_V2
     hwloc_topology_set_flags(topology, HWLOC_TOPOLOGY_FLAG_IO_BRIDGES);
+#endif
     hwloc_topology_load(topology);
     return topology;
 }

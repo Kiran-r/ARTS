@@ -9,3 +9,7 @@ set(system_src
 )
 
 add_library(system OBJECT ${system_src} )
+if(HWLOC)
+set(LIBS hive ${Hwloc_LIBRARIES})
+target_link_libraries(system ${LIBS})
+endif()

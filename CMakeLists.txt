@@ -72,12 +72,14 @@ if(HWLOC_ROOT)
         set(ENV{PKG_CONFIG_PATH} "${HWLOC_ROOT}/lib/pkgconfig")
     endif()
     message("Assuming HWLOC Version 2")
-    set(HWLOC_V2 ON)
+    add_definitions(-DHWLOC_V2)
+
     message("HWLOC PATH:${HWLOC_ROOT}")
+
     find_path(Hwloc_INCLUDE_DIRS
       NAMES hwloc.h
-      PATHS ${HWLOC_ROOT}
-      PATH_SUFFIXES
+      PATHS ${HWLOC_ROOT}/include
+      #PATH_SUFFIXES
     )
     message("HWLOC INC PATH:${Hwloc_INCLUDE_DIRS}")
     if(Hwloc_INCLUDE_DIRS)

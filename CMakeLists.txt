@@ -1,6 +1,18 @@
 cmake_minimum_required(VERSION 2.6)
 project (hive)
 
+#CMake Configuration 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
+
+include(glibc)
+CHECK_GLIBC_VERSION()
+if(GLIBC_VERSION)
+    message("GLIBC Version Available: ${GLIBC_VERSION}")
+    if((${GLIBC_VERSION} VERSION_EQUAL 2.19) OR (${GLIBC_VERSION} VERSION_GREATER 2.19))
+        add_definitions(-DGLIBC_NEW)
+    endif()
+endif()
+
 ## Compiler flags
 if(CMAKE_COMPILER_IS_GNUCC OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 

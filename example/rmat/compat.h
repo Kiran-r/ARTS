@@ -8,7 +8,11 @@
 #define _THREAD_SAFE
 #define _XOPEN_SOURCE 600
 #define _XOPEN_SOURCE_EXTENDED
+#ifdef GLIBC_NEW
+#define _DEFAULT_SOURCE 1
+#else
 #define _SVID_SOURCE 1
+#endif
 
 #if __STDC_VERSION__ >= 199901L
 #include <inttypes.h>

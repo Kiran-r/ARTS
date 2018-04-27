@@ -8,10 +8,10 @@
 #include "hiveGraph.h"
 #include "hiveTerminationDetection.h"
 
+#include<iostream>
 #include<set>
-#include<vector>
 #include <algorithm>
-#include <iterator>
+
 
 hive_block_dist_t distribution;
 csr_graph graph;
@@ -24,6 +24,11 @@ typedef struct {
   unsigned int numNeighbors;
   vertex neighbors[];
 } sourceInfo;
+
+typedef struct {
+  vertex source;
+  u64 scanStat;
+} perVertexScanStat;
 
 int compare(const void * a, const void * b)
 {
@@ -38,6 +43,18 @@ hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
 
 hiveGuid_t maxReducer(u32 paramc, u64 * paramv,
 				     u32 depc, hiveEdtDep_t depv[]) {
+  u32 maxScanStat = 0;
+  vertex maxVertex = 0;
+  for (u32 v = 0; v < depc; v++) {
+    perVertexScanStat * vertexScanStat = (perVertexScanStat *) depv[v].ptr;
+    std::cout << "Vertex: " << vertexScanStat->source << " scan_stat: " << vertexScanStat->scanStat << std::endl;
+    if (vertexScanStat->scanStat > maxScanStat) {
+      maxScanStat = vertexScanStat->scanStat;
+      maxVertex = vertexScanStat->source;
+    }
+  }
+  std::cout << "Max vertex: " << maxVertex << "scanStat: " << maxScanStat << std::endl;
+
 }
 
 hiveGuid_t aggregateNeighbors(u32 paramc, u64 * paramv,
@@ -61,7 +78,13 @@ hiveGuid_t aggregateNeighbors(u32 paramc, u64 * paramv,
     grandUnion.insert(neighbors[i]);
   }
 
-
+  unsigned int dbSize =  sizeof(perVertexScanStat);
+  void * ptr = NULL;
+  hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, false);
+  perVertexScanStat * vertexScanStat = (perVertexScanStat *) ptr;  
+  vertexScanStat->source = source;
+  vertexScanStat->scanStat = grandUnion.size();
+  hiveSignalEdt(maxReducerGuid, dbGuid, source, DB_MODE_LOCAL);
 }
 
 hiveGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
@@ -74,14 +97,9 @@ hiveGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
     vertex* oneHopNeighbors = NULL;
     u64 neighbor_cnt = 0;
     getNeighbors(&graph, current_neighbor, &oneHopNeighbors, &neighbor_cnt);
-    // std::vector<vertex> oneHopNeighborsV;
     for (unsigned int j = 0; j < neighbor_cnt; j++) {
       localUnion.insert(oneHopNeighbors[j]);
-      //oneHopNeighborsV.push_back(oneHopNeighbors[j]);
     }
-    // std::sort(oneHopNeighborsV.begin(), oneHopNeighborsV.end());
-    
-    // qsort(&oneHopNeighbors, neighbor_cnt, sizeof(vertex), compare);
   }
 
   /*Not sure about data serialization.*/
@@ -145,29 +163,10 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
       hiveGuid_t visitOneHopNeighborGuid = hiveEdtCreate(visitOneHopNeighborOnRank, i, 0, NULL, 1);
       hiveSignalEdt(visitOneHopNeighborGuid, dbGuid, 0, DB_MODE_ONCE);
    }
-
-   
-    // TODO: pass around the visitOneHopNeighborGuid also vvv?
-    /* hiveSignalEdt(visitOneHopNeighborGuid, dbGuid, neighbor_cnt, DB_MODE_ONCE_LOCAL); */
-    /* for (unsigned int i = 0; i < neighbor_cnt; i++) { */
-    /*   vertex neib = neighbors[i]; */
-    /*   node_t rank = getOwner(neib, &distribution); */
-    /*   hiveGuid_t getOneHopNeighborCountGuid = hiveEdtCreate(getOneHopNeighborCount, rank, 0, NULL, 1); */
-    /*   void * positionPtr = NULL; */
-    /*   hiveGuid_t positionGuid = hiveDbCreate(&positionPtr, dbSize, false); */
-    /*   u64 *pos = positionPtr; */
-    /*   pos = &i;  */
-    /*   hiveSignalEdt(getOneHopNeighborCountGuid, positionPtr, 0, DB_MODE_ONCE_LOCAL;) */
-    /* } */
   }
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv) {
-
-  // This is the dbGuid we will need to aquire to do gets and puts to the score property arrayDb
-  // vertexPropertyMapGuid = hiveReserveGuidRoute(HIVE_DB, 0);
-  // vertexIDMapGuid = hiveReserveGuidRoute(HIVE_DB, 0);
-
   // distribution must be initialized in initPerNode
   initBlockDistributionWithCmdLineArgs(&distribution,
 				       argc, argv);
@@ -177,7 +176,6 @@ void initPerNode(unsigned int nodeId, int argc, char** argv) {
 			    argc,
 			    argv);
   maxReducerGuid = hiveEdtCreate(maxReducer, 0, 0, NULL, distribution.num_vertices);
-
 }
 
 /*TODO: How to start parallel vertex scan stat calculation? How to do an efficient max reduction?*/

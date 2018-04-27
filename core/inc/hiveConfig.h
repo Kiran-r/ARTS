@@ -1,5 +1,8 @@
 #ifndef HIVECONFIG_H
 #define HIVECONFIG_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "hive.h"
 #include "hiveRemoteLauncher.h"
@@ -66,5 +69,8 @@ struct hiveConfig
 struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location );
 void hiveConfigDestroy( void * config );
 unsigned int hiveConfigGetNumberOfThreads(char * location);
+#ifdef __cplusplus
+}
+#endif
 
 #endif

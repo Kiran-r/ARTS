@@ -1,5 +1,8 @@
 #ifndef HIVEGUIDCHUNKRESERVE_H
 #define HIVEGUIDCHUNKRESERVE_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define NODE_CHUNK_LIMIT 1048576
 #define THREAD_CHUNK_LIMIT 256
@@ -33,5 +36,8 @@ struct hiveGuidReserveThreadTable
     struct hiveGuidReserveThreadTable * next;
 }
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -1,5 +1,9 @@
 #ifndef HIVEGLOBALS_H
 #define HIVEGLOBALS_H
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "hive.h"
 #include "hiveArrayList.h"
 #include "hiveCounter.h"
@@ -88,5 +92,8 @@ extern u64 hiveGuidMax;
 
 #define MASTER_PRINTF(...) if (hiveGlobalRankId==hiveGlobalMasterRankId) PRINTF(__VA_ARGS__)
 #define ONCE_PRINTF(...) if(hiveGlobalIWillPrint == true) PRINTF(__VA_ARGS__)
+#ifdef __cplusplus
+}
+#endif
 
 #endif

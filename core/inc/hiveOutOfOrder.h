@@ -1,6 +1,8 @@
 #ifndef HIVEOUTOFORDER_H
 #include "hiveOutOfOrderList.h"
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 void hiveOutOfOrderSignalEdt ( hiveGuid_t waitOn, hiveGuid_t edtPacket, hiveGuid_t dataGuid, u32 slot, hiveDbAccessMode_t mode);
 void hiveOutOfOrderEventSatisfy( hiveGuid_t waitOn, hiveGuid_t eventGuid, hiveGuid_t dataGuid );
 void hiveOutOfOrderEventSatisfySlot( hiveGuid_t waitOn, hiveGuid_t eventGuid, hiveGuid_t dataGuid, u32 slot );
@@ -20,5 +22,8 @@ void hiveOutOfOrderSendEpoch(hiveGuid_t epochGuid, unsigned int source, unsigned
 void hiveOutOfOrderIncQueueEpoch(hiveGuid_t epochGuid);
 
 void hiveOutOfOrderHandler( void * handleMe, void * memoryPtr );
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -1,5 +1,8 @@
 #ifndef HAGGLE_CSR_H
 #define HAGGLE_CSR_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "graph_defs.h"
 #include "block_distribution.h"
@@ -41,4 +44,8 @@ void getNeighbors(csr_graph* _csr,
                   vertex v,
                   vertex** _out,
                   graph_sz_t* _neighborcount);
+#ifdef __cplusplus
+}
+#endif
+
 #endif

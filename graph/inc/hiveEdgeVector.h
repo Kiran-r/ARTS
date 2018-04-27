@@ -1,5 +1,8 @@
 #ifndef HIVE_EDGE_VECTOR_H
 #define HIVE_EDGE_VECTOR_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "graph_defs.h"
 
 #define EDGE_VEC_SZ 10000
@@ -18,4 +21,8 @@ void freeEdgeVector(hiveEdgeVector *v);
 void sortBySource(hiveEdgeVector *v);
 void sortBySourceAndTarget(hiveEdgeVector *v);
 void printEdgeVector(const hiveEdgeVector *v);
+#ifdef __cplusplus
+}
+#endif
+
 #endif

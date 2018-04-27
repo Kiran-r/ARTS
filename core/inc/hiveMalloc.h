@@ -1,5 +1,8 @@
 #ifndef HIVEMALLOC_H
 #define HIVEMALLOC_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "stddef.h"
 
@@ -10,5 +13,8 @@ void *hiveCallocAlign(size_t size, size_t allign);
 void * hiveRealloc(void *ptr, size_t size);
 void hiveFree(void *ptr);
 void hiveFreeAlign(void *ptr);
+#ifdef __cplusplus
+}
+#endif
 
 #endif

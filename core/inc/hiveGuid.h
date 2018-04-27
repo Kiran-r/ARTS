@@ -1,5 +1,8 @@
 #ifndef HIVEGUID_H
 #define HIVEGUID_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "hive.h"
 #include <stdint.h>
 
@@ -38,4 +41,8 @@ void hiveGuidKeyGeneratorInit();
 hiveGuid_t hiveGuidCreateForRankInternal( unsigned int route, unsigned int type, unsigned int guidCount);
 hiveGuid_t hiveReserveGuidRoute(unsigned int type, unsigned int route);
 bool hiveIsGuidLocal(hiveGuid_t guid);
+#ifdef __cplusplus
+}
+#endif
+
 #endif

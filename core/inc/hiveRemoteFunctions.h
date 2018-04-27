@@ -1,7 +1,9 @@
 #ifndef HIVEEMOTEFUNCTIONS_H
 #define HIVEEMOTEFUNCTIONS_H
 #include "hiveRemoteProtocol.h"
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 void hiveRemoteHandleDbLockedRequestReply( void * ptr);
 void hiveRemoteHandleRequestLockedData( void * ptr);
 void hiveRemoteRequestLockedData( hiveGuid_t dbGuid, unsigned int rank, unsigned int requestingRank );
@@ -86,5 +88,8 @@ void hiveRemoteEpochReq(unsigned int rank, hiveGuid_t guid);
 void hiveRemoteHandleEpochReq(void * pack);
 void hiveRemoteEpochSend(unsigned int rank, hiveGuid_t guid, unsigned int active, unsigned int finish);
 void hiveRemoteHandleEpochSend(void * pack);
+#ifdef __cplusplus
+}
+#endif
 
 #endif

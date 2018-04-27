@@ -1,6 +1,8 @@
 #ifndef HIVEARRAYDB_H
 #define HIVEARRAYDB_H
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "hive.h"
 
 typedef struct  hiveArrayDb
@@ -22,6 +24,8 @@ void hivePutInArrayDb(void * ptr, hiveGuid_t edtGuid, unsigned int slot, hiveArr
 void hiveForEachInArrayDb(hiveArrayDb_t * array, hiveEdt_t funcPtr, u32 paramc, u64 * paramv);
 hiveGuid_t hiveGatherArrayDb(hiveArrayDb_t * array, hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u64 depc);
 void hiveForEachInArrayDbAtData(hiveArrayDb_t * array, unsigned int stride, hiveEdt_t funcPtr, u32 paramc, u64 * paramv);
-
+#ifdef __cplusplus
+}
+#endif
 #endif /* HIVEARRAYDB_H */
 

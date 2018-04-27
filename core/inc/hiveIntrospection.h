@@ -1,6 +1,8 @@
 #ifndef HIVEINTROSPECTION_H
 #define HIVEINTROSPECTION_H
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "hive.h"
 #include "hiveConfig.h"
 #include "hiveArrayList.h"
@@ -301,6 +303,9 @@ u64 hiveGetInspectorTime(void);
 #define hiveIntervalPacketStats(totalBytes, totalPackets, minPacket, maxPacket)
 #define hiveSetThreadPerformanceMetric(type, value)
 
+#endif
+#ifdef __cplusplus
+}
 #endif
 
 #endif /* hiveINTROSPECTION_H */

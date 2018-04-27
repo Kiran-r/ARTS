@@ -1,6 +1,8 @@
 #ifndef HIVEREMOTE_H
 #define HIVEREMOTE_H
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "hive.h"
 #include "hiveConfig.h"
 
@@ -27,4 +29,8 @@ void hiveServerPingPongTestRecieve(char * inBuffer, int inPacketSize);
 void hiveRemotSetThreadInboundQueues(unsigned int start, unsigned int stop);
 void hiveRemoteCleanup();
 void hiveRemoteShutdownPing( unsigned int route);
+#ifdef __cplusplus
+}
+#endif
+
 #endif

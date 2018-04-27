@@ -1,6 +1,8 @@
 #ifndef HIVEOUTOFORDERLIST_H
 #define HIVEOUTOFORDERLIST_H
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "hive.h"
 #define OOPERELEMENT 4
 
@@ -23,5 +25,8 @@ bool hiveOutOfOrderListAddItem(struct hiveOutOfOrderList * addToMe, void * item)
 void hiveOutOfOrderListFireCallback(struct hiveOutOfOrderList* fireMe, void * localGuidAddress,  void (* callback)(void *, void *));
 void hiveOutOfOrderListReset(struct hiveOutOfOrderList* fireMe);
 void hiveOutOfOrderListDelete(struct hiveOutOfOrderList* fireMe);
+#ifdef __cplusplus
+}
+#endif
 
 #endif

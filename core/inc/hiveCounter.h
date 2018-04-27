@@ -1,5 +1,8 @@
 #ifndef HIVECOUNTER_H
 #define	HIVECOUNTER_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifdef JUSTCOUNT
 #define COUNTERTIMESTAMP 0
@@ -283,6 +286,9 @@
     uint64_t hiveCounterGetEndTime(hiveCounter * counter);   
     void hiveCounterAddTime(hiveCounter * counter, uint64_t time);
     void hiveWriteCountersToFile(unsigned int threadId, unsigned int nodeId);
+#ifdef __cplusplus
+}
+#endif
 
 #endif	/* HIVECOUNTER_H */
 

@@ -96,6 +96,7 @@ void hiveThreadZeroNodeStart()
 
     if(initPerNode)
     {
+      printf("Here!!");
         globalGuidOn = 1;
         initPerNode(hiveGlobalRankId, mainArgc, mainArgv);
         if(!hiveGlobalRankId)

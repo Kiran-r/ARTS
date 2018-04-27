@@ -1,5 +1,8 @@
 #ifndef HIVEABSTRACTMACHINEMODEL_H
 #define	HIVEABSTRACTMACHINEMODEL_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "hiveMalloc.h"
 #include "hiveConfig.h"
@@ -67,6 +70,9 @@
 struct threadMask * getThreadMask(struct hiveConfig * config);
 void printMask(struct threadMask * units, unsigned int numberOfUnits);
 void hiveAbstractMachineModelPinThread(struct hiveCoreInfo * coreInfo);
+#ifdef __cplusplus
+}
+#endif
 
 #endif	/* hiveABSTRACTMACHINEMODEL_H */
 

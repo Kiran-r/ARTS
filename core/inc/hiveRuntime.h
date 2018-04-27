@@ -1,6 +1,8 @@
 #ifndef HIVERUNTIME_H
 #define HIVERUNTIME_H
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "hiveAbstractMachineModel.h"
 
 #define NODEDEQUESIZE 8
@@ -42,4 +44,8 @@ bool hiveDbLock (hiveGuid_t dbGuid, void * edtPacket, unsigned int rank, bool sh
 bool hiveNetworkFirstSchedulerLoop();
 bool hiveNetworkBeforeStealSchedulerLoop();
 bool hiveDefaultSchedulerLoop();
+#ifdef __cplusplus
+}
+#endif
+
 #endif

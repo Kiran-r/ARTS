@@ -109,7 +109,7 @@ hiveGuid_t aggregateNeighbors(u32 paramc, u64 * paramv,
     std::cout  << *i << " " ;
   }
   std::cout << std::endl;
-  hiveSignalEdt(maxReducerGuid, dbGuid, source, DB_MODE_ONCE_LOCAL);
+  hiveSignalEdt(maxReducerGuid, dbGuid, source, DB_MODE_PIN);
 }
 
 hiveGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
@@ -150,7 +150,7 @@ hiveGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
   srcAndLocalUnionInfo->numNeighbors = localUnion.size();
   std::copy(localUnion.begin(), localUnion.end(), srcAndLocalUnionInfo->neighbors);
   hiveSignalEdt(srcInfo->aggregateNeighborGuid, dbGuid, 
-                hiveGetCurrentNode(), DB_MODE_ONCE_LOCAL);
+                hiveGetCurrentNode(), DB_MODE_PIN);
 }
 
 hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) { 
@@ -159,6 +159,7 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
   vertex source = (vertex) paramv[0];
   getNeighbors(&graph, source, &neighbors, &neighbor_cnt);
   if (neighbor_cnt) {
+    //  following code written in the pre-cpp  version, so  did not use vectors.
     // qsort(&neighbors, neighbor_cnt, sizeof(graph_sz_t), compare);
     int * numNeighborPerRank = (int *) calloc (hiveGetTotalNodes(), sizeof(int));
 
@@ -200,7 +201,7 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
       /*create the edt to find # one-hop neighbors*/
       /*Can we use the same guid again and agin?*/
       hiveGuid_t visitOneHopNeighborGuid = hiveEdtCreate(visitOneHopNeighborOnRank, i, 0, NULL, 1);
-      hiveSignalEdt(visitOneHopNeighborGuid, dbGuid, 0, DB_MODE_ONCE_LOCAL);
+      hiveSignalEdt(visitOneHopNeighborGuid, dbGuid, 0, DB_MODE_PIN);
    }
   }
 }

@@ -46,6 +46,7 @@ hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
 
 hiveGuid_t maxReducer(u32 paramc, u64 * paramv,
 				     u32 depc, hiveEdtDep_t depv[]) {
+  std::cout << "In max reducer" << std::endl;
   u32 maxScanStat = 0;
   vertex maxVertex = 0;
   for (u32 v = 0; v < depc; v++) {
@@ -56,8 +57,8 @@ hiveGuid_t maxReducer(u32 paramc, u64 * paramv,
       maxVertex = vertexScanStat->source;
     }
   }
-  std::cout << "Max vertex: " << maxVertex << "scanStat: " << maxScanStat << std::endl;
-
+  std::cout << "Max vertex: " << maxVertex << " scanStat: " << maxScanStat << std::endl;
+  hiveShutdown();
 }
 
 hiveGuid_t aggregateNeighbors(u32 paramc, u64 * paramv,
@@ -120,7 +121,7 @@ hiveGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
   std::vector<vertex> localUnion;
   for (unsigned int i = 0; i <srcInfo->numNeighbors; i++) {
     vertex current_neighbor = (vertex) srcInfo->neighbors[i];
-    std::cout << "current_neighbor: " << current_neighbor << std::endl;
+    std::cout << "Current_neighbor: " << current_neighbor << " of  source "  <<  srcInfo->source <<  std::endl;
     vertex* oneHopNeighbors = NULL;
     u64 neighbor_cnt = 0;
     getNeighbors(&graph, current_neighbor, &oneHopNeighbors, &neighbor_cnt);
@@ -163,6 +164,7 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
     // qsort(&neighbors, neighbor_cnt, sizeof(graph_sz_t), compare);
     int * numNeighborPerRank = (int *) calloc (hiveGetTotalNodes(), sizeof(int));
 
+    std::cout << "Source " << source << " have  " << neighbor_cnt << " neighbors" << std::endl;
     /*Count how many neighbours per rank*/
     for (unsigned int i = 0; i < neighbor_cnt; i++) {
       unsigned int neighborRank = getOwner(neighbors[i], &distribution);
@@ -203,6 +205,24 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
       hiveGuid_t visitOneHopNeighborGuid = hiveEdtCreate(visitOneHopNeighborOnRank, i, 0, NULL, 1);
       hiveSignalEdt(visitOneHopNeighborGuid, dbGuid, 0, DB_MODE_PIN);
    }
+  } else {
+    /*signal maxreducer*/
+    /*Grand union only contains source*/
+    unsigned int dbSize =  sizeof(perVertexScanStat);
+    void * ptr = NULL;
+    hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, false);
+    perVertexScanStat * vertexScanStat = (perVertexScanStat *) ptr;  
+    vertexScanStat->source = source;
+    vertexScanStat->scanStat = 1;
+    std::vector<vertex> grandUnion;
+    /*insert itself*/
+    grandUnion.push_back(source);    
+    std::cout << "Aggregate size for source: " << source << " is " << grandUnion.size() << std::endl;
+    for (std::vector<vertex>::iterator i = grandUnion.begin(); i < grandUnion.end(); i++) {
+      std::cout  << *i << " " ;
+    }
+    std::cout << std::endl;
+    hiveSignalEdt(maxReducerGuid, dbGuid, source, DB_MODE_PIN);
   }
 }
 
@@ -226,8 +246,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId,
 		   int argc, char** argv) {
   printf("Node %u argc %u\n", nodeId, argc);
   if (!nodeId && !workerId) {
-    hiveGuid_t exitGuid = hiveEdtCreate(exitProgram, 0, 0, NULL, 1);    
-    hiveInitializeAndStartEpoch(exitGuid, 0);
+    // hiveGuid_t exitGuid = hiveEdtCreate(exitProgram, 0, 0, NULL, 1);    
+    // hiveInitializeAndStartEpoch(exitGuid, 0);
     for (uint64_t i = 0; i < distribution.num_vertices; ++i) {
       uint64_t source = i;  
       node_t rank = getOwner(source, &distribution);

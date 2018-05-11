@@ -64,13 +64,16 @@ hiveGuid_t maxReducer(u32 paramc, u64 * paramv,
 hiveGuid_t findIntersection(u32 paramc, u64 * paramv,
 				     u32 depc, hiveEdtDep_t depv[]) {
   u64 sum = 0;
+  perVertexScanStat * localIntersection = (perVertexScanStat *) depv[0].ptr;
+  vertex source = (vertex) localIntersection->source;
+
   for (u64 rank = 0; rank < depc; rank++) {
+
     perVertexScanStat * localIntersection = (perVertexScanStat *) depv[rank].ptr;
+    std::cout << "Source: " << source << " Rank: " << rank << "Scanstat: " << localIntersection->scanStat << std::endl;
     sum +=  localIntersection->scanStat;
   }
 
-  perVertexScanStat * localIntersection = (perVertexScanStat *) depv[0].ptr;
-  vertex source = (vertex) localIntersection->source;
   vertex* neighbors = NULL;
   u64 neighbor_cnt = 0;    
   getNeighbors(&graph, source, &neighbors, &neighbor_cnt);
@@ -83,12 +86,8 @@ hiveGuid_t findIntersection(u32 paramc, u64 * paramv,
   perVertexScanStat * vertexScanStat = (perVertexScanStat *) ptr;  
   vertexScanStat->source = source;
   vertexScanStat->scanStat = sum;
-  // std::cout << "Aggregate size for source: " << source << " is " << sum << std::endl;
-  // for (std::vector<vertex>::iterator i = grandUnion.begin(); i < grandUnion.end(); i++) {
-  //   std::cout  << *i << " " ;
-  // }
-  std::cout << std::endl;
-  hiveSignalEdt(maxReducerGuid, dbGuid, source, DB_MODE_ONCE_LOCAL);
+  std::cout << "Source " << source << " ScanStat: " << sum << std::endl;
+  hiveSignalEdt(maxReducerGuid, dbGuid, source, DB_MODE_NON_COHERENT_READ);
 }
 
 hiveGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
@@ -96,12 +95,11 @@ hiveGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
   sourceInfo * srcInfo = (sourceInfo *) depv[0].ptr;
   vertex* oneHopNeighbor;
   vertex* immediateNeighbors = srcInfo->neighbors;
-  // std::set<vertex> localIntersection;
   std::vector<vertex> localIntersection;
   for (unsigned int i = 0; i < srcInfo->numNeighbors; i++) {
     vertex current_neighbor = (vertex) srcInfo->neighbors[i];
     if (getOwner(current_neighbor, &distribution) == hiveGetCurrentNode()) {
-      std::cout << "Current_neighbor: " << current_neighbor << " of  source "  <<  srcInfo->source <<  std::endl;
+      std::cout << "Source " << srcInfo->source << " Current_neighbor: " << current_neighbor << std::endl;
       vertex* oneHopNeighbors = NULL;
       u64 neighbor_cnt = 0;
       getNeighbors(&graph, current_neighbor, &oneHopNeighbors, &neighbor_cnt);
@@ -121,13 +119,15 @@ hiveGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
   perVertexScanStat * vertexScanStat = (perVertexScanStat *) ptr;  
   vertexScanStat->source = srcInfo->source;
   vertexScanStat->scanStat = localIntersection.size();
-  hiveSignalEdt(srcInfo->findIntersectionGuid, dbGuid, hiveGetCurrentNode(), DB_MODE_ONCE_LOCAL);
+  std::cout << "Source: " << srcInfo->source << " rank: "  << hiveGetCurrentNode() << " set intersection size: " << localIntersection.size() <<std::endl;
+  hiveSignalEdt(srcInfo->findIntersectionGuid, dbGuid, hiveGetCurrentNode(), DB_MODE_NON_COHERENT_READ);
 }
 
 hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) { 
   vertex* neighbors = NULL;
   u64 neighbor_cnt = 0;    
   vertex source = (vertex) paramv[0];
+  std::cout << "Visiting source: " << source <<std::endl;
   getNeighbors(&graph, source, &neighbors, &neighbor_cnt);
   if (neighbor_cnt) {
     /*Now spawn an edt that will wait to get oneHopneighbors from all the ranks in slots and calculate the grand count */
@@ -140,11 +140,11 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
       sourceInfo * srcInfo = (sourceInfo *) ptr;
       srcInfo->findIntersectionGuid = findIntersectionGuid;
       srcInfo->source = source;
-      srcInfo->numNeighbors = neighbor_cnt;//numNeighborPerRank[i];
+      srcInfo->numNeighbors = neighbor_cnt;
       memcpy(&(srcInfo->neighbors), neighbors, sizeof(vertex) * neighbor_cnt);
       /*create the edt to find # one-hop neighbors*/
       hiveGuid_t visitOneHopNeighborGuid = hiveEdtCreate(visitOneHopNeighborOnRank, i, 0, NULL, 1);
-      hiveSignalEdt(visitOneHopNeighborGuid, dbGuid, 0, DB_MODE_ONCE_LOCAL);
+      hiveSignalEdt(visitOneHopNeighborGuid, dbGuid, 0, DB_MODE_NON_COHERENT_READ);
    }
   } else {
     /*signal maxreducer*/
@@ -154,7 +154,8 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
     perVertexScanStat * vertexScanStat = (perVertexScanStat *) ptr;  
     vertexScanStat->source = source;
     vertexScanStat->scanStat = 1;
-    hiveSignalEdt(maxReducerGuid, dbGuid, source, DB_MODE_ONCE_LOCAL);
+    std::cout << "signaling maxruducer for source " << source << std::endl;
+    hiveSignalEdt(maxReducerGuid, dbGuid, source, DB_MODE_NON_COHERENT_READ);
   }
 }
 
@@ -169,7 +170,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv) {
   			    &distribution,
   			    argc,
   			    argv);
-  
+  maxReducerGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
 }
 
 /*TODO: How to start parallel vertex scan stat calculation? How to do an efficient max reduction?*/
@@ -178,7 +179,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId,
 		   int argc, char** argv) {
   printf("Node %u argc %u\n", nodeId, argc);
   if (!nodeId && !workerId) {
-    maxReducerGuid = hiveEdtCreate(maxReducer, 0, 0, NULL, distribution.num_vertices);
+    /*This edt will calculate which vertex has the maximally induced subgraph.*/
+    hiveEdtCreateWithGuid(maxReducer, maxReducerGuid, 0, NULL, distribution.num_vertices);
     // hiveGuid_t exitGuid = hiveEdtCreate(exitProgram, 0, 0, NULL, 1);    
     // hiveInitializeAndStartEpoch(exitGuid, 0);
     for (uint64_t i = 0; i < distribution.num_vertices; ++i) {
@@ -186,7 +188,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId,
       node_t rank = getOwner(source, &distribution);
       u64 packed_values[1] = {source};
       hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 1, (u64*) &packed_values, 1);
-      hiveSignalEdt(visitSourceGuid, 0, 0, DB_MODE_SINGLE_VALUE);
+      hiveSignalEdt(visitSourceGuid, 0, 0, DB_MODE_PIN);
     }
     // hiveShutdown();
   }

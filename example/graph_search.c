@@ -15,6 +15,9 @@ char* _id_file = NULL;
 hiveGuid_t vertexPropertyMapGuid = NULL_GUID;
 hiveGuid_t vertexIDMapGuid = NULL_GUID;
 
+u64 startTime;
+u64 endTime;
+
 /*Default values as in python code*/
 int num_seeds = 25;
 int num_steps = 1500;
@@ -42,7 +45,9 @@ typedef struct {
 hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]);
 
 hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
-    hiveShutdown();
+  endTime = hiveGetTimeStamp();
+  printf("Total execution time: %f s \n", (double)(endTime - startTime)/1000000000.0);
+  hiveShutdown();
 }
 
 hiveGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
@@ -149,11 +154,12 @@ hiveGuid_t endVertexIDMapRead(u32 paramc, u64 * paramv,
   else
     {
       for (int i = 0; i < num_seeds; i++) {
-	seeds[i] = rand() % 100;//distribution.num_vertices;
+	seeds[i] = rand() % distribution.num_vertices;
 	PRINTF("Seed chosen %d,\n", seeds[i]);
       }
     }
-    
+
+  startTime = hiveGetTimeStamp();
   /*Start walk from each seed in parallel*/
   for (int i = 0; i < num_seeds; i++) {
     vertex source = seeds[i];

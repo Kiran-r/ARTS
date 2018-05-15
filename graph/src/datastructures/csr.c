@@ -259,7 +259,7 @@ int loadGraphNoWeight(const char* _file,
         i = 0;
       }
       
-      printf("src=%llu, target=%llu\n", src, target);
+      // printf("src=%llu, target=%llu\n", src, target);
       token = strtok(NULL, " ");
     }
 

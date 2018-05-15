@@ -295,13 +295,13 @@ void acquireDbs(struct hiveEdt * edt)
                             {
                                 if(validRank == hiveGlobalRankId) //Owner rank and we have the valid copy
                                 {
-                                    PRINTF("$$$$$$$$$$$$ %lu Locally resolved\n", depv[i].guid);
+				  // PRINTF("$$$$$$$$$$$$ %lu Locally resolved\n", depv[i].guid);
                                     dbFound = dbTemp;
                                     hiveAtomicSub(&edt->depcNeeded, 1U);
                                 }
                                 else //Owner rank but someone else has valid copy
                                 {
-                                    PRINTF("@@@@@@@@@@@@@ %lu Foward to current owner\n", depv[i].guid);
+                                  //  PRINTF("@@@@@@@@@@@@@ %lu Foward to current owner\n", depv[i].guid);
                                     if(depv[i].mode == DB_MODE_NON_COHERENT_READ)
                                         hiveRemoteDbRequest(depv[i].guid, validRank, edt, i, depv[i].mode, true);
                                     else
@@ -321,7 +321,7 @@ void acquireDbs(struct hiveEdt * edt)
                     }
                     else
                     {
-                        PRINTF(">>>>>>>>>>>>>>>>> %lu\n", depv[i].guid);
+		      // PRINTF(">>>>>>>>>>>>>>>>> %lu\n", depv[i].guid);
                         int validRank = -1;
                         struct hiveDb * dbTemp = hiveRouteTableLookupDb(depv[i].guid, &validRank);
                         if(dbTemp) //We have found an entry
@@ -334,13 +334,13 @@ void acquireDbs(struct hiveEdt * edt)
                         if(depv[i].mode == DB_MODE_CDAG_WRITE)
                         {
                             //We can't aggregate read requests for cdag write
-                            PRINTF("============ %lu requesting a copy in write mode\n", depv[i].guid);
+                          //  PRINTF("============ %lu requesting a copy in write mode\n", depv[i].guid);
                             hiveRemoteDbFullRequest(depv[i].guid, owner, edt, i, depv[i].mode);
                         }
                         else if(!dbTemp)
                         {
                             //We can aggregate read requests for reads
-                            PRINTF("++++++++++++ %lu requesting a copy in read mode\n", depv[i].guid);
+                          //  PRINTF("++++++++++++ %lu requesting a copy in read mode\n", depv[i].guid);
                             hiveRemoteDbRequest(depv[i].guid, owner, edt, i, depv[i].mode, true);
                         }
                     }

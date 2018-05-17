@@ -189,9 +189,9 @@ void broadcastEpochRequest(hiveGuid_t epochGuid)
 
 hiveGuid_t hiveInitializeAndStartEpoch(hiveGuid_t finishEdtGuid, unsigned int slot)
 {
-//    hiveGuid_t guid = NULL_GUID;
-//    hiveEpoch_t * epoch = createEpoch(&guid, finishEdtGuid, slot);
-    hiveEpoch_t * epoch = getPoolEpoch(finishEdtGuid, slot);
+    hiveGuid_t guid = NULL_GUID;
+    hiveEpoch_t * epoch = createEpoch(&guid, finishEdtGuid, slot);
+//    hiveEpoch_t * epoch = getPoolEpoch(finishEdtGuid, slot);
     
     if(hiveSetCurrentEpochGuid(epoch->guid))
     {
@@ -199,11 +199,11 @@ hiveGuid_t hiveInitializeAndStartEpoch(hiveGuid_t finishEdtGuid, unsigned int sl
         hiveAtomicAddU64(&epoch->queued, 1);
     }
 
-//    for(unsigned int i=0; i<hiveGlobalRankCount; i++)
-//    {
-//        if(i != hiveGlobalRankId)
-//            hiveRemoteEpochInitSend(i, guid, finishEdtGuid, slot);
-//    }
+    for(unsigned int i=0; i<hiveGlobalRankCount; i++)
+    {
+        if(i != hiveGlobalRankId)
+            hiveRemoteEpochInitSend(i, guid, finishEdtGuid, slot);
+    }
 
     PRINTF("%u : %lu --------> %lu %p\n", epoch->activeCount, epoch->queued, epoch->guid, epoch);
     return epoch->guid;

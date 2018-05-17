@@ -42,8 +42,8 @@ hiveGuid_t epochEnd(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
     elementsPerBlock = atoi(argv[1]);
-    blocks = atoi(argv[2]);
-    numAdd = atoi(argv[3]);
+    blocks = hiveGetTotalNodes();
+    numAdd = atoi(argv[2]);
     
     if(!nodeId)
         PRINTF("ElementsPerBlock: %u Blocks: %u\n", elementsPerBlock, blocks);

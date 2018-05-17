@@ -1,6 +1,8 @@
 #ifndef HIVE_BLOCK_DISTRIBUTION_H
 #define HIVE_BLOCK_DISTRIBUTION_H
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "graph_defs.h"
 
 struct hiveBlockDistribution {
@@ -39,6 +41,9 @@ hiveGuid_t* getGuidForVertex(vertex v,
 
 hiveGuid_t* getGuidForCurrentNode(const 
                                   hive_block_dist_t* const _dist);
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

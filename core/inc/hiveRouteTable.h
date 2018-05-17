@@ -1,6 +1,8 @@
 #ifndef HIVEROUTETABLE_H
 #define HIVEROUTETABLE_H
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "hive.h"
 #include "hiveOutOfOrderList.h"
 
@@ -63,5 +65,8 @@ int hiveRouteTableSetRank(hiveGuid_t key, int rank);
 void ** hiveRouteTableGetOOList(hiveGuid_t key, struct hiveOutOfOrderList ** list);
 void hiveRouteTableDecItem(hiveGuid_t key, void * data);
 void ** hiveRouteTableReserve(hiveGuid_t key, bool * dec, itemState * state);
+#ifdef __cplusplus
+}
+#endif
 
 #endif

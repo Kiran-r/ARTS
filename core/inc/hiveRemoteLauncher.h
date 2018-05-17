@@ -1,5 +1,8 @@
 #ifndef HIVEREMOTELAUNCHER_H
 #define HIVEREMOTELAUNCHER_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "hiveConfig.h"      //For struct hiveConfig
 #include "hiveMalloc.h"       //For hiveMalloc/hiveFree
 
@@ -32,5 +35,8 @@ static inline struct hiveRemoteLauncher * hiveRemoteLauncherCreate( unsigned int
 
     return launcher;
 }
+#ifdef __cplusplus
+}
+#endif
 
 #endif

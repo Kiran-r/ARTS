@@ -1,5 +1,8 @@
 #ifndef HIVEATOMICS_H
 #define HIVEATOMICS_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "hive.h"
 #define HW_MEMORY_FENCE() __sync_synchronize() 
@@ -26,4 +29,8 @@ volatile u64 hiveAtomicFetchAndU64(volatile u64 * destination, u64 addVal);
 volatile u64 hiveAtomicFetchOrU64(volatile u64 * destination, u64 addVal);
 volatile unsigned int hiveAtomicFetchOr(volatile unsigned int * destination, unsigned int addVal);
 volatile unsigned int hiveAtomicFetchAnd(volatile unsigned int * destination, unsigned int addVal);
+#ifdef __cplusplus
+}
+#endif
+
 #endif

@@ -1,6 +1,8 @@
 #ifndef HIVEDBFUNCTIONS_H
 #define	HIVEDBFUNCTIONS_H
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 hiveGuid_t hiveDbCreateRemote(unsigned int route, u64 size, bool pin);
 hiveGuid_t hiveDbCreate(void **addr, u64 size, bool pin);
 void * hiveDbCreateWithGuid(hiveGuid_t guid, u64 size, bool pin);
@@ -25,5 +27,8 @@ void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned
 void hivePutInDbAt(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank);
 void hiveGetFromDbAt(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank);
 void hiveDbMove(hiveGuid_t dbGuid, unsigned int rank);
+#ifdef __cplusplus
+}
+#endif
 #endif	/* hiveDBFUNCTIONS_H */
 

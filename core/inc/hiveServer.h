@@ -1,6 +1,8 @@
 #ifndef HIVESERVER_H
 #define HIVESERVER_H
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "hiveConfig.h"
 #include "hiveRemoteProtocol.h"
 
@@ -11,6 +13,9 @@ bool hiveLLServerSyncEndSend( char * message, unsigned int length );
 bool hiveLLServerSyncEndRecv();
 bool hiveServerEnd();
 void hiveLLServerShutdown();
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

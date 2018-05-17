@@ -22,5 +22,10 @@ target_link_libraries(bfs hive-graph ${LIBS})
 add_executable(graph_search graph_search.c)
 target_link_libraries(graph_search hive-graph ${LIBS})
 
+#SET(CMAKE_C_COMPILER ${CMAKE_CXX_COMPILER})
+
+add_executable(scan_statistics scan_statistics.cpp)
+target_link_libraries(scan_statistics hive-graph ${LIBS})
+
 add_subdirectory(csr)
 add_subdirectory(rmat)

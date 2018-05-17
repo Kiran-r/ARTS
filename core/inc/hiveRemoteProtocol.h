@@ -1,6 +1,8 @@
 #ifndef HIVEREMOTEPROTOCOL_H
 #define HIVEREMOTEPROTOCOL_H
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 //#define SEQUENCENUMBERS 1
 
 //TODO: Switch to an enum
@@ -308,4 +310,8 @@ void hiveRemoteSendRequestPayloadAsync( int rank, char * message, unsigned int l
 void hiveRemoteSendRequestPayloadAsyncFree( int rank, char * message, unsigned int length, char * payload, unsigned int offset, unsigned int size, hiveGuid_t guid, void(*freeMethod)(void*));
 void hiveRemoteSendRequestPayloadAsyncCopy( int rank, char * message, unsigned int length, char * payload, unsigned int size );
 void hiveRemotSetThreadOutboundQueues(unsigned int start, unsigned int stop);
+#ifdef __cplusplus
+}
+#endif
+
 #endif

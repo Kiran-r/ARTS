@@ -1,6 +1,8 @@
 #ifndef HIVEEXTENSIONS_H
 #define HIVEEXTENSIONS_H
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 hiveGuid_t hiveGetCurrentGuid();
 unsigned int hiveGetCurrentNode();
 unsigned int hiveGetTotalNodes();
@@ -15,6 +17,8 @@ unsigned int hiveGetTotalWorkers();
 #define GETGUIDARRAYOFFSET(name, offset) __namedArrayGuid[name][offset]
 #define GETGUIDARRAY(name) __namedArrayGuid[name]
 #define SETGUIDARRAY(name, guidPtr) __namedArrayGuid[name] = guidPtr
-
+#ifdef __cplusplus
+}
+#endif
 #endif
 

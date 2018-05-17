@@ -1,6 +1,8 @@
 #ifndef HIVEARRAYDB_H
 #define HIVEARRAYDB_H
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "hive.h"
 
 typedef struct  hiveArrayDb
@@ -27,5 +29,8 @@ void internalAtomicAddInArrayDb(hiveGuid_t dbGuid, unsigned int index, unsigned 
 void hiveAtomicCompareAndSwapInArrayDb(hiveArrayDb_t * array, unsigned int index, unsigned int oldValue, unsigned int newValue, hiveGuid_t edtGuid, unsigned int slot);
 void internalAtomicCompareAndSwapInArrayDb(hiveGuid_t dbGuid, unsigned int index, unsigned int oldValue, unsigned int newValue, hiveGuid_t edtGuid, unsigned int slot, hiveGuid_t epochGuid);
 void hiveForEachInArrayDbAtData(hiveArrayDb_t * array, unsigned int stride, hiveEdt_t funcPtr, u32 paramc, u64 * paramv);
+#ifdef __cplusplus
+}
+#endif
 #endif /* HIVEARRAYDB_H */
 

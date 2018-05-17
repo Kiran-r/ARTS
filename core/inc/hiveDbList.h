@@ -1,5 +1,8 @@
 #ifndef HIVEDBLIST_H
 #define HIVEDBLIST_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define DBSPERELEMENT 8
 
@@ -69,6 +72,9 @@ void hiveProgressFrontier(struct hiveDb * db, unsigned int rank);
 struct hiveDbFrontierIterator * hiveProgressAndGetFrontier(struct hiveDbList * dbList);
 bool hivePushDbToList(struct hiveDbList * dbList, unsigned int data, bool write, bool exclusive, bool local, bool bypass, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode);
 struct hiveDbFrontierIterator * hiveCloseFrontier(struct hiveDbList * dbList);
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* HIVEDBLIST_H */
 

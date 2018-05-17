@@ -1,5 +1,8 @@
 #ifndef HIVEEDTFUNCTIONS_H
 #define HIVEEDTFUNCTIONS_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <stdarg.h>
 #define INITIAL_DEPENDENT_SIZE 4
 
@@ -35,6 +38,9 @@ hiveGuid_t * hiveCheckEpochIsRoot(hiveGuid_t toCheck);
 hiveGuid_t hiveActiveMessageWithDb(hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, hiveGuid_t dbGuid);
 hiveGuid_t hiveActiveMessageWithDbAt(hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, hiveGuid_t dbGuid, unsigned int rank);
 hiveGuid_t hiveActiveMessageWithBuffer(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u32 depc, void * ptr, unsigned int size);
+#ifdef __cplusplus
+}
+#endif
 
 hiveGuid_t hiveEdtCreateDep(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u32 depc, bool hasDepv);
 hiveGuid_t hiveEdtCreateWithGuidDep(hiveEdt_t funcPtr, hiveGuid_t guid, u32 paramc, u64 * paramv, u32 depc, bool hasDepv);

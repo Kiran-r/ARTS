@@ -1,5 +1,8 @@
 #ifndef HIVEGUID_H
 #define HIVEGUID_H
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "hive.h"
 #include <stdint.h>
 
@@ -51,5 +54,9 @@ hiveGuid_t hiveGetGuid(hiveGuidRange * range, unsigned int index);
 hiveGuid_t hiveGuidRangeNext(hiveGuidRange * range);
 bool hiveGuidRangeHasNext(hiveGuidRange * range);
 void hiveGuidRangeResetIter(hiveGuidRange * range);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

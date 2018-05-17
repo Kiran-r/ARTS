@@ -1,5 +1,8 @@
 #ifndef HIVE_GRAPH_DEFS
 #define HIVE_GRAPH_DEFS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "hiveRT.h"
 #include "hiveGlobals.h"
@@ -15,5 +18,8 @@ typedef struct {
   vertex target;
   edge_data_t data;
 } edge;
+#ifdef __cplusplus
+}
+#endif
 
 #endif

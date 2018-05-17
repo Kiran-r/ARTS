@@ -1,7 +1,9 @@
 #ifndef HIVEEMOTEFUNCTIONS_H
 #define HIVEEMOTEFUNCTIONS_H
 #include "hiveRemoteProtocol.h"
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 void hiveRemoteHandleDbLockedRequestReply( void * ptr);
 void hiveRemoteHandleRequestLockedData( void * ptr);
 void hiveRemoteRequestLockedData( hiveGuid_t dbGuid, unsigned int rank, unsigned int requestingRank );
@@ -99,5 +101,9 @@ void hiveDbMoveRequest(hiveGuid_t dbGuid, unsigned int destRank);
 void hiveDbMoveRequestHandle(void * pack);
 
 void hiveRemoteHandleBufferSend(void * pack);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

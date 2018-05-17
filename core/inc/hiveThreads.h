@@ -3,10 +3,8 @@
 
 #include "hiveConfig.h"
 
-void
-hiveThreadInit( struct hiveConfig * config  );
-void
-hiveThreadMainJoin();
+void hiveThreadInit(struct hiveConfig * config);
+void hiveThreadMainJoin();
 void hiveThreadSetOsThreadCount(unsigned int threads);
 
 #endif

@@ -224,3 +224,83 @@ hiveGuid_t * hiveReserveGuidsRoundRobin(unsigned int size, unsigned int type)
     }
     return guids;
 }
+
+hiveGuidRange * hiveNewGuidRangeNode(unsigned int type, unsigned int size, unsigned int route)
+{
+    hiveGuidRange * range = NULL;
+    if(size)
+    {
+        range = hiveCalloc(sizeof(hiveGuidRange));
+        range->size = size;
+        range->startGuid = hiveGuidCreateForRankInternal(route, type, size);        
+//        if(hiveIsGuidLocalExt(range->startGuid))
+//        {
+//            hiveGuid temp = (hiveGuid) range->startGuid;
+//            for(unsigned int i=0; i<size; i++)
+//            {
+//                hiveRouteTableAddItem(NULL, temp.bits, route);
+//                temp.fields.key++;
+//            }
+//        }
+    }
+    return range;
+}
+
+hiveGuid_t hiveGetGuid(hiveGuidRange * range, unsigned int index)
+{
+    if(!range || index >= range->size)
+    {
+        return NULL_GUID;
+    }
+    hiveGuid ret = (hiveGuid)range->startGuid;
+    ret.fields.key+=index;
+    return ret.bits;
+}
+
+hiveGuid_t hiveGuidRangeNext(hiveGuidRange * range)
+{
+    hiveGuid_t ret = NULL_GUID;
+    if(range)
+    {
+        if(range->index < range->size)
+            ret = hiveGetGuid(range, range->index);
+    }
+    return ret;
+}
+
+bool hiveGuidRangeHasNext(hiveGuidRange * range)
+{
+    if(range)
+        return (range->size < range->index);
+    return false; 
+}
+
+void hiveGuidRangeResetIter(hiveGuidRange * range)
+{
+    if(range)
+        range->index = 0;
+}
+
+bool hiveIsInGuidRange(hiveGuidRange * range, hiveGuid_t guid)
+{
+    hiveGuid startGuid = (hiveGuid) range->startGuid;
+    hiveGuid toCheck = (hiveGuid) guid;
+    
+    if(startGuid.fields.isLocal != toCheck.fields.isLocal)
+        return false;
+    
+    if(startGuid.fields.rank != toCheck.fields.rank)
+        return false;
+    
+    if(startGuid.fields.type != toCheck.fields.type)
+        return false;
+    
+    if(startGuid.fields.thread != toCheck.fields.thread)
+        return false;
+    
+    if(startGuid.fields.key <= toCheck.fields.key && toCheck.fields.key < startGuid.fields.key + range->index)
+        return true;
+    
+    return false;
+}
+

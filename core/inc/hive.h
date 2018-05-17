@@ -23,6 +23,7 @@ void PRINTF( const char* format, ... );
 #define HIVE_EVENT 1
 #define HIVE_DB 2
 #define HIVE_CALLBACK 3
+#define HIVE_BUFFER 3
 
 typedef uint64_t u64; /**< 64-bit unsigned integer */
 typedef uint32_t u32; /**< 32-bit unsigned integer */

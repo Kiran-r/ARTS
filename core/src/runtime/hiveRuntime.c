@@ -8,7 +8,6 @@
 #include "hiveGlobals.h"
 #include "hiveRemote.h"
 #include "hiveOutOfOrder.h"
-#include "hiveDbLockList.h"
 #include "hiveRuntime.h"
 #include <inttypes.h>
 #include "hiveCounter.h"
@@ -25,6 +24,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "hiveTimer.h"
+#include "hiveArrayList.h"
 
 //#define SIM_INTEL
 
@@ -277,8 +277,7 @@ static inline void hiveRunEdt(void *edtPacket)
     HIVECOUNTERTIMERENDINCREMENT(edtCounter);
     hiveUpdatePerformanceMetric(hiveEdtThroughput, hiveThread, 1, false);
     
-    incrementFinishedEpoch(edt->epochGuid);
-    hiveThreadInfo.currentEdtGuid = NULL_GUID;
+    hiveUnsetThreadLocalEdtInfo();
 
     if(edt->outputEvent != NULL_GUID)
         hiveEventSatisfySlot(edt->outputEvent, result, HIVE_EVENT_LATCH_DECR_SLOT);
@@ -314,15 +313,18 @@ inline unsigned int hiveRuntimeStealAnyMultipleEdt( unsigned int amount, void **
 
 inline struct hiveEdt * hiveRuntimeStealFromNetwork()
 {
-    unsigned int index = hiveThreadInfo.threadId;
     struct hiveEdt *edt = NULL;
-    for (unsigned int i=0; i<hiveNodeInfo.receiverThreadCount; i++)
+    if(hiveGlobalRankCount > 1)
     {
-        index = (index + 1) % hiveNodeInfo.receiverThreadCount;
-        if( edt = hiveDequePopBack(hiveNodeInfo.receiverNodeDeque[index]))
-            break;
-        if(edt = hiveDequePopBack(hiveNodeInfo.receiverDeque[index]))
-            break;
+        unsigned int index = hiveThreadInfo.threadId;
+        for (unsigned int i=0; i<hiveNodeInfo.receiverThreadCount; i++)
+        {
+            index = (index + 1) % hiveNodeInfo.receiverThreadCount;
+            if( edt = hiveDequePopBack(hiveNodeInfo.receiverNodeDeque[index]))
+                break;
+            if(edt = hiveDequePopBack(hiveNodeInfo.receiverDeque[index]))
+                break;
+        }
     }
     return edt;
 }
@@ -330,16 +332,19 @@ inline struct hiveEdt * hiveRuntimeStealFromNetwork()
 inline struct hiveEdt * hiveRuntimeStealFromWorker()
 {
     struct hiveEdt *edt = NULL;
-    long unsigned int stealLoc;
-    do
+    if(hiveNodeInfo.totalThreadCount > 1)
     {
-        stealLoc = jrand48(hiveThreadInfo.drand_buf);
-        stealLoc = stealLoc % hiveNodeInfo.totalThreadCount;
-    } while(stealLoc == hiveThreadInfo.threadId);
+        long unsigned int stealLoc;
+        do
+        {
+            stealLoc = jrand48(hiveThreadInfo.drand_buf);
+            stealLoc = stealLoc % hiveNodeInfo.totalThreadCount;
+        } while(stealLoc == hiveThreadInfo.threadId);
 
-    if((edt = hiveDequePopBack(hiveNodeInfo.nodeDeque[stealLoc])) == NULL)
-    {
-        edt = hiveDequePopBack(hiveNodeInfo.deque[stealLoc]);
+        if((edt = hiveDequePopBack(hiveNodeInfo.nodeDeque[stealLoc])) == NULL)
+        {
+            edt = hiveDequePopBack(hiveNodeInfo.deque[stealLoc]);
+        }
     }
     return edt;
 }

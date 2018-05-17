@@ -38,4 +38,18 @@ void hiveGuidKeyGeneratorInit();
 hiveGuid_t hiveGuidCreateForRankInternal( unsigned int route, unsigned int type, unsigned int guidCount);
 hiveGuid_t hiveReserveGuidRoute(unsigned int type, unsigned int route);
 bool hiveIsGuidLocal(hiveGuid_t guid);
+
+typedef struct
+{
+    unsigned int size;
+    unsigned int index;
+    hiveGuid_t startGuid;
+} hiveGuidRange;
+
+hiveGuidRange * hiveNewGuidRangeNode(unsigned int type, unsigned int size, unsigned int route);
+hiveGuid_t hiveGetGuid(hiveGuidRange * range, unsigned int index);
+hiveGuid_t hiveGuidRangeNext(hiveGuidRange * range);
+bool hiveGuidRangeHasNext(hiveGuidRange * range);
+void hiveGuidRangeResetIter(hiveGuidRange * range);
+
 #endif

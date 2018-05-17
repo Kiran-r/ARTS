@@ -50,10 +50,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     if(!nodeId && !workerId)
     {
         hiveGuid_t endEpochGuid = hiveEdtCreate(epochEnd, 0, 0, NULL, 1);
-        hiveGuid_t startEpochGuid = hiveEdtCreate(epochStart, 0, 0, NULL, 1);
-        
-        hiveInitializeEpoch(startEpochGuid, endEpochGuid, 0);
-        hiveSignalEdt(startEpochGuid, NULL_GUID, 0, DB_MODE_SINGLE_VALUE);
+        hiveInitializeAndStartEpoch(endEpochGuid, 0);
+        hiveGuid_t startEpochGuid = hiveEdtCreate(epochStart, 0, 0, NULL, 0);
     }
 }
 

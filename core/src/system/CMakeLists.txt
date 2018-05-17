@@ -1,3 +1,13 @@
+set(system_inc
+    ${CORE_INCLUDE_DIR}/hiveAbstractMachineModel.h
+    ${CORE_INCLUDE_DIR}/hiveAtomics.h
+    ${CORE_INCLUDE_DIR}/hiveMalloc.h
+    ${CORE_INCLUDE_DIR}/hiveDebug.h
+    ${CORE_INCLUDE_DIR}/hiveTimer.h
+    ${CORE_INCLUDE_DIR}/hiveThreads.h
+    ${CORE_INCLUDE_DIR}/shadAdapter.h
+)
+
 set(system_src
     hiveAbstractMachineModel.c
     hiveAtomics.c
@@ -6,6 +16,8 @@ set(system_src
     hivePrintf.c
     hiveTimer.c
     hivePthreadLayer.c
+    shadAdapter.c
 )
 
-add_library(system OBJECT ${system_src} )
+add_library(system OBJECT ${system_inc} ${system_src} )
+install(FILES ${system_inc} DESTINATION include)

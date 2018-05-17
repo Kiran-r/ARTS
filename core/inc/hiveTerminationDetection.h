@@ -26,6 +26,8 @@ typedef struct {
     unsigned int terminationExitSlot;
     hiveGuid_t terminationExitGuid;
     hiveGuid_t guid;
+    hiveGuid_t poolGuid;
+    volatile unsigned int * waitPtr;
 } hiveEpoch_t;
 
 void incrementQueueEpoch(hiveGuid_t epochGuid);
@@ -34,12 +36,24 @@ void incrementFinishedEpoch(hiveGuid_t epochGuid);
 void sendEpoch(hiveGuid_t epochGuid, unsigned int source, unsigned int dest);
 hiveEpoch_t * createEpoch(hiveGuid_t * guid, hiveGuid_t edtGuid, unsigned int slot);
 void hiveAddEdtToEpoch(hiveGuid_t edtGuid, hiveGuid_t epochGuid);
-hiveGuid_t hiveInitializeEpoch(hiveGuid_t startEdtGuid, hiveGuid_t finishEdtGuid, unsigned int slot);
 hiveGuid_t hiveInitializeAndStartEpoch(hiveGuid_t finishEdtGuid, unsigned int slot);
 void broadcastEpochRequest(hiveGuid_t epochGuid);
 bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int totalFinish);
 void reduceEpoch(hiveGuid_t epochGuid, unsigned int active, unsigned int finish);
+void deleteEpoch(hiveGuid_t epochGuid, hiveEpoch_t * epoch);
+bool hiveWaitOnHandle(hiveGuid_t epochGuid);
+void hiveYield();
 
+typedef struct hiveEpochPool {
+    struct hiveEpochPool * next;
+    unsigned int size;
+    unsigned int index;
+    volatile unsigned int outstanding;
+    hiveEpoch_t pool[];
+} hiveEpochPool_t;
+
+hiveEpochPool_t * createEpochPool(hiveGuid_t * epochPoolGuid, unsigned int poolSize, hiveGuid_t * startGuid);
+hiveEpoch_t * getPoolEpoch(hiveGuid_t edtGuid, unsigned int slot);
 #ifdef __cplusplus
 }
 #endif

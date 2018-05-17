@@ -149,7 +149,7 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
        packet->messageType!=HIVE_REMOTE_SHUTDOWN_MSG)
     {
         hiveUpdatePerformanceMetric(hiveNetworkRecieveBW, hiveThread, packet->size, false);
-        hiveUpdatePerformanceMetric(hiveReduceThroughput + packet->messageType, hiveThread, packet->size, false);
+        hiveUpdatePerformanceMetric(hiveFreeBW + packet->messageType, hiveThread, packet->size, false);
         hiveUpdatePacketInfo(packet->size);
     }
 #ifdef SEQUENCENUMBERS
@@ -386,6 +386,21 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
         case HIVE_EPOCH_SEND:
         {
             hiveRemoteHandleEpochSend(packet);
+            break;
+        }
+        case HIVE_EPOCH_INIT_POOL:
+        {
+            hiveRemoteHandleEpochInitPoolSend(packet);
+            break;
+        }
+        case HIVE_EPOCH_DELETE:
+        {
+            hiveRemoteHandleEpochDelete(packet);
+            break;
+        }
+        case HIVE_REMOTE_BUFFER_SEND:
+        {
+            hiveRemoteHandleBufferSend(packet);
             break;
         }
         case HIVE_REMOTE_DB_MOVE_REQ:

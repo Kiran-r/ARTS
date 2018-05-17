@@ -453,6 +453,7 @@ void internalGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot,
             memcpy(ptr, data, size);
             DPRINTF("GETTING: %u From: %p\n", *(unsigned int*)ptr, data);
             hiveSignalEdtPtr(edtGuid, dbGuid, ptr, size, slot);
+            hiveUpdatePerformanceMetric(hiveGetBW, hiveThread, size, false);
         }
         else
         {
@@ -496,6 +497,7 @@ void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned
             }
             DPRINTF("FINISHING PUT %lu\n", epochGuid);
             incrementFinishedEpoch(epochGuid);
+            hiveUpdatePerformanceMetric(hivePutBW, hiveThread, size, false);
         }
         else
         {

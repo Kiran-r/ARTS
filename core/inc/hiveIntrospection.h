@@ -15,20 +15,15 @@
 "hiveEdtThroughput", \
 "hiveEdtSignalThroughput", \
 "hiveEventSignalThroughput", \
+"hiveGetBW", \
+"hivePutBW", \
 "hiveNetworkSendBW", \
 "hiveNetworkRecieveBW", \
 "hiveNetworkQueuePush", \
 "hiveNetworkQueuePop", \
-"hiveRemoteEdtSteal", \
 "hiveMallocBW", \
 "hiveFreeBW", \
-"hiveIOBandwidth", \
-"hiveCompression", \
-"hiveIOKeyThroughput", \
-"hiveKeyThroughput", \
-"hiveLocalReduceThroughput", \
-"hiveShuffleThroughput", \
-"hiveReduceThroughput", \
+"hiveRemoteShutdownMsg", \
 "hiveRemoteEdtStealMsg", \
 "hiveRemoteEdtRecvMsg", \
 "hiveRemoteEdtFailMsg", \
@@ -36,43 +31,43 @@
 "hiveRemoteEventSatisfyMsg", \
 "hiveRemoteEventSatisfySlotMsg", \
 "hiveRemoteDbRequestMsg", \
-"hiveRemoteDbSendMsg", \
+"hiveRemoteDbsendMsg", \
 "hiveRemoteEdtMoveMsg", \
 "hiveRemoteGuidRouteMsg", \
-"hiveRemoteMemoryMoveMsg", \
+"hiveRemoteEventMoveMsg", \
 "hiveRemoteAddDependenceMsg", \
-"hiveRemoteAcdtCompositeNewMsg", \
 "hiveRemoteInvalidateDbMsg", \
 "hiveRemoteDbMoveMsg", \
 "hiveRemoteDbUpdateGuidMsg", \
-"hiveRemoteDbUpdateGuidPingMsg", \
-"hiveRemoteInvalidateDbPingMsg", \
-"hiveRemoteTemplateRequestMsg", \
-"hiveRemoteTemplateSendMsg", \
-"hiveRemoteMemoryMovePingMsg", \
-"hiveRemoteMemoryMoveAtomicPingMsg", \
 "hiveRemoteDbUpdateMsg", \
 "hiveRemoteDbDestroyMsg", \
 "hiveRemoteDbDestroyForwardMsg", \
 "hiveRemoteDbCleanForwardMsg", \
-"hiveRemoteTaskSignalMsg", \
-"hiveRemoteStreamSignalMsg", \
-"hiveRemoteStreamRegisterMsg", \
-"hiveRemoteStreamWriteMsg", \
-"hiveRemotePingpongTestMsg", \
+"hiveRemotePingPongTestMsg", \
 "hiveDbLockMsg", \
 "hiveDbUnlockMsg", \
 "hiveDbLockAllDbsMsg", \
-"hiveDbLockAllDbsIntelMsg", \
-"hiveDbLocalReduction", \
-"hiveShuffleDone", \
+"hiveRemoteMetricUpdateMsg", \
+"hiveActiveMessageMsg", \
+"hiveRemoteDbFullRequestMsg", \
+"hiveRemoteDbFullSendMsg", \
+"hiveRemoteDbFullSendAlreadyLocalMsg", \
+"hiveRemoteGetFromDbMsg", \
+"hiveRemotePutInDbMsg", \
+"hiveRemoteSignalEdtWithPtrMsg", \
+"hiveRemoteSendMsg", \
+"hiveEpochInitMsg", \
+"hiveEpochInitPoolMsg", \
+"hiveEpochReqMsg", \
+"hiveEpochSendMsg", \
+"hiveEpochDeleteMsg", \
+"hiveRemoteBufferSendMsg", \
+"hiveRemoteDbMoveReqMsg", \
 "hiveDefaultMemorySize", \
 "hiveEdtMemorySize", \
 "hiveEventMemorySize", \
 "hiveDbMemorySize", \
-"hiveMapperThreshold", \
-"hiveMapperBlockSize", \
-"hiveLocalReducerBlockSize", \
+"hiveBufferMemorySize", \
 "hiveDbCount" };
 
 typedef enum hiveMetricType 
@@ -81,20 +76,15 @@ typedef enum hiveMetricType
     hiveEdtThroughput,
     hiveEdtSignalThroughput,
     hiveEventSignalThroughput,
+    hiveGetBW,
+    hivePutBW,
     hiveNetworkSendBW,
     hiveNetworkRecieveBW,
     hiveNetworkQueuePush,
     hiveNetworkQueuePop,
-    hiveRemoteEdtSteal,
     hiveMallocBW,
     hiveFreeBW,
-    hiveIOBandwidth,
-    hiveCompression,
-    hiveIOKeyThroughput,
-    hiveKeyThroughput,
-    hiveLocalReduceThroughput,
-    hiveShuffleThroughput,
-    hiveReduceThroughput,
+    hiveRemoteShutdownMsg,
     hiveRemoteEdtStealMsg,
     hiveRemoteEdtRecvMsg,
     hiveRemoteEdtFailMsg,
@@ -102,43 +92,43 @@ typedef enum hiveMetricType
     hiveRemoteEventSatisfyMsg,
     hiveRemoteEventSatisfySlotMsg,
     hiveRemoteDbRequestMsg,
-    hiveRemoteDbSendMsg,
+    hiveRemoteDbsendMsg,
     hiveRemoteEdtMoveMsg,
     hiveRemoteGuidRouteMsg,
-    hiveRemoteMemoryMoveMsg,
+    hiveRemoteEventMoveMsg,
     hiveRemoteAddDependenceMsg,
-    hiveRemoteAcdtCompositeNewMsg,
     hiveRemoteInvalidateDbMsg,
     hiveRemoteDbMoveMsg,
     hiveRemoteDbUpdateGuidMsg,
-    hiveRemoteDbUpdateGuidPingMsg,
-    hiveRemoteInvalidateDbPingMsg,
-    hiveRemoteTemplateRequestMsg,
-    hiveRemoteTemplateSendMsg,
-    hiveRemoteMemoryMovePingMsg,
-    hiveRemoteMemoryMoveAtomicPingMsg,
     hiveRemoteDbUpdateMsg,
     hiveRemoteDbDestroyMsg,
     hiveRemoteDbDestroyForwardMsg,
     hiveRemoteDbCleanForwardMsg,
-    hiveRemoteTaskSignalMsg,
-    hiveRemoteStreamSignalMsg,
-    hiveRemoteStreamRegisterMsg,
-    hiveRemoteStreamWriteMsg,
-    hiveRemotePingpongTestMsg,
+    hiveRemotePingPongTestMsg,
     hiveDbLockMsg,
     hiveDbUnlockMsg,
     hiveDbLockAllDbsMsg,
-    hiveDbLockAllDbsIntelMsg,
-    hiveDbLocalReduction,
-    hiveShuffleDone,
+    hiveRemoteMetricUpdateMsg,
+    hiveActiveMessageMsg,
+    hiveRemoteDbFullRequestMsg,
+    hiveRemoteDbFullSendMsg,
+    hiveRemoteDbFullSendAlreadyLocalMsg,
+    hiveRemoteGetFromDbMsg,
+    hiveRemotePutInDbMsg,
+    hiveRemoteSignalEdtWithPtrMsg,
+    hiveRemoteSendMsg, 
+    hiveEpochInitMsg,
+    hiveEpochInitPoolMsg,
+    hiveEpochReqMsg, 
+    hiveEpochSendMsg,
+    hiveEpochDeleteMsg,
+    hiveRemoteBufferSendMsg,
+    hiveRemoteDbMoveReqMsg,
     hiveDefaultMemorySize,
     hiveEdtMemorySize,
     hiveEventMemorySize,
     hiveDbMemorySize,
-    hiveMapperThreshold,
-    hiveMapperBlockSize,
-    hiveLocalReducerBlockSize,
+    hiveBufferMemorySize,
     hiveDbCount,
     hiveLastMetricType
 } hiveMetricType;

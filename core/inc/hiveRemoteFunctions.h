@@ -86,9 +86,14 @@ void hiveRemoteEpochReq(unsigned int rank, hiveGuid_t guid);
 void hiveRemoteHandleEpochReq(void * pack);
 void hiveRemoteEpochSend(unsigned int rank, hiveGuid_t guid, unsigned int active, unsigned int finish);
 void hiveRemoteHandleEpochSend(void * pack);
-
+void hiveRemoteEpochInitPoolSend(unsigned int rank, unsigned int poolSize, hiveGuid_t startGuid, hiveGuid_t poolGuid);
+void hiveRemoteHandleEpochInitPoolSend(void * pack);
+void hiveRemoteEpochDelete(unsigned int rank, hiveGuid_t epochGuid);
+void hiveRemoteHandleEpochDelete(void * pack);
 
 void hiveDbMoveRequest(hiveGuid_t dbGuid, unsigned int destRank);
 void hiveDbMoveRequestHandle(void * pack);
+
+void hiveRemoteHandleBufferSend(void * pack);
 
 #endif

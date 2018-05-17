@@ -20,7 +20,7 @@ if(CMAKE_COMPILER_IS_GNUCC OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
         endif()
     else()
         message("Release Build")
-        set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O2 -g -ftree-vectorize -mtune=native")
+        set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O2 -g -ftree-vectorize -mtune=native -fPIC")
 
         if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
             set(CMAKE_C_FLAGS "-std=gnu99 -O2 -g -mtune=native")
@@ -108,10 +108,10 @@ endif()
 
 message("Using ${MALLOC} malloc.")
 
-include_directories(common/inc)
+set(CORE_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/core/inc)
+
 include_directories(core/inc)
 include_directories(graph/inc)
-add_subdirectory(common)
 add_subdirectory(core)
 add_subdirectory(graph)
 add_subdirectory(test)

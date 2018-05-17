@@ -1133,6 +1133,25 @@ void hiveRemoteHandleEpochInitSend(void * pack)
     createEpoch(&packet->epochGuid, packet->edtGuid, packet->slot);
 }
 
+void hiveRemoteEpochInitPoolSend(unsigned int rank, unsigned int poolSize, hiveGuid_t startGuid, hiveGuid_t poolGuid)
+{
+//    PRINTF("Net Epoch Init Pool Send: %u %lu %lu\n", rank, startGuid, poolGuid);
+    struct hiveRemoteEpochInitPoolPacket packet;
+    packet.poolSize = poolSize;
+    packet.startGuid = startGuid;
+    packet.poolGuid = poolGuid;
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_EPOCH_INIT_POOL);
+    hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
+}
+
+void hiveRemoteHandleEpochInitPoolSend(void * pack)
+{
+//    PRINTF("Net Epoch Init Pool Rec\n");
+    struct hiveRemoteEpochInitPoolPacket * packet = pack;
+//    PRINTF("Net Epoch Init Pool Rec %lu %lu\n", packet->startGuid, packet->poolGuid);
+    createEpochPool(&packet->poolGuid, packet->poolSize, &packet->startGuid);
+}
+
 void hiveRemoteEpochReq(unsigned int rank, hiveGuid_t guid)
 {
     DPRINTF("Net Epoch Req Send: %u\n", rank);
@@ -1168,6 +1187,20 @@ void hiveRemoteHandleEpochSend(void * pack)
     reduceEpoch(packet->epochGuid, packet->active, packet->finish);
 }
 
+void hiveRemoteEpochDelete(unsigned int rank, hiveGuid_t epochGuid)
+{
+    struct hiveRemoteEpochReqPacket packet;
+    packet.epochGuid = epochGuid;
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_EPOCH_DELETE);
+    hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
+}
+
+void hiveRemoteHandleEpochDelete(void * pack)
+{
+    struct hiveRemoteEpochReqPacket * packet = (struct hiveRemoteEpochReqPacket*) pack;
+    deleteEpoch(packet->epochGuid, NULL);
+}
+
 void hiveDbMoveRequest(hiveGuid_t dbGuid, unsigned int destRank)
 {
     struct hiveRemoteDbRequestPacket packet;
@@ -1183,4 +1216,13 @@ void hiveDbMoveRequestHandle(void * pack)
 {
     struct hiveRemoteDbRequestPacket * packet = pack;
     hiveDbMove(packet->dbGuid, packet->header.rank);
+}
+
+void hiveRemoteHandleBufferSend(void * pack)
+{
+    struct hiveRemoteMemoryMovePacket * packet = (struct hiveRemoteMemoryMovePacket *) pack;
+    unsigned int size = packet->header.size - sizeof(struct hiveRemoteMemoryMovePacket);
+    void * buffer = (void*)(packet+1);
+    PRINTF("Handle: %u -> %u\n", size, *(unsigned int*)buffer);
+    hiveSetBuffer(packet->guid, buffer, size);
 }

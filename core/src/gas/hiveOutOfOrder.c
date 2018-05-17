@@ -37,7 +37,8 @@ enum hiveOutOfOrderType
     ooEpochSend,
     ooEpochIncQueue,
     ooAtomicAddInArrayDb,
-    ooAtomicCompareAndSwapInArrayDb
+    ooAtomicCompareAndSwapInArrayDb,
+    ooDbMove
 };
 
 struct ooSignalEdt
@@ -233,7 +234,7 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
         case ooGetFromDb:
         {
             struct ooGetFromDb * req = handleMe;
-            hiveGetFromDb(req->edtGuid, req->dbGuid, req->slot, req->offset, req->size);
+            hiveGetFromDbAt(req->edtGuid, req->dbGuid, req->slot, req->offset, req->size, hiveGlobalRankId);
             break;
             
         }
@@ -246,7 +247,7 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
         case ooPutInDb:
         {
             struct ooPutInDb * req = handleMe;
-            internalPutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size, req->epochGuid);
+            internalPutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size, req->epochGuid, hiveGlobalRankId);
             hiveFree(req->ptr);
             break;
             
@@ -288,6 +289,12 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
         {
             struct ooAtomicCompareAndSwapInArrayDb * req = handleMe;
             internalAtomicCompareAndSwapInArrayDb(req->dbGuid, req->index, req->oldValue, req->newValue, req->edtGuid, req->slot, req->epochGuid);
+        }
+        case ooDbMove:
+        {
+            struct ooRemoteDbSend * req = handleMe;
+            hiveDbMove(req->dataGuid, req->rank);
+            break;
         }
         default:
             PRINTF("OO Handler Error\n");
@@ -463,7 +470,7 @@ void hiveOutOfOrderGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int
     bool res = hiveRouteTableAddOO(dbGuid, req);
     if(!res)
     {
-        hiveGetFromDb(req->edtGuid, req->dbGuid, req->slot, req->offset, req->size);
+        hiveGetFromDbAt(req->edtGuid, req->dbGuid, req->slot, req->offset, req->size, hiveGlobalRankId);
         hiveFree(req);
     }
 }
@@ -499,7 +506,7 @@ void hiveOutOfOrderPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, un
     bool res = hiveRouteTableAddOO(dbGuid, req);
     if(!res)
     {
-        internalPutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size, req->epochGuid);
+        internalPutInDb(req->ptr, req->edtGuid, req->dbGuid, req->slot, req->offset, req->size, req->epochGuid, hiveGlobalRankId);
         hiveFree(req->ptr);
         hiveFree(req);
     }
@@ -593,6 +600,20 @@ void hiveOutOfOrderAtomicCompareAndSwapInArrayDb(hiveGuid_t dbGuid,  unsigned in
     {
         PRINTF("edtGuid OO2: %lu\n", req->edtGuid);
         internalAtomicCompareAndSwapInArrayDb(req->dbGuid, req->index, req->oldValue, req->newValue, req->edtGuid, req->slot, req->epochGuid);
+        hiveFree(req);
+    }
+}
+
+void hiveOutOfOrderDbMove(hiveGuid_t dataGuid, unsigned int rank)
+{
+    struct ooRemoteDbSend * req = hiveMalloc(sizeof(struct ooRemoteDbSend));
+    req->type = ooDbMove;
+    req->dataGuid = dataGuid;
+    req->rank = rank;
+    bool res =  hiveRouteTableAddOO(dataGuid, req);
+    if(!res)
+    {
+        hiveDbMove(dataGuid, rank);
         hiveFree(req);
     }
 }

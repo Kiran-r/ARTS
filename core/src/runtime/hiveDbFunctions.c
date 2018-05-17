@@ -247,10 +247,33 @@ void acquireDbs(struct hiveEdt * edt)
             int owner = hiveGuidGetRank(depv[i].guid);
             switch(depv[i].mode)
             {
-                case DB_MODE_PIN:
-                    
-                    if(hiveIsGuidLocal(depv[i].guid))
+                //This case assumes that the guid exists only on the owner
+                case DB_MODE_ONCE:
+                {
+                    if(owner != hiveGlobalRankId)
                     {
+                        hiveOutOfOrderHandleDbRequest(depv[i].guid, edt, i);
+                        hiveDbMove(depv[i].guid, hiveGlobalRankId);
+                        break;
+                    }
+                    //else fall through to the local case :-p
+                }
+                case DB_MODE_ONCE_LOCAL:
+                {
+                    struct hiveDb * dbTemp = hiveRouteTableLookupItem(depv[i].guid);
+                    if(dbTemp)
+                    {
+                        dbFound = dbTemp;
+                        hiveAtomicSub(&edt->depcNeeded, 1U);
+                    }
+                    else
+                        hiveOutOfOrderHandleDbRequest(depv[i].guid, edt, i);
+                    break;
+                }
+                case DB_MODE_PIN:
+                {
+//                    if(hiveIsGuidLocal(depv[i].guid))
+//                    {
                         int validRank = -1;
                         struct hiveDb * dbTemp = hiveRouteTableLookupDb(depv[i].guid, &validRank);
                         if(dbTemp)
@@ -262,15 +285,15 @@ void acquireDbs(struct hiveEdt * edt)
                         {
                             hiveOutOfOrderHandleDbRequest(depv[i].guid, edt, i);
                         }
-                    }
-                    else
-                    {
-                        PRINTF("Cannot acquire DB %lu because it is pinned on %u\n", depv[i].guid, hiveGuidGetRank(depv[i].guid));
-                        depv[i].ptr = NULL;
-                        hiveAtomicSub(&edt->depcNeeded, 1U);
-                    }
+//                    }
+//                    else
+//                    {
+//                        PRINTF("Cannot acquire DB %lu because it is pinned on %u\n", depv[i].guid, hiveGuidGetRank(depv[i].guid));
+//                        depv[i].ptr = NULL;
+//                        hiveAtomicSub(&edt->depcNeeded, 1U);
+//                    }
                     break;
-                    
+                }
                 case DB_MODE_NON_COHERENT_READ:
                 case DB_MODE_CDAG_WRITE:
                     if(owner == hiveGlobalRankId) //Owner Rank
@@ -283,23 +306,21 @@ void acquireDbs(struct hiveEdt * edt)
                             {
                                 if(validRank == hiveGlobalRankId) //Owner rank and we have the valid copy
                                 {
-                                    DPRINTF("%lu Locally resolved\n", depv[i].guid);
                                     dbFound = dbTemp;
                                     hiveAtomicSub(&edt->depcNeeded, 1U);
                                 }
                                 else //Owner rank but someone else has valid copy
                                 {
-                                    DPRINTF("%lu Foward to current owner\n", depv[i].guid);
                                     if(depv[i].mode == DB_MODE_NON_COHERENT_READ)
                                         hiveRemoteDbRequest(depv[i].guid, validRank, edt, i, depv[i].mode, true);
                                     else
                                         hiveRemoteDbFullRequest(depv[i].guid, validRank, edt, i, depv[i].mode);
                                 }
                             }
-                            else  //We can't read right now due to an exclusive access or cdag write in progress
-                            {
-                                DPRINTF("%lu Queue in frontier\n", depv[i].guid);
-                            }
+//                            else  //We can't read right now due to an exclusive access or cdag write in progress
+//                            {
+//                                PRINTF("############### %lu Queue in frontier\n", depv[i].guid);
+//                            }
                         }
                         else //The Db hasn't been created yet
                         {
@@ -313,7 +334,6 @@ void acquireDbs(struct hiveEdt * edt)
                         struct hiveDb * dbTemp = hiveRouteTableLookupDb(depv[i].guid, &validRank);
                         if(dbTemp) //We have found an entry
                         {
-                            DPRINTF("%lu found a valid local copy\n", depv[i].guid);
                             dbFound = dbTemp;
                             hiveAtomicSub(&edt->depcNeeded, 1U);
                         }
@@ -321,13 +341,11 @@ void acquireDbs(struct hiveEdt * edt)
                         if(depv[i].mode == DB_MODE_CDAG_WRITE)
                         {
                             //We can't aggregate read requests for cdag write
-                            DPRINTF("%lu requesting a copy in write mode\n", depv[i].guid);
                             hiveRemoteDbFullRequest(depv[i].guid, owner, edt, i, depv[i].mode);
                         }
                         else if(!dbTemp)
                         {
                             //We can aggregate read requests for reads
-                            DPRINTF("%lu requesting a copy in read mode\n", depv[i].guid);
                             hiveRemoteDbRequest(depv[i].guid, owner, edt, i, depv[i].mode, true);
                         }
                     }
@@ -369,6 +387,7 @@ void releaseDbs(unsigned int depc, hiveEdtDep_t * depv)
 {
     for(int i=0; i<depc; i++)
     {
+//        PRINTF(">>>>>>>>>>>>>>>>>>>>>>> %lu\n", depv[i].guid);
         if(   depv[i].guid != NULL_GUID &&
             ( depv[i].mode == DB_MODE_CDAG_WRITE ||
               depv[i].mode == DB_MODE_EXCLUSIVE_WRITE ))
@@ -378,13 +397,16 @@ void releaseDbs(unsigned int depc, hiveEdtDep_t * depv)
             {
                 struct hiveDb * db = ((struct hiveDb *)depv[i].ptr - 1);
                 hiveProgressFrontier(db, hiveGlobalRankId);
-
             }
             else
             {
                 hiveRemoteUpdateDb(depv[i].guid, false);
             }
 //            hiveRouteTableReturnDb(depv[i].guid, false);
+        }
+        else if(depv[i].mode == DB_MODE_ONCE_LOCAL || depv[i].mode == DB_MODE_ONCE)
+        {
+            hiveRouteTableInvalidateItem(depv[i].guid);
         }
         else if(depv[i].mode == DB_MODE_PTR)
         {
@@ -419,9 +441,9 @@ bool hiveAddDbDuplicate(struct hiveDb * db, unsigned int rank, struct hiveEdt * 
     return hivePushDbToList(db->dbList, rank, write, exclusive, hiveGuidGetRank(db->guid) == rank, false, edt, slot, mode);
 }
 
-void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+void internalGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank)
 {
-    if(hiveIsGuidLocal(dbGuid))
+    if(rank==hiveGlobalRankId)
     {
         struct hiveDb * db = hiveRouteTableLookupItem(dbGuid);
         if(db)
@@ -429,7 +451,9 @@ void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, uns
             void * data = (void*)(((char*) (db+1)) + offset);
             void * ptr = hiveMalloc(size);
             memcpy(ptr, data, size);
+            DPRINTF("GETTING: %u From: %p\n", *(unsigned int*)ptr, data);
             hiveSignalEdtPtr(edtGuid, dbGuid, ptr, size, slot);
+            hiveUpdatePerformanceMetric(hiveGetBW, hiveThread, size, false);
         }
         else
         {
@@ -438,13 +462,25 @@ void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, uns
     }
     else
     {
-        hiveRemoteGetFromDb(edtGuid, dbGuid, slot, offset, size);
+        DPRINTF("Sending to %u\n", rank);
+        hiveRemoteGetFromDb(edtGuid, dbGuid, slot, offset, size, rank);
     }
 }
 
-void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epochGuid)
+void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
 {
-    if(hiveIsGuidLocal(dbGuid))
+    unsigned int rank = hiveGuidGetRank(dbGuid);
+    internalGetFromDb(edtGuid, dbGuid, slot, offset, size, rank);
+}
+
+void hiveGetFromDbAt(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank)
+{
+    internalGetFromDb(edtGuid, dbGuid, slot, offset, size, rank);
+}
+
+void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epochGuid, unsigned int rank)
+{
+    if(rank==hiveGlobalRankId)
     {
         struct hiveDb * db = hiveRouteTableLookupItem(dbGuid);
         if(db)
@@ -454,13 +490,14 @@ void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned
             
             void * data = (void*)(((char*) (db+1)) + offset);
             memcpy(data, ptr, size);
-            
+            DPRINTF("PUTTING %u From: %p\n", *((unsigned int *)data), data);
             if(edtGuid)
             {
                 hiveSignalEdt(edtGuid, dbGuid, slot, DB_MODE_PIN);
             }
             DPRINTF("FINISHING PUT %lu\n", epochGuid);
             incrementFinishedEpoch(epochGuid);
+            hiveUpdatePerformanceMetric(hivePutBW, hiveThread, size, false);
         }
         else
         {
@@ -473,21 +510,48 @@ void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned
     {
         void * cpyPtr = hiveMalloc(size);
         memcpy(cpyPtr, ptr, size);
-        hiveRemotePutInDb(cpyPtr, edtGuid, dbGuid, slot, offset, size, epochGuid);
+        hiveRemotePutInDb(cpyPtr, edtGuid, dbGuid, slot, offset, size, epochGuid, rank);
     }
 }
 
-
-void hivePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+void hivePutInDbAt(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank)
 {
     hiveGuid_t epochGuid = hiveGetCurrentEpochGuid();
     DPRINTF("EPOCH %lu\n", epochGuid);
     incrementActiveEpoch(epochGuid);
-    internalPutInDb(ptr, edtGuid, dbGuid, slot, offset, size, epochGuid);
+    internalPutInDb(ptr, edtGuid, dbGuid, slot, offset, size, epochGuid, rank);
+}
+
+void hivePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+{
+    unsigned int rank = hiveGuidGetRank(dbGuid);
+    hiveGuid_t epochGuid = hiveGetCurrentEpochGuid();
+    DPRINTF("EPOCH %lu\n", epochGuid);
+    incrementActiveEpoch(epochGuid);
+    internalPutInDb(ptr, edtGuid, dbGuid, slot, offset, size, epochGuid, rank);
 }
 
 void hivePutInDbEpoch(void * ptr, hiveGuid_t epochGuid, hiveGuid_t dbGuid, unsigned int offset, unsigned int size)
 {
+    unsigned int rank = hiveGuidGetRank(dbGuid);
     incrementActiveEpoch(epochGuid);
-    internalPutInDb(ptr, NULL_GUID, dbGuid, 0, offset, size, epochGuid);
+    internalPutInDb(ptr, NULL_GUID, dbGuid, 0, offset, size, epochGuid, rank);
+}
+
+void hiveDbMove(hiveGuid_t dbGuid, unsigned int rank)
+{
+    unsigned int guidRank = hiveGuidGetRank(dbGuid);
+    if(guidRank != rank)
+    {
+        if(guidRank != hiveGlobalRankId)
+            hiveDbMoveRequest(dbGuid, rank);
+        else
+        {
+            struct hiveDb * dbRes = hiveRouteTableLookupItem(dbGuid);
+            if(dbRes)
+                hiveRemoteMemoryMove(rank, dbGuid, dbRes, dbRes->header.size, HIVE_REMOTE_DB_MOVE_MSG, hiveFree);
+            else
+                hiveOutOfOrderDbMove(dbGuid, rank);
+        }
+    }
 }

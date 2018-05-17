@@ -236,7 +236,7 @@ bool hiveRemoteAsyncSend()
                 else
                 {
                     struct hiveRemotePacket *packet = (struct hiveRemotePacket *) (out + 1);
-                    if(packet->messageType!=HIVE_REMOTE_METRIC_UPDATE)
+                    if(packet->messageType!=HIVE_REMOTE_METRIC_UPDATE_MSG)
                         hiveUpdatePerformanceMetric(hiveNetworkSendBW, hiveThread, packet->size, false);
                     
                     outResend[i-threadStart] = NULL;

@@ -60,7 +60,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         hiveGuid_t endEpochGuid = hiveEdtCreate(epochEnd, 0, 1, &endGuid, 1);
         hiveInitializeAndStartEpoch(endEpochGuid, 0);
 
-        hiveGuid_t guid = hiveNewArrayDb(&array, sizeof(unsigned int), elementsPerBlock, blocks);
+        hiveGuid_t guid = hiveNewArrayDb(&array, sizeof(unsigned int), elementsPerBlock * blocks);
 
         for(unsigned int j=0; j<numAdd; j++)
         {

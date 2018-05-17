@@ -54,8 +54,25 @@ target_link_libraries(testPutArrayDbEpoch ${LIBS})
 add_executable(testPutArrayDbEpoch2 testPutArrayDbEpoch2.c)
 target_link_libraries(testPutArrayDbEpoch2 ${LIBS})
 
+
 add_executable(testAtomicAddInArrayDb testAtomicAddInArrayDb.c)
 target_link_libraries(testAtomicAddInArrayDb ${LIBS})
 
 add_executable(testAtomicCompareAndSwapInArrayDb testAtomicCompareAndSwapInArrayDb.c)
 target_link_libraries(testAtomicCompareAndSwapInArrayDb ${LIBS})
+
+add_executable(testDbMove testDbMove.c)
+target_link_libraries(testDbMove ${LIBS})
+
+add_executable(testDbOnce testDbOnce.c)
+target_link_libraries(testDbOnce ${LIBS})
+
+add_executable(testRecEpoch testRecEpoch.c)
+target_link_libraries(testRecEpoch ${LIBS})
+
+add_executable(testEpochPool testEpochPool.c)
+target_link_libraries(testEpochPool ${LIBS})
+
+add_executable(testBuffer testBuffer.c)
+target_link_libraries(testBuffer ${LIBS})
+

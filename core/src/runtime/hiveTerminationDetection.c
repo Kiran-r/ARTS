@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <assert.h>
-//#include <stdatomic.h>
 #include "hiveRT.h"
 #include "hiveTerminationDetection.h"
 #include "hiveAtomics.h"
@@ -12,6 +11,7 @@
 #include "hiveGlobals.h"
 #include "hiveRemoteFunctions.h"
 #include "hiveRouteTable.h"
+#include "hiveArrayList.h"
 
 #define DPRINTF( ... )
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
@@ -19,9 +19,13 @@
 #define EpochMask   0x7FFFFFFFFFFFFFFF  
 #define EpochBit 0x8000000000000000
 
+#define DEFAULT_EPOCH_POOL_SIZE 1
+__thread hiveEpochPool_t * epochThreadPool;
+
 bool decrementQueueEpoch(hiveEpoch_t * epoch)
 {
-    u64 local = epoch->queued;
+    DPRINTF("Dec queue Epoch: %lu\n", epoch->guid);
+    u64 local;
     while(1)
     {
         local = epoch->queued;
@@ -40,6 +44,7 @@ bool decrementQueueEpoch(hiveEpoch_t * epoch)
 
 void incrementQueueEpoch(hiveGuid_t epochGuid)
 {
+    DPRINTF("Inc queue Epoch: %lu\n", epochGuid);
     if(epochGuid != NULL_GUID)
     {
         hiveEpoch_t * epoch = hiveRouteTableLookupItem(epochGuid);
@@ -57,6 +62,7 @@ void incrementQueueEpoch(hiveGuid_t epochGuid)
 
 void incrementActiveEpoch(hiveGuid_t epochGuid)
 {
+    DPRINTF("Inc active Epoch: %lu\n", epochGuid);
     hiveEpoch_t * epoch = hiveRouteTableLookupItem(epochGuid);
     if(epoch)
     {
@@ -71,6 +77,7 @@ void incrementActiveEpoch(hiveGuid_t epochGuid)
 
 void incrementFinishedEpoch(hiveGuid_t epochGuid)
 {
+    DPRINTF("In finish Epoch: %lu\n", epochGuid);
     if(epochGuid != NULL_GUID)
     {
         hiveEpoch_t * epoch = hiveRouteTableLookupItem(epochGuid);
@@ -78,7 +85,13 @@ void incrementFinishedEpoch(hiveGuid_t epochGuid)
         {
             hiveAtomicAdd(&epoch->finishedCount, 1);
             if(hiveGlobalRankCount == 1)
-                checkEpoch(epoch, epoch->activeCount, epoch->finishedCount);
+            {
+                if(!checkEpoch(epoch, epoch->activeCount, epoch->finishedCount))
+                {
+                    if(epoch->phase == PHASE_3)
+                        deleteEpoch(epochGuid, epoch);
+                }
+            }
             else
             {
                 unsigned int rank = hiveGuidGetRank(epochGuid);
@@ -86,9 +99,13 @@ void incrementFinishedEpoch(hiveGuid_t epochGuid)
                 {
                     if(!hiveAtomicSubU64(&epoch->queued, 1))
                     {
-                        hiveAtomicAddU64(&epoch->queued, hiveGlobalRankCount-1);
-                        broadcastEpochRequest(epochGuid);
-                        DPRINTF("Broadcasting req... \n");
+                        if(!hiveAtomicCswapU64(&epoch->outstanding, 0, hiveGlobalRankCount))
+                        {
+                            broadcastEpochRequest(epochGuid);
+                            DPRINTF("%lu Broadcasting req... \n", epochGuid);
+                        }
+//                        else
+//                            DPRINTF("OUTSTANDING: %lu\n", epoch->outstanding);
                     }
                 }
                 else
@@ -96,7 +113,7 @@ void incrementFinishedEpoch(hiveGuid_t epochGuid)
                     if(decrementQueueEpoch(epoch))
                     {
                         hiveRemoteEpochSend(rank, epochGuid, epoch->activeCount, epoch->finishedCount);
-                        DPRINTF("Now responding... \n");
+                        DPRINTF("%lu Now responding... \n", epochGuid);
                     }
                 }  
             }
@@ -104,7 +121,7 @@ void incrementFinishedEpoch(hiveGuid_t epochGuid)
         else
         {
             hiveOutOfOrderIncFinishedEpoch(epochGuid);
-            DPRINTF("ooFinish\n");
+            DPRINTF("%lu ooFinish\n", epochGuid);
         }
     }
 }
@@ -118,10 +135,10 @@ void sendEpoch(hiveGuid_t epochGuid, unsigned int source, unsigned int dest)
         if(!hiveAtomicCswapU64(&epoch->queued, 0, EpochBit))
         {
             hiveRemoteEpochSend(dest, epochGuid, epoch->activeCount, epoch->finishedCount);
-            DPRINTF("Sending Now...\n");
+//            PRINTF("%lu Sending Now...\n", epochGuid);
         }
 //        else
-//            DPRINTF("Buffer Send...\n");
+//            PRINTF("Buffer Send...\n");
     }
     else
         hiveOutOfOrderSendEpoch(epochGuid, source, dest);
@@ -137,9 +154,11 @@ hiveEpoch_t * createEpoch(hiveGuid_t * guid, hiveGuid_t edtGuid, unsigned int sl
     epoch->terminationExitGuid = edtGuid;
     epoch->terminationExitSlot = slot;
     epoch->guid = *guid;
+    epoch->poolGuid = NULL_GUID;
     epoch->queued = (hiveIsGuidLocal(*guid)) ? 0 : EpochBit;
     hiveRouteTableAddItemRace(epoch, *guid, hiveGlobalRankId, false);
     hiveRouteTableFireOO(*guid, hiveOutOfOrderHandler);
+//    PRINTF("Create %lu %p\n", *guid, epoch);
     return epoch;
 }
 
@@ -170,52 +189,30 @@ void broadcastEpochRequest(hiveGuid_t epochGuid)
 
 hiveGuid_t hiveInitializeAndStartEpoch(hiveGuid_t finishEdtGuid, unsigned int slot)
 {
-    if(hiveGetCurrentEpochGuid() == NULL_GUID)
+//    hiveGuid_t guid = NULL_GUID;
+//    hiveEpoch_t * epoch = createEpoch(&guid, finishEdtGuid, slot);
+    hiveEpoch_t * epoch = getPoolEpoch(finishEdtGuid, slot);
+    
+    if(hiveSetCurrentEpochGuid(epoch->guid))
     {
-        hiveGuid_t guid = NULL_GUID;
-        hiveEpoch_t * epoch = createEpoch(&guid, finishEdtGuid, slot);
-        
-        if(hiveSetCurrentEpochGuid(guid))
-            hiveAtomicAdd(&epoch->activeCount, 1);
-        
-        for(unsigned int i=0; i<hiveGlobalRankCount; i++)
-        {
-            if(i != hiveGlobalRankId)
-                hiveRemoteEpochInitSend(i, guid, finishEdtGuid, slot);
-        }
-        
-        return guid;
-    }
-    PRINTF("Nested Epoch not supported...\n");
-    return NULL_GUID;
-}
-
-hiveGuid_t hiveInitializeEpoch(hiveGuid_t startEdtGuid, hiveGuid_t finishEdtGuid, unsigned int slot)
-{
-    struct hiveEdt * edt = hiveRouteTableLookupItem(startEdtGuid);
-    if(edt)
-    {
-        hiveGuid_t guid = NULL_GUID;
-        hiveEpoch_t * epoch = createEpoch(&guid, finishEdtGuid, slot);
         hiveAtomicAdd(&epoch->activeCount, 1);
-        
-        for(unsigned int i=0; i<hiveGlobalRankCount; i++)
-        {
-            if(i != hiveGlobalRankId)
-                hiveRemoteEpochInitSend(i, guid, finishEdtGuid, slot);
-        }
-        
-        edt->epochGuid = guid;
-        return guid;
+        hiveAtomicAddU64(&epoch->queued, 1);
     }
-    PRINTF("Out-of-order add to epoch not implemented yet...\n");
-    return NULL_GUID;
+
+//    for(unsigned int i=0; i<hiveGlobalRankCount; i++)
+//    {
+//        if(i != hiveGlobalRankId)
+//            hiveRemoteEpochInitSend(i, guid, finishEdtGuid, slot);
+//    }
+
+    PRINTF("%u : %lu --------> %lu %p\n", epoch->activeCount, epoch->queued, epoch->guid, epoch);
+    return epoch->guid;
 }
 
 bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int totalFinish)
 {
     unsigned int diff = totalActive - totalFinish;
-    DPRINTF("%u - %u = %u\n", totalActive, totalFinish, diff);
+    DPRINTF("%lu : %u - %u = %u\n", epoch->guid, totalActive, totalFinish, diff);
     //We have a zero
     if(totalFinish && !diff)
     {
@@ -223,8 +220,14 @@ bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int tota
         if(epoch->phase == PHASE_2 && epoch->lastActiveCount == totalActive && epoch->lastFinishedCount == totalFinish) 
         {
             epoch->phase = PHASE_3;
-            DPRINTF("Calling finalization continuation provided by the user %u\n", totalFinish);
-            hiveSignalEdt(epoch->terminationExitGuid, totalFinish, epoch->terminationExitSlot, DB_MODE_SINGLE_VALUE);
+            PRINTF("%lu epoch done\n", epoch->guid);
+            if(epoch->waitPtr)
+                *epoch->waitPtr = 0;
+            if(epoch->terminationExitGuid)
+            {
+                DPRINTF("%lu Calling finalization continuation provided by the user %u\n", epoch->guid, totalFinish);
+                hiveSignalEdt(epoch->terminationExitGuid, totalFinish, epoch->terminationExitSlot, DB_MODE_SINGLE_VALUE);
+            }
             return false;
         }
         else //We didn't match the last one so lets try again
@@ -232,10 +235,18 @@ bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int tota
             epoch->lastActiveCount = totalActive;
             epoch->lastFinishedCount = totalFinish;
             epoch->phase = PHASE_2;
-            DPRINTF("Starting phase 2 %u\n", epoch->lastFinishedCount);
+            DPRINTF("%lu Starting phase 2 %u\n", epoch->guid, epoch->lastFinishedCount);
             if(hiveGlobalRankCount == 1)
             {
-                hiveSignalEdt(epoch->terminationExitGuid, totalFinish, epoch->terminationExitSlot, DB_MODE_SINGLE_VALUE);
+                epoch->phase = PHASE_3;
+                PRINTF("%lu epoch done\n", epoch->guid);
+                if(epoch->waitPtr)
+                    *epoch->waitPtr = 0;
+                if(epoch->terminationExitGuid)
+                {
+                    DPRINTF("%lu Calling finalization continuation provided by the user %u !\n", epoch->guid, totalFinish);
+                    hiveSignalEdt(epoch->terminationExitGuid, totalFinish, epoch->terminationExitSlot, DB_MODE_SINGLE_VALUE);
+                }
                 return false;
             }
             else
@@ -252,12 +263,12 @@ void reduceEpoch(hiveGuid_t epochGuid, unsigned int active, unsigned int finish)
     hiveEpoch_t * epoch = hiveRouteTableLookupItem(epochGuid);
     if(epoch)
     {
-        DPRINTF("A: %u F: %u\n", active, finish);
+        DPRINTF("%lu A: %u F: %u\n", epochGuid, active, finish);
         unsigned int totalActive = hiveAtomicAdd(&epoch->globalActiveCount, active);
         unsigned int totalFinish = hiveAtomicAdd(&epoch->globalFinishedCount, finish);
-        if(!hiveAtomicSubU64(&epoch->queued, 1))
+        if(hiveAtomicSubU64(&epoch->outstanding, 1) == 1)
         {
-            DPRINTF("A: %u F: %u\n", epoch->activeCount, epoch->finishedCount);
+            DPRINTF("%lu A: %u F: %u\n", epochGuid, epoch->activeCount, epoch->finishedCount);
             totalActive+=epoch->activeCount;
             totalFinish+=epoch->finishedCount;
             
@@ -267,16 +278,234 @@ void reduceEpoch(hiveGuid_t epochGuid, unsigned int active, unsigned int finish)
             
             if(checkEpoch(epoch, totalActive, totalFinish))
             {
-                DPRINTF("REDUCE SEND\n");
-                hiveAtomicAddU64(&epoch->queued, hiveGlobalRankCount-1);
+                DPRINTF("%lu REDUCE SEND\n", epochGuid);
+                hiveAtomicAddU64(&epoch->outstanding, hiveGlobalRankCount-1);
                 broadcastEpochRequest(epochGuid);
                 //A better idea will be to know when to kick off a new round
                 //the checkinCount == 0 indicates there is a new round can be kicked off
 //                hiveAtomicSub(&epoch->checkinCount, 1);
             }
-            DPRINTF("EPOCH QUEUEU: %u\n", epoch->queued);
-        }      
+            else
+                hiveAtomicSubU64(&epoch->outstanding, 1);
+            
+            if(epoch->phase == PHASE_3)
+                deleteEpoch(epochGuid, epoch);
+            
+            DPRINTF("%lu EPOCH QUEUEU: %u\n", epochGuid, epoch->queued);
+        }
+        DPRINTF("###### %lu\n", epoch->outstanding);
     }
     else
-        PRINTF("ERROR: NO EPOCH\n");
+        PRINTF("%lu ERROR: NO EPOCH\n", epochGuid);
+}
+
+hiveEpochPool_t * createEpochPool(hiveGuid_t * epochPoolGuid, unsigned int poolSize, hiveGuid_t * startGuid)
+{
+    if(*epochPoolGuid == NULL_GUID)
+        *epochPoolGuid = hiveGuidCreateForRank(hiveGlobalRankId, HIVE_EDT);
+    
+    bool newRange = (*startGuid == NULL_GUID);
+    hiveGuidRange temp;
+    hiveGuidRange * range;
+    if(newRange)
+    {
+        range = hiveNewGuidRangeNode(HIVE_EDT, poolSize, hiveGlobalRankId);
+        *startGuid = hiveGetGuid(range, 0);
+    }
+    else
+    {
+        temp.size = poolSize;
+        temp.index = 0;
+        temp.startGuid = *startGuid;
+        range = &temp;
+    }
+    
+    
+    
+    hiveEpochPool_t * epochPool = hiveCalloc(sizeof(hiveEpochPool_t) + sizeof(hiveEpoch_t) * poolSize);
+    epochPool->index = 0;
+    epochPool->outstanding = poolSize;
+    epochPool->size = poolSize;
+    
+    hiveRouteTableAddItem(epochPool, *epochPoolGuid, hiveGlobalRankId, false);
+    for(unsigned int i=0; i<poolSize; i++)
+    {
+        epochPool->pool[i].phase = PHASE_1;
+        epochPool->pool[i].poolGuid = *epochPoolGuid;
+        epochPool->pool[i].guid = hiveGetGuid(range, i);
+        epochPool->pool[i].queued = (hiveIsGuidLocal(*epochPoolGuid)) ? 0 : EpochBit;
+        if(!hiveIsGuidLocal(*epochPoolGuid))
+        {
+            hiveRouteTableAddItemRace(&epochPool->pool[i], epochPool->pool[i].guid, hiveGlobalRankId, false);
+            hiveRouteTableFireOO(epochPool->pool[i].guid, hiveOutOfOrderHandler);
+        }
+    }
+    
+    PRINTF("Creating pool %lu starting %lu %p\n", *epochPoolGuid, hiveGetGuid(range, 0), epochPool);
+    
+    if(newRange)
+        hiveFree(range);
+    
+    return epochPool;
+}
+
+void deleteEpoch(hiveGuid_t epochGuid, hiveEpoch_t * epoch)
+{
+    //Can't call delete unless we already hit two barriers thus it must exit
+    if(!epoch)
+        epoch = hiveRouteTableLookupItem(epochGuid);
+    
+    if(epoch->poolGuid)
+    {
+        hiveEpochPool_t * pool = hiveRouteTableLookupItem(epoch->poolGuid);
+        if(hiveIsGuidLocal(epoch->poolGuid))
+        {
+            hiveRouteTableRemoveItem(epochGuid);
+            if(!hiveAtomicSub(&pool->outstanding, 1))
+            {
+                hiveRouteTableRemoveItem(epoch->poolGuid);
+//                hiveFree(pool);  //Free in the next getPoolEpoch
+                for(unsigned int i=0; i<hiveGlobalRankCount; i++)
+                {
+                    if(i!=hiveGlobalRankId)
+                        hiveRemoteEpochDelete(i, epochGuid);
+                }
+            }
+        }
+        else
+        {
+            for(unsigned int i=0; i<pool->size; i++)
+                hiveRouteTableRemoveItem(pool->pool[i].guid);
+            hiveRouteTableRemoveItem(epoch->poolGuid);
+            hiveFree(pool);
+        }
+    }
+    else
+    {
+        hiveRouteTableRemoveItem(epochGuid);
+        hiveFree(epoch);
+        
+        if(hiveIsGuidLocal(epochGuid))
+        {
+            for(unsigned int i=0; i<hiveGlobalRankCount; i++)
+            {
+                if(i!=hiveGlobalRankId)
+                    hiveRemoteEpochDelete(i, epochGuid);
+            }
+        }
+    }
+}
+
+void cleanEpochPool()
+{
+    PRINTF("EPOCHTHREADPOOL -------- %p\n", epochThreadPool);
+    
+    hiveEpochPool_t * trailPool = NULL;
+    hiveEpochPool_t * pool = epochThreadPool;
+    
+    while(pool)
+    {
+        PRINTF("###### POOL %p\n", pool);
+        if(pool->index == epochThreadPool->size && !pool->outstanding)
+        {
+            hiveEpochPool_t * toFree = pool;
+            PRINTF("Deleting %p\n", toFree);
+            
+            pool = pool->next;
+            
+            if(trailPool)
+                trailPool->next = pool;
+            else
+                epochThreadPool = pool;
+            
+            hiveFree(toFree);
+            PRINTF("JUST FREED A POOL\n");
+        }
+        else
+        {
+            PRINTF("Next...\n");
+            trailPool = pool;
+            pool = pool->next;
+        }
+    }
+}
+
+hiveEpoch_t * getPoolEpoch(hiveGuid_t edtGuid, unsigned int slot)
+{
+    PRINTF("EpochThreadPool %p\n", epochThreadPool);
+    
+//    cleanEpochPool();
+    hiveEpochPool_t * trailPool = NULL;
+    hiveEpochPool_t * pool = epochThreadPool;
+    hiveEpoch_t * epoch = NULL;
+    while(!epoch)
+    {
+        if(!pool)
+        {
+            hiveGuid_t poolGuid = NULL_GUID;
+            hiveGuid_t startGuid = NULL_GUID;
+            pool = createEpochPool(&poolGuid, DEFAULT_EPOCH_POOL_SIZE, &startGuid);
+            
+            if(trailPool)
+                trailPool->next = pool;
+            else
+                epochThreadPool = pool;
+            
+            
+            for(unsigned int i=0; i<hiveGlobalRankCount; i++)
+            {
+                if(i!=hiveGlobalRankId)
+                    hiveRemoteEpochInitPoolSend(i, DEFAULT_EPOCH_POOL_SIZE, startGuid, poolGuid);
+            }
+        }
+        
+        PRINTF("Pool index: %u\n", pool->index);
+        if(pool->index < pool->size)
+            epoch = &pool->pool[pool->index++];
+        else
+        {
+            trailPool = pool;
+            pool = pool->next;
+        }
+    }
+    DPRINTF("GetPoolEpoch %lu\n", epoch->guid);
+    
+    epoch->terminationExitGuid = edtGuid;
+    epoch->terminationExitSlot = slot;
+    hiveRouteTableAddItemRace(epoch, epoch->guid, hiveGlobalRankId, false);
+    hiveRouteTableFireOO(epoch->guid, hiveOutOfOrderHandler);
+    return epoch;
+}
+
+void hiveYield()
+{
+    threadLocal_t tl;
+    hiveSaveThreadLocal(&tl);
+    hiveNodeInfo.scheduler();
+    hiveRestoreThreadLocal(&tl);
+}
+
+bool hiveWaitOnHandle(hiveGuid_t epochGuid)
+{
+    hiveGuid_t * guid = hiveCheckEpochIsRoot(epochGuid);
+    if(guid)
+    {
+        hiveGuid_t local = *guid;
+        *guid = NULL_GUID; //Unset
+        unsigned int flag = 1;
+        hiveEpoch_t * epoch = hiveRouteTableLookupItem(local);
+        epoch->waitPtr = &flag;
+        incrementFinishedEpoch(local);
+        
+        threadLocal_t tl;
+        hiveSaveThreadLocal(&tl);
+        while(flag)
+            hiveNodeInfo.scheduler();
+        hiveRestoreThreadLocal(&tl);
+        
+        cleanEpochPool();
+        
+        return true;
+    }
+    return false;
 }

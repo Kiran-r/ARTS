@@ -23,6 +23,7 @@ void PRINTF( const char* format, ... );
 #define HIVE_EVENT 1
 #define HIVE_DB 2
 #define HIVE_CALLBACK 3
+#define HIVE_BUFFER 3
 
 typedef uint64_t u64; /**< 64-bit unsigned integer */
 typedef uint32_t u32; /**< 32-bit unsigned integer */
@@ -57,7 +58,9 @@ typedef enum
     DB_MODE_EXCLUSIVE_WRITE,
     DB_MODE_SINGLE_VALUE,
     DB_MODE_PIN,
-    DB_MODE_PTR
+    DB_MODE_PTR,
+    DB_MODE_ONCE_LOCAL,
+    DB_MODE_ONCE
 } hiveDbAccessMode_t;
 
 typedef struct

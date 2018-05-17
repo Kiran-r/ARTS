@@ -145,11 +145,11 @@ void hiveServerSetup( struct hiveConfig * config)
 void hiveServerProcessPacket(struct hiveRemotePacket * packet)
 {
     HIVECOUNTERTIMERENDINCREMENT(pktReceive);
-    if(packet->messageType!=HIVE_REMOTE_METRIC_UPDATE ||
+    if(packet->messageType!=HIVE_REMOTE_METRIC_UPDATE_MSG ||
        packet->messageType!=HIVE_REMOTE_SHUTDOWN_MSG)
     {
         hiveUpdatePerformanceMetric(hiveNetworkRecieveBW, hiveThread, packet->size, false);
-        hiveUpdatePerformanceMetric(hiveReduceThroughput + packet->messageType, hiveThread, packet->size, false);
+        hiveUpdatePerformanceMetric(hiveFreeBW + packet->messageType, hiveThread, packet->size, false);
         hiveUpdatePacketInfo(packet->size);
     }
 #ifdef SEQUENCENUMBERS
@@ -247,7 +247,7 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
             hiveRemoteHandleDbFullRecieved(pack);
             break;
         }
-        case HIVE_REMOTE_DB_FULL_SEND_ALREADY_LOCAL:
+        case HIVE_REMOTE_DB_FULL_SEND_ALREADY_LOCAL_MSG:
         {
             hiveRemoteHandleSendAlreadyLocal(packet);
             break;
@@ -340,7 +340,7 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
             PRINTF("Guid Route Recieved Deprecated Now\n");
             break;
         }
-        case HIVE_REMOTE_METRIC_UPDATE:
+        case HIVE_REMOTE_METRIC_UPDATE_MSG:
         {
             
             struct hiveRemoteMetricUpdate * pack = (struct hiveRemoteMetricUpdate *) (packet);
@@ -348,54 +348,73 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
             hiveHandleRemoteMetricUpdate(pack->type, hiveSystem, pack->toAdd, pack->sub);
             break;    
         }
-        case HIVE_ACTIVE_MESSAGE:
+        case HIVE_ACTIVE_MESSAGE_MSG:
         {
             hiveRemoteHandleActiveMessage(packet);
             break;    
         }
-        case HIVE_REMOTE_GET_FROM_DB:
+        case HIVE_REMOTE_GET_FROM_DB_MSG:
         {
             hiveRemoteHandleGetFromDb(packet);
             break;
         }
-        case HIVE_REMOTE_PUT_IN_DB:
+        case HIVE_REMOTE_PUT_IN_DB_MSG:
         {
             hiveRemoteHandlePutInDb(packet);
             break;
         }
-        case HIVE_REMOTE_SIGNAL_EDT_WITH_PTR:
+        case HIVE_REMOTE_SIGNAL_EDT_WITH_PTR_MSG:
         {
             hiveRemoteHandleSignalEdtWithPtr(packet);
             break;
         }
-        case HIVE_REMOTE_SEND:
+        case HIVE_REMOTE_SEND_MSG:
         {
             hiveRemoteHandleSend(packet);
             break;
         }
-        case HIVE_EPOCH_INIT:
+        case HIVE_EPOCH_INIT_MSG:
         {
             hiveRemoteHandleEpochInitSend(packet);
             break;
         }
-        case HIVE_EPOCH_REQ:
+        case HIVE_EPOCH_REQ_MSG:
         {
             hiveRemoteHandleEpochReq(packet);
             break;
         }
-        case HIVE_EPOCH_SEND:
+        case HIVE_EPOCH_SEND_MSG:
         {
             hiveRemoteHandleEpochSend(packet);
             break;
         }
-        case HIVE_ATOMIC_ADD_ARRAYDB:
+        case HIVE_ATOMIC_ADD_ARRAYDB_MSG:
         {
             hiveRemoteHandleAtomicAddInArrayDb(packet);
             break;
         }
-        case HIVE_ATOMIC_CAS_ARRAYDB:
+        case HIVE_ATOMIC_CAS_ARRAYDB_MSG:
         {
             hiveRemoteHandleAtomicCompareAndSwapInArrayDb(packet);
+        }
+        case HIVE_EPOCH_INIT_POOL_MSG:
+        {
+            hiveRemoteHandleEpochInitPoolSend(packet);
+            break;
+        }
+        case HIVE_EPOCH_DELETE_MSG:
+        {
+            hiveRemoteHandleEpochDelete(packet);
+            break;
+        }
+        case HIVE_REMOTE_BUFFER_SEND_MSG:
+        {
+            hiveRemoteHandleBufferSend(packet);
+            break;
+        }
+        case HIVE_REMOTE_DB_MOVE_REQ_MSG:
+        {
+            hiveDbMoveRequestHandle(packet);
             break;
         }
         default:

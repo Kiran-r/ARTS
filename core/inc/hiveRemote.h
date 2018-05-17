@@ -19,7 +19,6 @@ unsigned int hiveRemoteSendRequest( int rank, unsigned int queue, char * message
 unsigned int hiveRemoteSendPayloadRequest( int rank, unsigned int queue, char * message, unsigned int length, char * payload, int length2 );
 
 u8 hiveEventSatisfyNoBlock(hiveGuid_t eventGuid, hiveGuid_t dataGuid);
-void hiveRemoteInitDbLookupTables();
 unsigned int hiveRemoteDivision();
 void hiveRemoteTryToBecomePrinter();
 void hiveRemoteTryToClosePrinter();

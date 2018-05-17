@@ -30,20 +30,24 @@ enum hiveServerMessageType
     HIVE_DB_LOCK_MSG,
     HIVE_DB_UNLOCK_MSG,
     HIVE_DB_LOCK_ALL_DBS_MSG,
-    HIVE_REMOTE_METRIC_UPDATE,
-    HIVE_ACTIVE_MESSAGE,
+    HIVE_REMOTE_METRIC_UPDATE_MSG,
+    HIVE_ACTIVE_MESSAGE_MSG,
     HIVE_REMOTE_DB_FULL_REQUEST_MSG,
     HIVE_REMOTE_DB_FULL_SEND_MSG,
-    HIVE_REMOTE_DB_FULL_SEND_ALREADY_LOCAL,
-    HIVE_REMOTE_GET_FROM_DB,
-    HIVE_REMOTE_PUT_IN_DB,
-    HIVE_REMOTE_SIGNAL_EDT_WITH_PTR,
-    HIVE_REMOTE_SEND, 
-    HIVE_EPOCH_INIT,
-    HIVE_EPOCH_REQ, 
-    HIVE_EPOCH_SEND,
-    HIVE_ATOMIC_ADD_ARRAYDB,
-    HIVE_ATOMIC_CAS_ARRAYDB
+    HIVE_REMOTE_DB_FULL_SEND_ALREADY_LOCAL_MSG,
+    HIVE_REMOTE_GET_FROM_DB_MSG,
+    HIVE_REMOTE_PUT_IN_DB_MSG,
+    HIVE_REMOTE_SIGNAL_EDT_WITH_PTR_MSG,
+    HIVE_REMOTE_SEND_MSG, 
+    HIVE_EPOCH_INIT_MSG,
+    HIVE_EPOCH_INIT_POOL_MSG,
+    HIVE_EPOCH_REQ_MSG, 
+    HIVE_EPOCH_SEND_MSG,
+    HIVE_EPOCH_DELETE_MSG,
+    HIVE_ATOMIC_ADD_ARRAYDB_MSG,
+    HIVE_ATOMIC_CAS_ARRAYDB_MSG,
+    HIVE_REMOTE_BUFFER_SEND_MSG,
+    HIVE_REMOTE_DB_MOVE_REQ_MSG
 };
 
 //Header
@@ -249,6 +253,14 @@ struct __attribute__ ((__packed__)) hiveRemoteEpochInitPacket
     hiveGuid_t epochGuid;
     hiveGuid_t edtGuid;
     unsigned int slot;
+};
+
+struct __attribute__ ((__packed__)) hiveRemoteEpochInitPoolPacket
+{
+    struct hiveRemotePacket header;
+    unsigned int poolSize;
+    hiveGuid_t startGuid;
+    hiveGuid_t poolGuid;
 };
 
 struct __attribute__ ((__packed__)) hiveRemoteEpochReqPacket

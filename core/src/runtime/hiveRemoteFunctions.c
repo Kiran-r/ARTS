@@ -243,6 +243,14 @@ void hiveRemoteMemoryMove(unsigned int route, hiveGuid_t guid, void * ptr, unsig
     hiveRouteTableRemoveItem(guid);
 }
 
+void hiveRemoteMemoryMoveNoFree(unsigned int route, hiveGuid_t guid, void * ptr, unsigned int memSize, unsigned messageType)
+{
+    struct hiveRemoteMemoryMovePacket packet;
+    hiveFillPacketHeader(&packet.header, sizeof(packet)+memSize, messageType);
+    packet.guid = guid;
+    hiveRemoteSendRequestPayloadAsync(route, (char *)&packet, sizeof(packet), ptr, memSize);
+}
+
 void hiveRemoteHandleEdtMove(void * ptr)
 {
     struct hiveRemoteMemoryMovePacket * packet = ptr ;    
@@ -520,7 +528,7 @@ void hiveRemoteDbForwardFull(int destRank, int sourceRank, hiveGuid_t dataGuid, 
 
 void hiveRemoteDbFullSendNow(int rank, struct hiveDb * db, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
 {
-    PRINTF("SEND FULL NOW: %u -> %u\n", hiveGlobalRankId, rank);
+    DPRINTF("SEND FULL NOW: %u -> %u\n", hiveGlobalRankId, rank);
     struct hiveRemoteDbFullSendPacket packet;
     packet.edt = edt;
     packet.slot = slot;
@@ -605,7 +613,7 @@ void hiveRemoteSendAlreadyLocal(int rank, hiveGuid_t guid, struct hiveEdt * edt,
     packet.edt = edt;
     packet.slot = slot;
     packet.mode = mode;
-    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_REMOTE_DB_FULL_SEND_ALREADY_LOCAL);
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_REMOTE_DB_FULL_SEND_ALREADY_LOCAL_MSG);
     hiveRemoteSendRequestAsync(rank, (char*)&packet, sizeof(packet));
 }
 
@@ -617,28 +625,26 @@ void hiveRemoteHandleSendAlreadyLocal(void * pack)
     hiveDbRequestCallback(packet->edt, packet->slot, dbRes);
 }
 
-void hiveRemoteGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
+void hiveRemoteGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank)
 {
-    unsigned int rank = hiveGuidGetRank(dbGuid);
     struct hiveRemoteGetPutPacket packet;
     packet.edtGuid = edtGuid;
     packet.dbGuid = dbGuid;
     packet.slot = slot;
     packet.offset = offset;
     packet.size = size;
-    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_REMOTE_GET_FROM_DB);
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_REMOTE_GET_FROM_DB_MSG);
     hiveRemoteSendRequestAsync(rank, (char*)&packet, sizeof(packet));
 }
 
 void hiveRemoteHandleGetFromDb(void * pack)
 {
     struct hiveRemoteGetPutPacket * packet = pack;
-    hiveGetFromDb(packet->edtGuid, packet->dbGuid, packet->slot, packet->offset, packet->size);
+    hiveGetFromDbAt(packet->edtGuid, packet->dbGuid, packet->slot, packet->offset, packet->size, hiveGlobalRankId);
 }
 
-void hiveRemotePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epochGuid)
+void hiveRemotePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epochGuid, unsigned int rank)
 {
-    unsigned int rank = hiveGuidGetRank(dbGuid);
     struct hiveRemoteGetPutPacket packet;
     packet.edtGuid = edtGuid;
     packet.dbGuid = dbGuid;
@@ -647,7 +653,7 @@ void hiveRemotePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsign
     packet.offset = offset;
     packet.size = size;
     int totalSize = sizeof(struct hiveRemoteGetPutPacket)+size;
-    hiveFillPacketHeader(&packet.header, totalSize, HIVE_REMOTE_PUT_IN_DB);
+    hiveFillPacketHeader(&packet.header, totalSize, HIVE_REMOTE_PUT_IN_DB_MSG);
 //    hiveRemoteSendRequestPayloadAsync(rank, (char *)&packet, sizeof(packet), (char *)ptr, size);
     hiveRemoteSendRequestPayloadAsyncFree(rank, (char*)&packet, sizeof(packet), (char *)ptr, 0, size, NULL_GUID, hiveFree);
 }
@@ -656,7 +662,7 @@ void hiveRemoteHandlePutInDb(void * pack)
 {
     struct hiveRemoteGetPutPacket * packet = pack;
     void * data = (void*)(packet+1);
-    internalPutInDb(data, packet->edtGuid, packet->dbGuid, packet->slot, packet->offset, packet->size, packet->epochGuid);
+    internalPutInDb(data, packet->edtGuid, packet->dbGuid, packet->slot, packet->offset, packet->size, packet->epochGuid, hiveGlobalRankId);
 }
 
 void hiveRemoteSignalEdtWithPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * ptr, unsigned int size, unsigned int slot)
@@ -669,7 +675,7 @@ void hiveRemoteSignalEdtWithPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * pt
     packet.size = size;
     packet.slot = slot;
     int totalSize = sizeof(struct hiveRemoteSignalEdtWithPtrPacket)+size;
-    hiveFillPacketHeader(&packet.header, totalSize, HIVE_REMOTE_SIGNAL_EDT_WITH_PTR);
+    hiveFillPacketHeader(&packet.header, totalSize, HIVE_REMOTE_SIGNAL_EDT_WITH_PTR_MSG);
     hiveRemoteSendRequestPayloadAsync(rank, (char *)&packet, sizeof(packet), (char *)ptr, size);
 }
 
@@ -1031,7 +1037,7 @@ void hiveRemoteMetricUpdate(int rank, int type, int level, u64 timeStamp, u64 to
     packet.timeStamp = timeStamp;
     packet.toAdd = toAdd;
     packet.sub = sub; 
-    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_REMOTE_METRIC_UPDATE);
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_REMOTE_METRIC_UPDATE_MSG);
     hiveRemoteSendRequestAsync( rank, (char *)&packet, sizeof(packet) );
 }
 
@@ -1095,7 +1101,7 @@ void hiveRemoteSend(unsigned int rank, sendHandler_t funPtr, void * args, unsign
     struct hiveRemoteSend packet;
     packet.funPtr = funPtr;
     int totalSize = sizeof(struct hiveRemoteSend)+size;
-    hiveFillPacketHeader(&packet.header, totalSize, HIVE_REMOTE_SEND);
+    hiveFillPacketHeader(&packet.header, totalSize, HIVE_REMOTE_SEND_MSG);
     
     if(free)
         hiveRemoteSendRequestPayloadAsyncFree(rank, (char*)&packet, sizeof(packet), (char *)args, 0, size, NULL_GUID, hiveFree);
@@ -1117,7 +1123,7 @@ void hiveRemoteEpochInitSend(unsigned int rank, hiveGuid_t epochGuid, hiveGuid_t
     packet.epochGuid = epochGuid;
     packet.edtGuid = edtGuid;
     packet.slot = slot;
-    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_EPOCH_INIT);
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_EPOCH_INIT_MSG);
     hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
 }
 
@@ -1128,12 +1134,31 @@ void hiveRemoteHandleEpochInitSend(void * pack)
     createEpoch(&packet->epochGuid, packet->edtGuid, packet->slot);
 }
 
+void hiveRemoteEpochInitPoolSend(unsigned int rank, unsigned int poolSize, hiveGuid_t startGuid, hiveGuid_t poolGuid)
+{
+//    PRINTF("Net Epoch Init Pool Send: %u %lu %lu\n", rank, startGuid, poolGuid);
+    struct hiveRemoteEpochInitPoolPacket packet;
+    packet.poolSize = poolSize;
+    packet.startGuid = startGuid;
+    packet.poolGuid = poolGuid;
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_EPOCH_INIT_POOL_MSG);
+    hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
+}
+
+void hiveRemoteHandleEpochInitPoolSend(void * pack)
+{
+//    PRINTF("Net Epoch Init Pool Rec\n");
+    struct hiveRemoteEpochInitPoolPacket * packet = pack;
+//    PRINTF("Net Epoch Init Pool Rec %lu %lu\n", packet->startGuid, packet->poolGuid);
+    createEpochPool(&packet->poolGuid, packet->poolSize, &packet->startGuid);
+}
+
 void hiveRemoteEpochReq(unsigned int rank, hiveGuid_t guid)
 {
     DPRINTF("Net Epoch Req Send: %u\n", rank);
     struct hiveRemoteEpochReqPacket packet;
     packet.epochGuid = guid;
-    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_EPOCH_REQ);
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_EPOCH_REQ_MSG);
     hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
 }
 
@@ -1152,7 +1177,7 @@ void hiveRemoteEpochSend(unsigned int rank, hiveGuid_t guid, unsigned int active
     packet.epochGuid = guid;
     packet.active = active;
     packet.finish = finish;
-    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_EPOCH_SEND);
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_EPOCH_SEND_MSG);
     hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
 }
 
@@ -1172,7 +1197,7 @@ void hiveRemoteAtomicAddInArrayDb(unsigned int rank, hiveGuid_t dbGuid, unsigned
     packet.slot = slot;
     packet.index = index;
     packet.toAdd = toAdd;
-    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_ATOMIC_ADD_ARRAYDB);
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_ATOMIC_ADD_ARRAYDB_MSG);
     hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
 }
 
@@ -1180,8 +1205,7 @@ void hiveRemoteHandleAtomicAddInArrayDb(void * pack)
 {
     struct hiveRemoteAtomicAddInArrayDbPacket * packet = pack;
     struct hiveDb * db = hiveRouteTableLookupItem(packet->dbGuid);
-    internalAtomicAddInArrayDb(packet->dbGuid, packet->index, packet->toAdd, packet->edtGuid, packet->slot, packet->epochGuid);
-    
+    internalAtomicAddInArrayDb(packet->dbGuid, packet->index, packet->toAdd, packet->edtGuid, packet->slot, packet->epochGuid);  
 }
 
 void hiveRemoteAtomicCompareAndSwapInArrayDb(unsigned int rank, hiveGuid_t dbGuid, unsigned int index, unsigned int oldValue, unsigned int newValue, hiveGuid_t edtGuid, unsigned int slot, hiveGuid_t epochGuid)
@@ -1194,7 +1218,7 @@ void hiveRemoteAtomicCompareAndSwapInArrayDb(unsigned int rank, hiveGuid_t dbGui
     packet.index = index;
     packet.oldValue = oldValue;
     packet.newValue = newValue;
-    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_ATOMIC_CAS_ARRAYDB);
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_ATOMIC_CAS_ARRAYDB_MSG);
     hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
 }
 
@@ -1203,5 +1227,44 @@ void hiveRemoteHandleAtomicCompareAndSwapInArrayDb(void * pack)
     struct hiveRemoteAtomicCompareAndSwapInArrayDbPacket * packet = pack;
     struct hiveDb * db = hiveRouteTableLookupItem(packet->dbGuid);
     internalAtomicCompareAndSwapInArrayDb(packet->dbGuid, packet->index, packet->oldValue, packet->newValue, packet->edtGuid, packet->slot, packet->epochGuid);
-    
+}
+
+void hiveRemoteEpochDelete(unsigned int rank, hiveGuid_t epochGuid)
+{
+    struct hiveRemoteEpochReqPacket packet;
+    packet.epochGuid = epochGuid;
+    hiveFillPacketHeader(&packet.header, sizeof(packet), HIVE_EPOCH_DELETE_MSG);
+    hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
+}
+
+void hiveRemoteHandleEpochDelete(void * pack)
+{
+    struct hiveRemoteEpochReqPacket * packet = (struct hiveRemoteEpochReqPacket*) pack;
+    deleteEpoch(packet->epochGuid, NULL);
+}
+
+void hiveDbMoveRequest(hiveGuid_t dbGuid, unsigned int destRank)
+{
+    struct hiveRemoteDbRequestPacket packet;
+    packet.dbGuid = dbGuid;
+    packet.mode = DB_MODE_ONCE;
+    packet.header.size = sizeof(packet);
+    packet.header.messageType = HIVE_REMOTE_DB_MOVE_REQ_MSG;
+    packet.header.rank = destRank;
+    hiveRemoteSendRequestAsync(hiveGuidGetRank(dbGuid), (char *)&packet, sizeof(packet));
+}
+
+void hiveDbMoveRequestHandle(void * pack)
+{
+    struct hiveRemoteDbRequestPacket * packet = pack;
+    hiveDbMove(packet->dbGuid, packet->header.rank);
+}
+
+void hiveRemoteHandleBufferSend(void * pack)
+{
+    struct hiveRemoteMemoryMovePacket * packet = (struct hiveRemoteMemoryMovePacket *) pack;
+    unsigned int size = packet->header.size - sizeof(struct hiveRemoteMemoryMovePacket);
+    void * buffer = (void*)(packet+1);
+    PRINTF("Handle: %u -> %u\n", size, *(unsigned int*)buffer);
+    hiveSetBuffer(packet->guid, buffer, size);
 }

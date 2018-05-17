@@ -162,11 +162,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 
         if (!nodeId) {
             hiveGuid_t exitGuid = hiveEdtCreate(exitProgram, 0, 0, NULL, 1);
-            hiveGuid_t startGuid = hiveEdtCreate(kickoffTermination, 0, 1, (u64*) &source, 1);
-            hiveInitializeEpoch(startGuid, exitGuid, 0);
-            
-            //Start
-            hiveSignalEdt(startGuid, NULL_GUID, 0, DB_MODE_SINGLE_VALUE);
+            hiveInitializeAndStartEpoch(exitGuid, 0);
+            hiveGuid_t startGuid = hiveEdtCreate(kickoffTermination, 0, 1, (u64*) &source, 0);
         }
     }
 }

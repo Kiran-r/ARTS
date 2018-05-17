@@ -47,9 +47,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     
     if (!workerId) 
     {
-        hiveGuid_t startGuid = hiveEdtCreate(rootTask, nodeId, 0, NULL, 1);
-        hiveInitializeEpoch(startGuid, exitGuid, nodeId);
-        hiveSignalEdt(startGuid, NULL_GUID, 0, DB_MODE_SINGLE_VALUE);
+        hiveInitializeAndStartEpoch(exitGuid, nodeId);
+        hiveGuid_t startGuid = hiveEdtCreate(rootTask, nodeId, 0, NULL, 0);
     }
 }
 

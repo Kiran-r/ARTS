@@ -396,6 +396,7 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
         case HIVE_ATOMIC_CAS_ARRAYDB_MSG:
         {
             hiveRemoteHandleAtomicCompareAndSwapInArrayDb(packet);
+            break;
         }
         case HIVE_EPOCH_INIT_POOL_MSG:
         {

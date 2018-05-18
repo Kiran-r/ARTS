@@ -276,7 +276,6 @@ static inline void hiveRunEdt(void *edtPacket)
     HIVECOUNTERTIMERENDINCREMENT(edtCounter);
     hiveUpdatePerformanceMetric(hiveEdtThroughput, hiveThread, 1, false);
 
-    incrementFinishedEpoch(edt->epochGuid);
     hiveUnsetThreadLocalEdtInfo();
 
     if(edt->outputEvent != NULL_GUID)

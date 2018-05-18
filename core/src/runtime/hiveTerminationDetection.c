@@ -19,7 +19,7 @@
 #define EpochMask   0x7FFFFFFFFFFFFFFF  
 #define EpochBit 0x8000000000000000
 
-#define DEFAULT_EPOCH_POOL_SIZE 1
+#define DEFAULT_EPOCH_POOL_SIZE 128
 __thread hiveEpochPool_t * epochThreadPool;
 
 bool decrementQueueEpoch(hiveEpoch_t * epoch)
@@ -189,9 +189,9 @@ void broadcastEpochRequest(hiveGuid_t epochGuid)
 
 hiveGuid_t hiveInitializeAndStartEpoch(hiveGuid_t finishEdtGuid, unsigned int slot)
 {
-    hiveGuid_t guid = NULL_GUID;
-    hiveEpoch_t * epoch = createEpoch(&guid, finishEdtGuid, slot);
-//    hiveEpoch_t * epoch = getPoolEpoch(finishEdtGuid, slot);
+//    hiveGuid_t guid = NULL_GUID;
+//    hiveEpoch_t * epoch = createEpoch(&guid, finishEdtGuid, slot);
+    hiveEpoch_t * epoch = getPoolEpoch(finishEdtGuid, slot);
     
     if(hiveSetCurrentEpochGuid(epoch->guid))
     {
@@ -199,13 +199,13 @@ hiveGuid_t hiveInitializeAndStartEpoch(hiveGuid_t finishEdtGuid, unsigned int sl
         hiveAtomicAddU64(&epoch->queued, 1);
     }
 
-    for(unsigned int i=0; i<hiveGlobalRankCount; i++)
-    {
-        if(i != hiveGlobalRankId)
-            hiveRemoteEpochInitSend(i, guid, finishEdtGuid, slot);
-    }
+//    for(unsigned int i=0; i<hiveGlobalRankCount; i++)
+//    {
+//        if(i != hiveGlobalRankId)
+//            hiveRemoteEpochInitSend(i, guid, finishEdtGuid, slot);
+//    }
 
-    PRINTF("%u : %lu --------> %lu %p\n", epoch->activeCount, epoch->queued, epoch->guid, epoch);
+    DPRINTF("%u : %lu --------> %lu %p\n", epoch->activeCount, epoch->queued, epoch->guid, epoch);
     return epoch->guid;
 }
 
@@ -220,7 +220,7 @@ bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int tota
         if(epoch->phase == PHASE_2 && epoch->lastActiveCount == totalActive && epoch->lastFinishedCount == totalFinish) 
         {
             epoch->phase = PHASE_3;
-            PRINTF("%lu epoch done\n", epoch->guid);
+            DPRINTF("%lu epoch done\n", epoch->guid);
             if(epoch->waitPtr)
                 *epoch->waitPtr = 0;
             if(epoch->terminationExitGuid)
@@ -239,7 +239,7 @@ bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int tota
             if(hiveGlobalRankCount == 1)
             {
                 epoch->phase = PHASE_3;
-                PRINTF("%lu epoch done\n", epoch->guid);
+                DPRINTF("%lu epoch done\n", epoch->guid);
                 if(epoch->waitPtr)
                     *epoch->waitPtr = 0;
                 if(epoch->terminationExitGuid)
@@ -341,7 +341,7 @@ hiveEpochPool_t * createEpochPool(hiveGuid_t * epochPoolGuid, unsigned int poolS
         }
     }
     
-    PRINTF("Creating pool %lu starting %lu %p\n", *epochPoolGuid, hiveGetGuid(range, 0), epochPool);
+    DPRINTF("Creating pool %lu starting %lu %p\n", *epochPoolGuid, hiveGetGuid(range, 0), epochPool);
     
     if(newRange)
         hiveFree(range);
@@ -398,18 +398,18 @@ void deleteEpoch(hiveGuid_t epochGuid, hiveEpoch_t * epoch)
 
 void cleanEpochPool()
 {
-    PRINTF("EPOCHTHREADPOOL -------- %p\n", epochThreadPool);
+    DPRINTF("EPOCHTHREADPOOL -------- %p\n", epochThreadPool);
     
     hiveEpochPool_t * trailPool = NULL;
     hiveEpochPool_t * pool = epochThreadPool;
     
     while(pool)
     {
-        PRINTF("###### POOL %p\n", pool);
+        DPRINTF("###### POOL %p\n", pool);
         if(pool->index == epochThreadPool->size && !pool->outstanding)
         {
             hiveEpochPool_t * toFree = pool;
-            PRINTF("Deleting %p\n", toFree);
+            DPRINTF("Deleting %p\n", toFree);
             
             pool = pool->next;
             
@@ -419,11 +419,11 @@ void cleanEpochPool()
                 epochThreadPool = pool;
             
             hiveFree(toFree);
-            PRINTF("JUST FREED A POOL\n");
+            DPRINTF("JUST FREED A POOL\n");
         }
         else
         {
-            PRINTF("Next...\n");
+            DPRINTF("Next...\n");
             trailPool = pool;
             pool = pool->next;
         }
@@ -432,7 +432,7 @@ void cleanEpochPool()
 
 hiveEpoch_t * getPoolEpoch(hiveGuid_t edtGuid, unsigned int slot)
 {
-    PRINTF("EpochThreadPool %p\n", epochThreadPool);
+    DPRINTF("EpochThreadPool %p\n", epochThreadPool);
     
 //    cleanEpochPool();
     hiveEpochPool_t * trailPool = NULL;
@@ -459,7 +459,7 @@ hiveEpoch_t * getPoolEpoch(hiveGuid_t edtGuid, unsigned int slot)
             }
         }
         
-        PRINTF("Pool index: %u\n", pool->index);
+        DPRINTF("Pool index: %u\n", pool->index);
         if(pool->index < pool->size)
             epoch = &pool->pool[pool->index++];
         else

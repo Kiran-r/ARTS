@@ -593,7 +593,9 @@ void takeRateShot(hiveMetricType type, hiveMetricLevel level, bool last)
                 }
 
 //                if(shot.windowCountStamp && shot.windowTimeStamp)
+                hiveThreadInfo.mallocTrace = 0;
                 hivePushToArrayList(list, &shot);
+                hiveThreadInfo.mallocTrace = 1;
                 
                 if(lock) 
                     *lock = 0U;

@@ -34,6 +34,7 @@ void hiveRemoteSend(unsigned int rank, sendHandler_t funPtr, void * args, unsign
 hiveGuid_t hiveGetCurrentEpochGuid();
 bool hiveSetCurrentEpochGuid(hiveGuid_t epochGuid);
 hiveGuid_t * hiveCheckEpochIsRoot(hiveGuid_t toCheck);
+void hiveIncrementFinishedEpochList();
 
 hiveGuid_t hiveActiveMessageWithDb(hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, hiveGuid_t dbGuid);
 hiveGuid_t hiveActiveMessageWithDbAt(hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, hiveGuid_t dbGuid, unsigned int rank);

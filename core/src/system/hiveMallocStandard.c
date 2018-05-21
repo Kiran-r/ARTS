@@ -29,7 +29,8 @@ hiveMalloc(size_t size)
     uint64_t * temp = (uint64_t*) address;
     *temp = size;
     address = (void*)(temp+1);
-    hiveUpdatePerformanceMetric(hiveMallocBW, hiveThread, size, false);
+    if(hiveThreadInfo.mallocTrace)
+        hiveUpdatePerformanceMetric(hiveMallocBW, hiveThread, size, false);
     HIVEEDTCOUNTERTIMERENDINCREMENT(mallocMemory);
     return address;
 }
@@ -37,7 +38,12 @@ hiveMalloc(size_t size)
 extern inline void *
 hiveRealloc(void * ptr, size_t size)
 {
-    return NULL; //realloc(ptr, size);
+    uint64_t * temp = (uint64_t*) ptr;
+    temp--;
+    void * addr = realloc(temp, size + sizeof(uint64_t));
+    temp = (uint64_t *) addr;
+    *temp = size + sizeof(uint64_t);
+    return ++temp;
 }
 
 extern inline void *
@@ -56,7 +62,8 @@ hiveCalloc(size_t size)
     uint64_t * temp = (uint64_t*) address;
     *temp = size;
     address = (void*)(temp+1);
-    hiveUpdatePerformanceMetric(hiveMallocBW, hiveThread, size, false);
+    if(hiveThreadInfo.mallocTrace)
+        hiveUpdatePerformanceMetric(hiveMallocBW, hiveThread, size, false);
     HIVEEDTCOUNTERTIMERENDINCREMENT(callocMemory);
     return address;
 }
@@ -69,6 +76,7 @@ hiveFree(void *ptr)
     temp--;
     uint64_t size = (*temp);
     free(temp);
-    hiveUpdatePerformanceMetric(hiveFreeBW, hiveThread, size, false);
+    if(hiveThreadInfo.mallocTrace)
+        hiveUpdatePerformanceMetric(hiveFreeBW, hiveThread, size, false);
     HIVEEDTCOUNTERTIMERENDINCREMENT(freeMemory);
 }

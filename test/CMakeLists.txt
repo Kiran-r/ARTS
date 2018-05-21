@@ -48,6 +48,9 @@ target_link_libraries(testForEach ${LIBS})
 add_executable(testTerminationDetection testTerminationDetection.c)
 target_link_libraries(testTerminationDetection ${LIBS})
 
+add_executable(testTerminationDetection2 testTerminationDetection2.c)
+target_link_libraries(testTerminationDetection2 ${LIBS})
+
 add_executable(testPutArrayDbEpoch testPutArrayDbEpoch.c)
 target_link_libraries(testPutArrayDbEpoch ${LIBS})
 

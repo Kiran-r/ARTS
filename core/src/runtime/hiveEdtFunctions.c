@@ -99,7 +99,7 @@ void hiveRestoreThreadLocal(threadLocal_t * tl)
     epochList = tl->epochList;
 }
 
-void hiveUnsetThreadLocalEdtInfo()
+void hiveIncrementFinishedEpochList()
 {
     if(epochList)
     {
@@ -121,6 +121,11 @@ void hiveUnsetThreadLocalEdtInfo()
         else
             hiveResetArrayList(epochList);
     }
+}
+
+void hiveUnsetThreadLocalEdtInfo()
+{
+    hiveIncrementFinishedEpochList();
     hiveThreadInfo.currentEdtGuid = NULL_GUID;
     currentEdt = NULL;
 }

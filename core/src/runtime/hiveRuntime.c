@@ -110,6 +110,8 @@ void hiveThreadZeroNodeStart()
     if(initPerWorker && hiveThreadInfo.worker)
         initPerWorker(hiveGlobalRankId, hiveThreadInfo.groupId, mainArgc, mainArgv);
 
+    hiveIncrementFinishedEpochList();
+    
     hiveAtomicSub(&hiveNodeInfo.readyToInspect, 1U);
     while(hiveNodeInfo.readyToInspect){ }
     HIVESTARTCOUNTING(3);
@@ -198,7 +200,9 @@ void hiveRuntimePrivateInit(struct threadMask * unit, struct hiveConfig  * confi
 
         if(initPerWorker && hiveThreadInfo.worker)
             initPerWorker(hiveGlobalRankId, hiveThreadInfo.groupId, mainArgc, mainArgv);
-
+        
+        hiveIncrementFinishedEpochList();
+        
         hiveAtomicSub(&hiveNodeInfo.readyToInspect, 1U);
         while(hiveNodeInfo.readyToInspect) { };
         hiveAtomicSub(&hiveNodeInfo.readyToExecute, 1U);

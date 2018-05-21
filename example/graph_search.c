@@ -59,7 +59,7 @@ hiveGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
     // TODO: For now, its inefficiently getting both v and id, could have discarded v.
     vertexID * vId = depv[i + srcInfo->numNeighbors].ptr;
     /*For now, just printing in-place*/
-    PRINTF("Seed: %u, Step: %u, Neighbor: %u, neibID: %llu Weight: %f, Visited: %d, Indicator computation: \n", srcInfo->seed, num_steps - srcInfo->step + 1, data->v,vId->id, data->propertyVal, srcInfo->source == data->v ? 1 : 0);
+//    PRINTF("Seed: %u, Step: %u, Neighbor: %u, neibID: %llu Weight: %f, Visited: %d, Indicator computation: \n", srcInfo->seed, num_steps - srcInfo->step + 1, data->v,vId->id, data->propertyVal, srcInfo->source == data->v ? 1 : 0);
     /*For now we are doing in-place max-weighted sampling for next source*/
     if (data->propertyVal > maxWeightedNeighbor->propertyVal) {
       maxWeightedNeighbor->v = data->v;
@@ -128,7 +128,7 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
 hiveGuid_t check(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
     for (unsigned int i = 0; i < depc; i++) {
         vertexProperty * data = depv[i].ptr;
-        PRINTF("%d %f: %u\n", i, data->v, data->propertyVal);
+//        PRINTF("%d %f: %u\n", i, data->v, data->propertyVal);
     }
 
     hiveShutdown();
@@ -155,7 +155,7 @@ hiveGuid_t endVertexIDMapRead(u32 paramc, u64 * paramv,
     {
       for (int i = 0; i < num_seeds; i++) {
 	seeds[i] = rand() % distribution.num_vertices;
-	PRINTF("Seed chosen %d,\n", seeds[i]);
+//	PRINTF("Seed chosen %d,\n", seeds[i]);
       }
     }
 

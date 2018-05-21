@@ -12,6 +12,7 @@
 #include "hiveRemoteFunctions.h"
 #include "hiveRouteTable.h"
 #include "hiveArrayList.h"
+#include "hiveDebug.h"
 
 #define DPRINTF( ... )
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
@@ -193,11 +194,9 @@ hiveGuid_t hiveInitializeAndStartEpoch(hiveGuid_t finishEdtGuid, unsigned int sl
 //    hiveEpoch_t * epoch = createEpoch(&guid, finishEdtGuid, slot);
     hiveEpoch_t * epoch = getPoolEpoch(finishEdtGuid, slot);
     
-    if(hiveSetCurrentEpochGuid(epoch->guid))
-    {
-        hiveAtomicAdd(&epoch->activeCount, 1);
-        hiveAtomicAddU64(&epoch->queued, 1);
-    }
+    hiveSetCurrentEpochGuid(epoch->guid);
+    hiveAtomicAdd(&epoch->activeCount, 1);
+    hiveAtomicAddU64(&epoch->queued, 1);
 
 //    for(unsigned int i=0; i<hiveGlobalRankCount; i++)
 //    {

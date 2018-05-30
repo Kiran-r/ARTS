@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 project (hive)
 
-#CMake Configuration 
+#CMake Configuration
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
 include(glibc)
@@ -25,10 +25,10 @@ if(CMAKE_COMPILER_IS_GNUCC OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         message("Debug Build")
         if (CMAKE_C_COMPILER_VERSION VERSION_GREATER 7.0)
-          set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O0 -g -DCNC_DEBUG_TRACE -fsanitize=address -fsanitize=signed-integer-overflow")
+          set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O0 -g -DCNC_DEBUG_TRACE -fsanitize=address -fsanitize=signed-integer-overflow -fPIC")
         else()
           #set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O0 -g -DCNC_DEBUG_TRACE -fsanitize=address")
-          set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O0 -g -DCNC_DEBUG_TRACE")
+          set(CMAKE_C_FLAGS "-Werror -std=gnu99 -O0 -g -DCNC_DEBUG_TRACE -fPIC")
         endif()
 
         if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")

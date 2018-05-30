@@ -81,14 +81,14 @@
     __ret;                                                      \
 })
 
-typedef struct RingNode 
+typedef struct RingNode
 {
     volatile uint64_t val;
     volatile uint64_t idx;
     uint64_t pad[14];
 } RingNode __attribute__ ((aligned (128)));
 
-typedef struct RingQueue 
+typedef struct RingQueue
 {
     volatile int64_t head __attribute__ ((aligned (128)));
     volatile int64_t tail __attribute__ ((aligned (128)));
@@ -106,5 +106,15 @@ hiveQueue * hiveNewQueue();
 void enqueue(Object arg, hiveQueue * queue);
 Object dequeue(hiveQueue * queue);
 
-#endif	/* hiveQUEUE_H */
+// inline int close_crq(RingQueue *rq, const uint64_t t, const int tries)
+int close_crq(RingQueue *rq, const uint64_t t, const int tries);
+uint64_t node_index(uint64_t i) __attribute__ ((pure));
+void fixState(RingQueue *rq);
+uint64_t set_unsafe(uint64_t i) __attribute__ ((pure));
+int is_empty(uint64_t v) __attribute__ ((pure));
+uint64_t node_unsafe(uint64_t i) __attribute__ ((pure));
+int crq_is_closed(uint64_t t) __attribute__ ((pure));
+void init_ring(RingQueue *r);
+uint64_t tail_index(uint64_t t) __attribute__ ((pure));
 
+#endif	/* hiveQUEUE_H */

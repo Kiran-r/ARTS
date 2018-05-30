@@ -305,7 +305,6 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
 
 void hiveOutOfOrderSignalEdt (hiveGuid_t waitOn, hiveGuid_t edtPacket, hiveGuid_t dataGuid, u32 slot, hiveDbAccessMode_t mode)
 {
-    HIVECOUNTERTIMERSTART(ooSigEdt);
     struct ooSignalEdt * edt = hiveMalloc(sizeof(struct ooSignalEdt));
     edt->type = ooSignalEdt;
     edt->edtPacket = edtPacket;
@@ -317,13 +316,11 @@ void hiveOutOfOrderSignalEdt (hiveGuid_t waitOn, hiveGuid_t edtPacket, hiveGuid_
     {
         hiveSignalEdt( edtPacket, dataGuid, slot, mode );
         hiveFree(edt);
-    }
-    HIVECOUNTERTIMERENDINCREMENT(ooSigEdt);    
+    }   
 }
 
 void hiveOutOfOrderEventSatisfy(hiveGuid_t waitOn, hiveGuid_t eventGuid, hiveGuid_t dataGuid )
 {
-    HIVECOUNTERTIMERSTART(ooEventSat);
     struct ooEventSatisfy * event = hiveMalloc( sizeof(struct ooEventSatisfy) );
     event->type = ooEventSatisfy;
     event->eventGuid = eventGuid;
@@ -334,12 +331,10 @@ void hiveOutOfOrderEventSatisfy(hiveGuid_t waitOn, hiveGuid_t eventGuid, hiveGui
         hiveEventSatisfy( eventGuid, dataGuid );
         hiveFree(event);
     }
-    HIVECOUNTERTIMERENDINCREMENT(ooEventSat);
 }
 
 void hiveOutOfOrderEventSatisfySlot(hiveGuid_t waitOn, hiveGuid_t eventGuid, hiveGuid_t dataGuid, u32 slot )
 {
-    HIVECOUNTERTIMERSTART(ooEventSatSlot);
     struct ooEventSatisfySlot * event = hiveMalloc( sizeof(struct ooEventSatisfySlot) );
     event->type = ooEventSatisfySlot;
     event->eventGuid = eventGuid;
@@ -351,12 +346,10 @@ void hiveOutOfOrderEventSatisfySlot(hiveGuid_t waitOn, hiveGuid_t eventGuid, hiv
         hiveEventSatisfySlot(eventGuid, dataGuid, slot);
         hiveFree(event);
     }
-    HIVECOUNTERTIMERENDINCREMENT(ooEventSatSlot);
 }
 
 void hiveOutOfOrderAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hiveDbAccessMode_t mode, hiveGuid_t waitOn)
 {
-    HIVECOUNTERTIMERSTART(ooAddDep);
     struct ooAddDependence * dep = hiveMalloc(sizeof(struct ooAddDependence));
     dep->type = ooAddDependence;
     dep->source = source;
@@ -368,13 +361,11 @@ void hiveOutOfOrderAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 
     {
         hiveAddDependence(source, destination, slot, mode);
         hiveFree(dep);
-    }    
-    HIVECOUNTERTIMERENDINCREMENT(ooAddDep);
+    }
 }
 
 void hiveOutOfOrderHandleReadyEdt(hiveGuid_t triggerGuid, struct hiveEdt *edt)
 {
-    HIVECOUNTERTIMERSTART(ooReadyEdt);
     struct ooHandleReadyEdt * readyEdt = hiveMalloc(sizeof(struct ooHandleReadyEdt));
     readyEdt->type = ooHandleReadyEdt;
     readyEdt->edt = edt;
@@ -384,12 +375,10 @@ void hiveOutOfOrderHandleReadyEdt(hiveGuid_t triggerGuid, struct hiveEdt *edt)
         hiveHandleReadyEdt(edt);
         hiveFree(readyEdt);
     }
-    HIVECOUNTERTIMERENDINCREMENT(ooReadyEdt);
 }
 
 void hiveOutOfOrderHandleRemoteDbSend(int rank, hiveGuid_t dbGuid, hiveDbAccessMode_t mode)
 {
-    HIVECOUNTERTIMERSTART(ooRemoteDb);
     struct ooRemoteDbSend * readySend = hiveMalloc(sizeof(struct ooRemoteDbSend));
     readySend->type = ooRemoteDbSend;
     readySend->rank = rank;
@@ -402,12 +391,10 @@ void hiveOutOfOrderHandleRemoteDbSend(int rank, hiveGuid_t dbGuid, hiveDbAccessM
         hiveRemoteDbSendCheck(readySend->rank, db, readySend->mode);
         hiveFree(readySend);
     }
-    HIVECOUNTERTIMERENDINCREMENT(ooRemoteDb);
 }
 
 void hiveOutOfOrderHandleDbRequest(hiveGuid_t dbGuid, struct hiveEdt *edt, unsigned int slot)
 {
-    HIVECOUNTERTIMERSTART(ooRemoteDb);
     struct ooDbRequestSatisfy * req = hiveMalloc(sizeof(struct ooDbRequestSatisfy));
     req->type = ooDbRequestSatisfy;
     req->edt = edt;
@@ -419,13 +406,11 @@ void hiveOutOfOrderHandleDbRequest(hiveGuid_t dbGuid, struct hiveEdt *edt, unsig
         hiveDbRequestCallback(req->edt, req->slot, db);
         hiveFree(req);
     }
-    HIVECOUNTERTIMERENDINCREMENT(ooRemoteDb);
 }
 
 //This should save one lookup compared to the function above...
 void hiveOutOfOrderHandleDbRequestWithOOList(struct hiveOutOfOrderList * addToMe, void ** data, struct hiveEdt *edt, unsigned int slot)
 {
-//    HIVECOUNTERTIMERSTART(ooRemoteDb);
     struct ooDbRequestSatisfy * req = hiveMalloc(sizeof(struct ooDbRequestSatisfy));
     req->type = ooDbRequestSatisfy;
     req->edt = edt;
@@ -436,12 +421,10 @@ void hiveOutOfOrderHandleDbRequestWithOOList(struct hiveOutOfOrderList * addToMe
         hiveDbRequestCallback(req->edt, req->slot, *data);
         hiveFree(req);
     }
-//    HIVECOUNTERTIMERENDINCREMENT(ooRemoteDb);
 }
 
 void hiveOutOfOrderHandleRemoteDbFullSend(hiveGuid_t dbGuid, int rank, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
 {
-//    HIVECOUNTERTIMERSTART(ooReadyEdt);
     struct ooRemoteDbFullSend * dbSend = hiveMalloc(sizeof(struct ooRemoteDbFullSend));
     dbSend->type = ooDbFullSend;
     dbSend->rank = rank;
@@ -455,7 +438,6 @@ void hiveOutOfOrderHandleRemoteDbFullSend(hiveGuid_t dbGuid, int rank, struct hi
         hiveRemoteDbFullSendCheck(dbSend->rank, db, dbSend->edt, dbSend->slot, dbSend->mode);
         hiveFree(dbSend);
     }
-//    HIVECOUNTERTIMERENDINCREMENT(ooReadyEdt);
 }
 
 void hiveOutOfOrderGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)

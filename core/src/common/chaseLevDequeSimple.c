@@ -1,10 +1,6 @@
 #include "hiveDeque.h"
 #include "hiveMalloc.h"
 #include "hiveAtomics.h"
-#if defined(COUNT) || defined(MODELCOUNT) 
-#include "../arch/distributed_linux/inc/hiveGlobals.h"
-#include "hiveCounter.h"
-#endif
 
 struct circularArray
 {
@@ -119,9 +115,6 @@ hiveDequeDelete(struct hiveDeque *deque)
 bool 
 hiveDequePushFront(struct hiveDeque *deque, void *item, unsigned int priority)
 {
-#ifdef COUNT
-    hiveCounterTimerStart(hiveGetCounter((hiveThreadInfo.currentEdtGuid) ? dequePushCounterOn : dequePushCounter));
-#endif
     struct circularArray * a = deque->activeArray;
     u64 b = deque->bottom;
     u64 t = deque->top;
@@ -133,54 +126,35 @@ hiveDequePushFront(struct hiveDeque *deque, void *item, unsigned int priority)
     putCircularArray(a, b, item);
     HW_MEMORY_FENCE();
     deque->bottom=b+1;
-#ifdef COUNT
-    hiveCounterTimerEndIncrement(hiveGetCounter((hiveThreadInfo.currentEdtGuid) ? dequePushCounterOn : dequePushCounter));
-#endif
     return true;
 }
 
 void *
 hiveDequePopFront(struct hiveDeque *deque)
 {
-#if defined(COUNT) //|| defined(MODELCOUNT)
-    hiveCounterTimerStart(hiveGetCounter(dequePopCounter));
-#endif
     u64 b = --deque->bottom;
     HW_MEMORY_FENCE();
     u64 t = deque->top;
     if(t > b)
     {
-        deque->bottom = t;
-#if defined(COUNT) //|| defined(MODELCOUNT)
-        hiveCounterTimerEndIncrement(hiveGetCounter(dequePopCounter));
-#endif
-        
+        deque->bottom = t;        
         return NULL;
     }
     void * o = getCircularArray(deque->activeArray, b);
     //Success
     if(b > t)
     {
-#if defined(COUNT) //|| defined(MODELCOUNT)
-    hiveCounterTimerEndIncrement(hiveGetCounter(dequePopCounter));
-#endif
         return o;
     }
     if(hiveAtomicCswapU64(&deque->top, t, t+1) != t)
         o = NULL;
     deque->bottom = t+1;
-#if defined(COUNT) //|| defined(MODELCOUNT)
-    hiveCounterTimerEndIncrement(hiveGetCounter(dequePopCounter));
-#endif
     return o;
 }
 
 void *
 hiveDequePopBack(struct hiveDeque *deque)
 {
-#if defined(COUNT) //|| defined(MODELCOUNT)
-    hiveCounterTimerStart(hiveGetCounter(dequeStealCounter));
-#endif
     u64 t = deque->top;
     HW_MEMORY_FENCE();
     u64 b = deque->bottom;
@@ -189,18 +163,10 @@ hiveDequePopBack(struct hiveDeque *deque)
         void * o = getCircularArray(deque->activeArray, t);
         u64 temp = hiveAtomicCswapU64(&deque->top, t, t+1);
         if(temp==t)
-        {
-#if defined(COUNT) //|| defined(MODELCOUNT)
-            hiveCounter * temp = hiveGetCounter(dequeStealCounter);
-            hiveCounterSetStartTime(hiveGetCounter(stealCounter), hiveCounterGetStartTime(temp));
-            hiveCounterTimerEndIncrement(hiveGetCounter(stealCounter));
-#endif         
+        {        
             return o;
         }
     }
-#if defined(COUNT) //|| defined(MODELCOUNT)
-    hiveCounterTimerEndIncrement(hiveGetCounter(dequeStealCounter));
-#endif
     return NULL;
 }
 

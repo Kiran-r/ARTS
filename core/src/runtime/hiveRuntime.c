@@ -265,7 +265,6 @@ void hiveHandleRemoteStolenEdt(struct hiveEdt *edt)
 
 void hiveHandleReadyEdt(struct hiveEdt * edt)
 {
-    HIVECOUNTERTIMERSTART(handleReadyEdt);
     acquireDbs(edt);
     if(hiveAtomicSub(&edt->depcNeeded,1U) == 0)
     {
@@ -273,14 +272,10 @@ void hiveHandleReadyEdt(struct hiveEdt * edt)
         globalShutdownGuidIncQueue();
         hiveDequePushFront(hiveThreadInfo.myDeque, edt, 0);
     }
-
-    HIVECOUNTERTIMERENDINCREMENT(handleReadyEdt);
 }
 
 static inline void hiveRunEdt(void *edtPacket)
 {
-    HIVECOUNTERTIMERSTART(fireEdt);
-
     struct hiveEdt *edt = edtPacket;
     u32 depc = edt->depc;
     hiveEdtDep_t * depv = (hiveEdtDep_t *)(((u64 *)(edt + 1)) + edt->paramc);
@@ -306,8 +301,6 @@ static inline void hiveRunEdt(void *edtPacket)
 
     releaseDbs(depc, depv);
     hiveEdtDelete(edtPacket);
-
-    HIVECOUNTERTIMERENDINCREMENT(fireEdt);
 }
 
 inline unsigned int hiveRuntimeStealAnyMultipleEdt( unsigned int amount, void ** returnList )

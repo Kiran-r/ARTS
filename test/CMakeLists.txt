@@ -57,7 +57,6 @@ target_link_libraries(testPutArrayDbEpoch ${LIBS})
 add_executable(testPutArrayDbEpoch2 testPutArrayDbEpoch2.c)
 target_link_libraries(testPutArrayDbEpoch2 ${LIBS})
 
-
 add_executable(testAtomicAddInArrayDb testAtomicAddInArrayDb.c)
 target_link_libraries(testAtomicAddInArrayDb ${LIBS})
 
@@ -78,4 +77,3 @@ target_link_libraries(testEpochPool ${LIBS})
 
 add_executable(testBuffer testBuffer.c)
 target_link_libraries(testBuffer ${LIBS})
-

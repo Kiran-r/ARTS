@@ -739,7 +739,6 @@ struct hiveDependent * hiveDependentGet(struct hiveDependentList * head, int pos
 
 void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hiveDbAccessMode_t mode)
 {
-    HIVEEDTCOUNTERTIMERSTART(addDependence);
     struct hiveHeader *sourceHeader = hiveRouteTableLookupItem(source);
     if(sourceHeader == NULL)
     {
@@ -752,7 +751,6 @@ void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hive
         {
             hiveOutOfOrderAddDependence(source, destination, slot, mode, source);
         }
-        HIVEEDTCOUNTERTIMERENDINCREMENT(addDependence);
         return;
     }
 
@@ -813,13 +811,11 @@ void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hive
             }
         }
     }
-    HIVEEDTCOUNTERTIMERENDINCREMENT(addDependence);
     return;
 }
 
 void hiveAddLocalEventCallback(hiveGuid_t source, eventCallback_t callback)
 {
-    HIVEEDTCOUNTERTIMERSTART(addDependence);
     struct hiveEvent *event = (struct hiveEvent *)hiveRouteTableLookupItem(source);
     if(event && hiveGuidGetType(source) == HIVE_EVENT)
     {
@@ -853,7 +849,6 @@ void hiveAddLocalEventCallback(hiveGuid_t source, eventCallback_t callback)
             }
         }
     }
-    HIVEEDTCOUNTERTIMERENDINCREMENT(addDependence);
 }
 
 bool hiveIsEventFiredExt(hiveGuid_t event)
@@ -1033,8 +1028,9 @@ void * hiveSetBuffer(hiveGuid_t bufferGuid, void * buffer, unsigned int size)
         hiveBuffer_t * stub = hiveRouteTableLookupItem(bufferGuid);
         if(stub)
         {
-            if(stub->epochGuid)
-                incrementQueueEpoch(stub->epochGuid);
+            hiveGuid_t epochGuid = stub->epochGuid;
+            if(epochGuid)
+                incrementQueueEpoch(epochGuid);
             globalShutdownGuidIncQueue();
             
             if(size > stub->size)
@@ -1048,11 +1044,8 @@ void * hiveSetBuffer(hiveGuid_t bufferGuid, void * buffer, unsigned int size)
                 hiveFree(stub);
             }
             
-            if(stub->epochGuid)
-            {
-                PRINTF("INC FINISH %lu\n", stub->epochGuid);
-                incrementFinishedEpoch(stub->epochGuid);
-            }
+            if(epochGuid)
+                incrementFinishedEpoch(epochGuid);
             globalShutdownGuidIncFinished();
         }
         else

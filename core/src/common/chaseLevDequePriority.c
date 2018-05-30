@@ -1,10 +1,6 @@
 #include "hiveDeque.h"
 #include "hiveMalloc.h"
 #include "hiveAtomics.h"
-#if defined(COUNT) || defined(MODELCOUNT) 
-#include "../arch/distributed_linux/inc/hiveGlobals.h"
-#include "hiveCounter.h"
-#endif
 
 struct circularArray
 {
@@ -174,9 +170,6 @@ struct hiveDeque * findTheDeque( struct hiveDeque * deque, unsigned int priority
 bool 
 hiveDequePushFront(struct hiveDeque *deque, void *item, unsigned int priority)
 {
-#ifdef COUNT
-    hiveCounterTimerStart(hiveGetCounter((hiveThreadInfo.currentEdtGuid) ? dequePushCounterOn : dequePushCounter));
-#endif
     deque = findTheDeque(deque, priority);
     struct circularArray * a = deque->activeArray;
     u64 b = deque->bottom;
@@ -189,18 +182,12 @@ hiveDequePushFront(struct hiveDeque *deque, void *item, unsigned int priority)
     putCircularArray(a, b, item);
     HW_MEMORY_FENCE();
     deque->bottom=b+1;
-#ifdef COUNT
-    hiveCounterTimerEndIncrement(hiveGetCounter((hiveThreadInfo.currentEdtGuid) ? dequePushCounterOn : dequePushCounter));
-#endif
     return true;
 }
 
 void *
 hiveDequePopFront(struct hiveDeque *deque)
 {
-#if defined(COUNT) //|| defined(MODELCOUNT)
-    hiveCounterTimerStart(hiveGetCounter(dequePopCounter));
-#endif
     void * o = NULL;
     
     if(deque->left)
@@ -235,19 +222,12 @@ hiveDequePopFront(struct hiveDeque *deque)
         if(!o && deque->right)
             o = hiveDequePopFront(deque->right);
     }
-    
-#if defined(COUNT) //|| defined(MODELCOUNT)
-    hiveCounterTimerEndIncrement(hiveGetCounter(dequePopCounter));
-#endif
     return o;
 }
 
 void *
 hiveDequePopBack(struct hiveDeque *deque)
 {
-#if defined(COUNT) //|| defined(MODELCOUNT)
-    hiveCounterTimerStart(hiveGetCounter(dequeStealCounter));
-#endif
     void * o = NULL;
    
     if(deque->left)
@@ -270,15 +250,6 @@ hiveDequePopBack(struct hiveDeque *deque)
         if(!o && deque->right)
             o = hiveDequePopBack(deque->right);
     }
-#if defined(COUNT) //|| defined(MODELCOUNT)
-    hiveCounter * temp = hiveGetCounter(dequeStealCounter);
-    if(o)
-    {
-        hiveCounterSetStartTime(hiveGetCounter(stealCounter), hiveCounterGetStartTime(temp));
-        hiveCounterTimerEndIncrement(hiveGetCounter(stealCounter));
-    }
-    hiveCounterTimerEndIncrement(temp);
-#endif
     return o;
 }
 

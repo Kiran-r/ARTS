@@ -46,7 +46,7 @@ int hiveRT(int argc, char **argv)
     hiveGuidTableInit(config->routeTableSize);
     hiveThreadInit(config);
     hiveThreadZeroNodeStart();
-
+       
     hiveThreadMainJoin();
     hiveRemoteCleanup();
 

@@ -925,7 +925,6 @@ unsigned int handleIncomingEdts( char* address, int edtSizes )
         //    hiveDebugGenerateSegFault();
 //        PRINTF("STOLE %p %lu %lu\n", edt->funcPtr, edt->currentEdt, edt->outputEvent);
         hiveHandleReadyEdt( newEdt );
-        HIVECOUNTERINCREMENT(remoteEdtReceived);
         totalEdtsRecieved++;
     }
     return totalEdtsRecieved;

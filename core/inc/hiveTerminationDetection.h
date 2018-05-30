@@ -54,6 +54,11 @@ typedef struct hiveEpochPool {
 
 hiveEpochPool_t * createEpochPool(hiveGuid_t * epochPoolGuid, unsigned int poolSize, hiveGuid_t * startGuid);
 hiveEpoch_t * getPoolEpoch(hiveGuid_t edtGuid, unsigned int slot);
+
+void globalShutdownGuidIncActive();
+void globalShutdownGuidIncQueue();
+void globalShutdownGuidIncFinished();
+
 #ifdef __cplusplus
 }
 #endif

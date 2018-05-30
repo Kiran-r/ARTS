@@ -52,7 +52,8 @@ struct hiveRuntimeShared
     u64 shutdownTimeout;
     u64 shutdownForceTimeout;
     unsigned int printNodeStats;
-}__attribute__ ((aligned(64)));;
+    hiveGuid_t shutdownEpoch;
+}__attribute__ ((aligned(64)));
 
 struct hiveRuntimePrivate
 {

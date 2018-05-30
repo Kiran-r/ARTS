@@ -102,7 +102,6 @@ static inline void outInsertNode( struct outList * node, unsigned int length  )
     //This is for network queue sitting time...
     node->timeStamp = hiveExtGetTimeStamp();
 #endif
-    HIVEEDTCOUNTERTIMERSTART(sendQueuePush);
     
     //int listId = node->rank*ports+hiveThreadInfo.threadId%ports;
     long unsigned int listId;
@@ -121,12 +120,10 @@ static inline void outInsertNode( struct outList * node, unsigned int length  )
 #endif
 //    hiveUpdatePerformanceMetric(hiveNetworkQueuePush, hiveThread, packet->size, false);
     hiveUpdatePerformanceMetric(hiveNetworkQueuePush, hiveThread, 1, false);
-    HIVEEDTCOUNTERTIMERENDINCREMENT(sendQueuePush);
 }
 
 static inline struct outList * outPopNode( unsigned int threadId, void ** freeMe  )
 {
-    HIVEEDTCOUNTERTIMERSTART(sendQueuePull);
     struct outList * out;
     struct hiveLinkList * list;
     list = hiveLinkListGet(outHead, threadId);
@@ -136,18 +133,6 @@ static inline struct outList * outPopNode( unsigned int threadId, void ** freeMe
         struct hiveRemotePacket *packet = (struct hiveRemotePacket *) (out + 1);
 //        hiveUpdatePerformanceMetric(hiveNetworkQueuePop, hiveThread, packet->size, false);
     }
-    HIVEEDTCOUNTERTIMERENDINCREMENT(sendQueuePull);
-#ifdef COUNT
-    //This is for network queue sitting time...
-    if(out)
-    {
-        u64 temp = hiveExtGetTimeStamp() - out->timeStamp;
-        struct hiveRemotePacket *packet= (struct hiveRemotePacket *)(out+1);
-        packet->procTimeStamp+=temp;
-        hiveCounterSetStartTime(hiveGetCounter(networkSendQueueSitting), out->timeStamp);
-        hiveCounterTimerEndIncrement(hiveGetCounter(networkSendQueueSitting)); 
-    }
-#endif
     hiveUpdatePerformanceMetric(hiveNetworkQueuePop, hiveThread, 1, false);
     return out;
 }
@@ -193,23 +178,13 @@ bool hiveRemoteAsyncSend()
                     struct hiveRemotePacket *packet = (struct hiveRemotePacket *) (out + 1);
                     PRINTF("%d %d Self send error\n", hiveGlobalRankId, packet->messageType);
                 }
-#ifdef COUNT
-                //THIS IS GOING TO INCLUDE THE QUEUE TIME IN ROUND TRIPS...
-                struct hiveRemotePacket *packet = (struct hiveRemotePacket *) (out + 1);
-                if (!packet->timeStamp)
-                    packet->timeStamp = out->timeStamp;
-#endif
                 if (out->payload == NULL) 
                 {
-                    HIVECOUNTERTIMERSTART(pktSend);
                     lengthRemaining = hiveRemoteSendRequest(out->rank, i, ((char*) (out + 1))+out->offset, out->length);
-                    HIVECOUNTERTIMERENDINCREMENT(pktSend);
                 } 
                 else 
                 {
-                    HIVECOUNTERTIMERSTART(pktSend);
                     lengthRemaining = hiveRemoteSendPayloadRequest(out->rank, i, ((char*) (out + 1))+out->offset, out->length, ((char *)out->payload)+out->offsetPayload, out->payloadSize);
-                    HIVECOUNTERTIMERENDINCREMENT(pktSend);
                     
                     //if (out->freeMethod)
                     if (out->freeMethod && !lengthRemaining)

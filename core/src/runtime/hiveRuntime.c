@@ -37,12 +37,19 @@ extern int mainArgc;
 extern char **mainArgv;
 extern void initPerNode(unsigned int nodeId, int argc, char** argv) __attribute__((weak));
 extern void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char**argv) __attribute__((weak));
+extern void artsMain(int argc, char** argv) __attribute__((weak));
 
 struct hiveRuntimeShared hiveNodeInfo;
 __thread struct hiveRuntimePrivate hiveThreadInfo;
 
 typedef bool (*scheduler_t)();
 scheduler_t schedulerLoop[3] = {hiveDefaultSchedulerLoop, hiveNetworkBeforeStealSchedulerLoop, hiveNetworkFirstSchedulerLoop};
+
+hiveGuid_t artsMainEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+{
+    artsMain(mainArgc, mainArgv);
+    return NULL_GUID;
+}
 
 void hiveRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThreads, unsigned int senderThreads, unsigned int receiverThreads, unsigned int totalThreads, bool remoteStealingOn, struct hiveConfig * config)
 {
@@ -77,6 +84,7 @@ void hiveRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     hiveNodeInfo.buf = hiveMalloc( PACKET_SIZE );
     hiveNodeInfo.packetSize = PACKET_SIZE;
     hiveNodeInfo.printNodeStats = config->printNodeStats;
+    hiveNodeInfo.shutdownEpoch = (config->shutdownEpoch) ? 1 : NULL_GUID ;
     hiveInitIntrospector(config);
 }
 
@@ -94,14 +102,17 @@ void hiveThreadZeroNodeStart()
 {
     hiveStartInspector(1);
 
-    if(initPerNode)
+    globalGuidOn = 1;
+    if(hiveNodeInfo.shutdownEpoch)
     {
-        globalGuidOn = 1;
+        hiveNodeInfo.shutdownEpoch = hiveGuidCreateForRank(0, HIVE_EDT);
+        createEpoch(&hiveNodeInfo.shutdownEpoch, NULL_GUID, 0);
+    }    
+    if(initPerNode)
         initPerNode(hiveGlobalRankId, mainArgc, mainArgv);
-        if(!hiveGlobalRankId)
-            setGuidGeneratorAfterParallelStart();
-        globalGuidOn = 0;
-    }
+    if(!hiveGlobalRankId)
+        setGuidGeneratorAfterParallelStart();
+    globalGuidOn = 0;
 
     hiveStartInspector(2);
     HIVESTARTCOUNTING(2);
@@ -118,6 +129,12 @@ void hiveThreadZeroNodeStart()
     hiveStartInspector(3);
     hiveAtomicSub(&hiveNodeInfo.readyToExecute, 1U);
     while(hiveNodeInfo.readyToExecute){ }
+    
+    if(artsMain && !hiveGlobalRankId)
+    {
+        hiveEdtCreate(artsMainEdt, 0, 0, NULL, 0);
+    }
+ 
 }
 
 void hiveRuntimePrivateInit(struct threadMask * unit, struct hiveConfig  * config)
@@ -242,26 +259,23 @@ void hiveHandleRemoteStolenEdt(struct hiveEdt *edt)
 {
     DPRINTF("push stolen %d\n",hiveThreadInfo.coreId);
     incrementQueueEpoch(edt->epochGuid);
+    globalShutdownGuidIncQueue();
     hiveDequePushFront(hiveThreadInfo.myDeque, edt, 0);
 }
 
 void hiveHandleReadyEdt(struct hiveEdt * edt)
 {
-    HIVECOUNTERTIMERSTART(handleReadyEdt);
     acquireDbs(edt);
     if(hiveAtomicSub(&edt->depcNeeded,1U) == 0)
     {
         incrementQueueEpoch(edt->epochGuid);
+        globalShutdownGuidIncQueue();
         hiveDequePushFront(hiveThreadInfo.myDeque, edt, 0);
     }
-
-    HIVECOUNTERTIMERENDINCREMENT(handleReadyEdt);
 }
 
 static inline void hiveRunEdt(void *edtPacket)
 {
-    HIVECOUNTERTIMERSTART(fireEdt);
-
     struct hiveEdt *edt = edtPacket;
     u32 depc = edt->depc;
     hiveEdtDep_t * depv = (hiveEdtDep_t *)(((u64 *)(edt + 1)) + edt->paramc);
@@ -287,8 +301,6 @@ static inline void hiveRunEdt(void *edtPacket)
 
     releaseDbs(depc, depv);
     hiveEdtDelete(edtPacket);
-
-    HIVECOUNTERTIMERENDINCREMENT(fireEdt);
 }
 
 inline unsigned int hiveRuntimeStealAnyMultipleEdt( unsigned int amount, void ** returnList )

@@ -121,6 +121,7 @@ void hiveIncrementFinishedEpochList()
         else
             hiveResetArrayList(epochList);
     }
+    globalShutdownGuidIncFinished();
 }
 
 void hiveUnsetThreadLocalEdtInfo()
@@ -169,6 +170,7 @@ bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int e
                 incrementActiveEpoch(currentEpochGuid);
             }
         }
+        globalShutdownGuidIncActive();
         
         if(paramc)
             memcpy((u64*) (edt+1), paramv, sizeof(u64) * paramc);
@@ -737,7 +739,6 @@ struct hiveDependent * hiveDependentGet(struct hiveDependentList * head, int pos
 
 void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hiveDbAccessMode_t mode)
 {
-    HIVEEDTCOUNTERTIMERSTART(addDependence);
     struct hiveHeader *sourceHeader = hiveRouteTableLookupItem(source);
     if(sourceHeader == NULL)
     {
@@ -750,7 +751,6 @@ void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hive
         {
             hiveOutOfOrderAddDependence(source, destination, slot, mode, source);
         }
-        HIVEEDTCOUNTERTIMERENDINCREMENT(addDependence);
         return;
     }
 
@@ -811,13 +811,11 @@ void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hive
             }
         }
     }
-    HIVEEDTCOUNTERTIMERENDINCREMENT(addDependence);
     return;
 }
 
 void hiveAddLocalEventCallback(hiveGuid_t source, eventCallback_t callback)
 {
-    HIVEEDTCOUNTERTIMERSTART(addDependence);
     struct hiveEvent *event = (struct hiveEvent *)hiveRouteTableLookupItem(source);
     if(event && hiveGuidGetType(source) == HIVE_EVENT)
     {
@@ -851,7 +849,6 @@ void hiveAddLocalEventCallback(hiveGuid_t source, eventCallback_t callback)
             }
         }
     }
-    HIVEEDTCOUNTERTIMERENDINCREMENT(addDependence);
 }
 
 bool hiveIsEventFiredExt(hiveGuid_t event)
@@ -987,8 +984,9 @@ hiveGuid_t hiveActiveMessageShad(hiveEdt_t funcPtr, unsigned int route, u32 para
     unsigned int depSpace = sizeof(hiveEdtDep_t);
     unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64) + depSpace;
     hiveEdtCreateInternal(&guid, route, edtSpace, NULL_GUID, funcPtr, paramc, paramv, 1, useEpoch, epochGuid, true);
-    
-    hiveSignalEdtPtr(guid, NULL_GUID, data, size, 0);
+    void * ptr = hiveMalloc(size);
+    memcpy(ptr, data, size);
+    hiveSignalEdtPtr(guid, NULL_GUID, ptr, size, 0);
     return guid;
 }
 
@@ -997,11 +995,16 @@ hiveGuid_t hiveActiveMessageShad(hiveEdt_t funcPtr, unsigned int route, u32 para
 typedef struct {
     void * buffer;
     unsigned int size;
+    hiveGuid_t epochGuid;
     volatile unsigned int uses;
 } hiveBuffer_t;
 
-hiveGuid_t hiveAllocateLocalBuffer(void ** buffer, unsigned int size, unsigned int uses)
+hiveGuid_t hiveAllocateLocalBuffer(void ** buffer, unsigned int size, unsigned int uses, hiveGuid_t epochGuid)
 {
+    if(epochGuid)
+        incrementActiveEpoch(epochGuid);
+    globalShutdownGuidIncActive();
+        
     if(*buffer == NULL)
         *buffer = hiveMalloc(sizeof(char) * size);
     
@@ -1009,6 +1012,7 @@ hiveGuid_t hiveAllocateLocalBuffer(void ** buffer, unsigned int size, unsigned i
     stub->buffer = *buffer;
     stub->size = size;
     stub->uses = uses;
+    stub->epochGuid = epochGuid;
     
     hiveGuid_t guid = hiveGuidCreateForRank(hiveGlobalRankId, HIVE_BUFFER);
     hiveRouteTableAddItem(stub, guid, hiveGlobalRankId, false);
@@ -1024,6 +1028,11 @@ void * hiveSetBuffer(hiveGuid_t bufferGuid, void * buffer, unsigned int size)
         hiveBuffer_t * stub = hiveRouteTableLookupItem(bufferGuid);
         if(stub)
         {
+            hiveGuid_t epochGuid = stub->epochGuid;
+            if(epochGuid)
+                incrementQueueEpoch(epochGuid);
+            globalShutdownGuidIncQueue();
+            
             if(size > stub->size)
                 PRINTF("Truncating buffer data buffer size: %u stub size: %u\n", size, stub->size);
             memcpy(stub->buffer, buffer, stub->size);
@@ -1034,6 +1043,10 @@ void * hiveSetBuffer(hiveGuid_t bufferGuid, void * buffer, unsigned int size)
                 hiveRouteTableRemoveItem(bufferGuid);
                 hiveFree(stub);
             }
+            
+            if(epochGuid)
+                incrementFinishedEpoch(epochGuid);
+            globalShutdownGuidIncFinished();
         }
         else
             PRINTF("Out-of-order buffers not supported\n");

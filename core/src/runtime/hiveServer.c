@@ -17,14 +17,6 @@
 
 #define EDT_MUG_SIZE 32 
 
-#ifdef COUNT
-__thread u64 packetProcStartTime=0;
-__thread struct hiveRemotePacket * localPacket = NULL;
-#define SETPACKET(pk) localPacket=pk
-#else
-#define SETPACKET(pk)
-#endif
-
 bool hiveGlobalIWillPrint=false;
 FILE * lockPrintFile;
 extern bool serverEnd;
@@ -89,7 +81,6 @@ void hiveServerSendStealRequest()
     packed.messageType = HIVE_REMOTE_EDT_STEAL_MSG;
     packed.size = sizeof(packed);
     hiveRemoteSendRequestAsync( node , (char *)&packed,  sizeof(packed) );
-    HIVECOUNTERINCREMENT(remoteStealRequestsSent);
     node++;
 }
 
@@ -97,7 +88,6 @@ static inline bool mugEdts(int requester, int mugSize)
 {
     void * muggerCoat[EDT_MUG_SIZE];
     int stolen = hiveRuntimeStealAnyMultipleEdt( EDT_MUG_SIZE, muggerCoat );
-    HIVECOUNTERINCREMENTBY(remoteEdtsSent, stolen);
     //void * muggerCoat;
     //muggerCoat[0] = hiveRuntimeStealFromWorker(0);
     //if(muggerCoat[0]!= NULL)
@@ -159,20 +149,14 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
         PRINTF("MESSAGE RECIEVED OUT OF ORDER exp: %lu rec: %lu source: %u type: %d\n", expSeqNumber, packet->seqNum, packet->rank, packet->messageType);
     }
 #endif
-#ifdef COUNT
-    packetProcStartTime = COUNTERTIMESTAMP;                                                        
-#endif
     
-    HIVECOUNTERTIMERSTART(pktProc);
     switch(packet->messageType)
     {
         case HIVE_REMOTE_EVENT_SATISFY_MSG:
         {
             DPRINTF("Remote Event Satisfy Recieved\n");
             struct hiveRemoteEventSatisfyPacket *pack = (struct hiveRemoteEventSatisfyPacket *)(packet);
-            HIVECOUNTERTIMERSTART(remoteEventSatMsg);
             hiveEventSatisfy(pack->event, pack->db);
-            HIVECOUNTERTIMERENDINCREMENT(remoteEventSatMsg);
             break;
         }
         case HIVE_REMOTE_EVENT_SATISFY_SLOT_MSG:
@@ -186,23 +170,18 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
         {
             DPRINTF("EDT Signal Recieved\n");
             struct hiveRemoteEdtSignalPacket *pack = (struct hiveRemoteEdtSignalPacket *)(packet);
-            HIVECOUNTERTIMERSTART(remoteEdtSigMsg);
             hiveSignalEdt( pack->edt, pack->db, pack->slot, pack->mode );
-            HIVECOUNTERTIMERENDINCREMENT(remoteEdtSigMsg);
             break;
         }   
         case HIVE_REMOTE_ADD_DEPENDENCE_MSG:
         {
             DPRINTF("Dependence Recieved\n");
             struct hiveRemoteAddDependencePacket *pack = (struct hiveRemoteAddDependencePacket *)(packet);
-            HIVECOUNTERTIMERSTART(remoteAddDepMsg);
             hiveAddDependence( pack->source, pack->destination, pack->slot, pack->mode );
-            HIVECOUNTERTIMERENDINCREMENT(remoteAddDepMsg);
             break;
         }   
         case HIVE_REMOTE_DB_REQUEST_MSG:
         {
-            SETPACKET(packet);
             struct hiveRemoteDbRequestPacket *pack = (struct hiveRemoteDbRequestPacket *)(packet);
             if(packet->size != sizeof(*pack))
                 PRINTF("Error dbpacket insanity\n");
@@ -211,18 +190,6 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
         }
         case HIVE_REMOTE_DB_SEND_MSG:  
         {
-#ifdef COUNT
-            if(packet->procTimeStamp)
-            {
-                hiveCounterAddTime(hiveGetCounter(roundTripDbAcquireProc), packet->procTimeStamp);
-                hiveCounterSetStartTime(hiveGetCounter(roundTripDbAcquire), packet->timeStamp);
-                hiveCounterTimerEndIncrement(hiveGetCounter(roundTripDbAcquire));
-            }
-            else
-            {
-                hiveCounterIncrement(hiveGetCounter(remoteDbSendMsg));
-            }
-#endif
             DPRINTF("Remote Db Recieved\n");
             struct hiveRemoteDbSendPacket *pack = (struct hiveRemoteDbSendPacket *)(packet);
             hiveRemoteHandleDbRecieved(pack);
@@ -231,7 +198,6 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
         case HIVE_REMOTE_INVALIDATE_DB_MSG:
         {
             DPRINTF("DB Invalidate Recieved\n");
-            HIVECOUNTERINCREMENT(remoteInvalidateDbMsg);
             hiveRemoteHandleInvalidateDb( packet );
             break;
         }
@@ -273,26 +239,19 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
         case HIVE_REMOTE_DB_UPDATE_GUID_MSG:
         {
             DPRINTF("DB Guid Update Recieved\n");
-            HIVECOUNTERINCREMENT(remoteInvalidateRequestMsg);
             hiveRemoteHandleUpdateDbGuid( packet );
             break;
         }
         case HIVE_REMOTE_EDT_MOVE_MSG:
         {
-            SETPACKET(packet);
             DPRINTF("EDT Move Recieved\n");
-            HIVECOUNTERTIMERSTART(edtMoveProc);
             hiveRemoteHandleEdtMove( packet );
-            HIVECOUNTERTIMERENDINCREMENT(edtMoveProc);
             break;
         }
         case HIVE_REMOTE_DB_MOVE_MSG:
         {
-            SETPACKET(packet);
             DPRINTF("DB Move Recieved\n");
-            HIVECOUNTERTIMERSTART(dbMoveProc);
             hiveRemoteHandleDbMove( packet );
-            HIVECOUNTERTIMERENDINCREMENT(dbMoveProc);
             break;
         }
         case HIVE_REMOTE_DB_UPDATE_MSG:
@@ -302,14 +261,11 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
         }
         case HIVE_REMOTE_EVENT_MOVE_MSG:
         {
-            HIVECOUNTERTIMERSTART(eventMoveProc);
             hiveRemoteHandleEventMove(packet);
-            HIVECOUNTERTIMERENDINCREMENT(eventMoveProc);
             break;
         }
         case HIVE_REMOTE_EDT_STEAL_MSG:
         {
-            HIVECOUNTERINCREMENT(remoteStealRequestsRecv);
             DPRINTF("Remote Steal Request %d\n", packet->rank);
             mugEdts(packet->rank, 0);
             break;

@@ -41,14 +41,6 @@
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
 #define DPRINTF( ... )
 
-#ifdef COUNT
-extern __thread u64 packetProcStartTime;
-extern __thread struct hiveRemotePacket * localPacket;
-#define SETPACKET(pk) localPacket=pk
-#else
-#define SETPACKET(pk)
-#endif
-
 struct hiveConfig * hiveGlobalMessageTable;
 unsigned int ports;
 //SOCKETS!
@@ -846,7 +838,6 @@ bool hiveServerTryToRecieve(char ** inBuffer, int * inPacketSize, volatile unsig
             {
                 //PRINTF("Here2\n");
                 maxIncoming[pos] = false;
-                HIVECOUNTERTIMERSTART(pktReceive);
                 if(reRecieveRes[pos] == 0)
                 {
                     //PRINTF("Here3a\n");
@@ -986,11 +977,6 @@ bool hiveServerTryToRecieve(char ** inBuffer, int * inPacketSize, volatile unsig
                         //packet = (struct hiveRemotePacket *)bypassBuf[pos];
                         //reRecieveRes[pos] = res;
                         //break;
-                        HIVECOUNTERTIMERENDINCREMENT(pktProc);
-#ifdef COUNT
-                        localPacket = NULL;
-                        packetProcStartTime = 0;                                                        
-#endif
                     }
                 }
                 else if( res == -1  )

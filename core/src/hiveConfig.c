@@ -960,6 +960,11 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
     else
         config->scheduler = 0;
     
+    if( (foundVariableChar = hiveConfigFindVariableChar(configVariables,"shutdownEpoch")) != NULL)
+        config->shutdownEpoch = strtol( foundVariableChar, &end , 10);
+    else
+        config->shutdownEpoch = 0;
+    
     //WARNING: Slurm Launcher Set!  
     if(strncmp(config->launcher, "slurm", 5 )==0)
     {

@@ -126,3 +126,7 @@ add_subdirectory(example)
 
 configure_file(sampleConfigs/hive.cfg example/hive.cfg COPYONLY)
 configure_file(sampleConfigs/hive.insp example/hive.insp COPYONLY)
+configure_file(sampleConfigs/hive.cfg test/hive.cfg COPYONLY)
+configure_file(sampleConfigs/hive.insp test/hive.insp COPYONLY)
+install(FILES sampleConfigs/hive.cfg DESTINATION config)
+install(FILES sampleConfigs/hive.insp DESTINATION config)

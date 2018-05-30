@@ -189,7 +189,7 @@ void internalAtomicAddInArrayDb(hiveGuid_t dbGuid, unsigned int index, unsigned 
         hiveArrayDb_t * array = (hiveArrayDb_t*)(db+1);
         //Do this so when we increment finished we can check the term status
         incrementQueueEpoch(epochGuid);
-        
+        globalShutdownGuidIncQueue();
         unsigned int offset = getOffsetFromIndex(array, index);
         unsigned int * data = (unsigned int*)(((char*) array) + offset);
         unsigned int result = hiveAtomicAdd(data, toAdd);
@@ -202,6 +202,7 @@ void internalAtomicAddInArrayDb(hiveGuid_t dbGuid, unsigned int index, unsigned 
         }
 
         incrementFinishedEpoch(epochGuid);
+        globalShutdownGuidIncFinished();
     }
     else
     {
@@ -214,6 +215,7 @@ void hiveAtomicAddInArrayDb(hiveArrayDb_t * array, unsigned int index, unsigned 
     hiveGuid_t dbGuid = getArrayDbGuid(array);
     hiveGuid_t epochGuid = hiveGetCurrentEpochGuid();
     incrementActiveEpoch(epochGuid);
+    globalShutdownGuidIncActive();
     unsigned int rank = getRankFromIndex(array, index);
     if(rank==hiveGlobalRankId)
         internalAtomicAddInArrayDb(dbGuid, index, toAdd, edtGuid, slot, epochGuid);
@@ -229,7 +231,7 @@ void internalAtomicCompareAndSwapInArrayDb(hiveGuid_t dbGuid, unsigned int index
         hiveArrayDb_t * array = (hiveArrayDb_t*)(db+1);
         //Do this so when we increment finished we can check the term status
         incrementQueueEpoch(epochGuid);
-        
+        globalShutdownGuidIncQueue();
         unsigned int offset = getOffsetFromIndex(array, index);
         unsigned int * data = (unsigned int*)(((char*) array) + offset);
         unsigned int result = hiveAtomicCswap(data, oldValue, newValue);
@@ -242,6 +244,7 @@ void internalAtomicCompareAndSwapInArrayDb(hiveGuid_t dbGuid, unsigned int index
         }
 
         incrementFinishedEpoch(epochGuid);
+        globalShutdownGuidIncFinished();
     }
     else
     {
@@ -254,6 +257,7 @@ void hiveAtomicCompareAndSwapInArrayDb(hiveArrayDb_t * array, unsigned int index
     hiveGuid_t dbGuid = getArrayDbGuid(array);
     hiveGuid_t epochGuid = hiveGetCurrentEpochGuid();
     incrementActiveEpoch(epochGuid);
+    globalShutdownGuidIncActive();
     unsigned int rank = getRankFromIndex(array, index);
     if(rank==hiveGlobalRankId)
         internalAtomicCompareAndSwapInArrayDb(dbGuid, index, oldValue, newValue, edtGuid, slot, epochGuid);

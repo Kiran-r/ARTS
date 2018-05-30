@@ -47,6 +47,7 @@ struct hiveConfig
     unsigned int counterStartPoint;
     unsigned int printNodeStats;
     unsigned int scheduler;
+    unsigned int shutdownEpoch;
     char * prefix;
     char * suffix;
     bool ibNames;

@@ -487,7 +487,7 @@ void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned
         {
             //Do this so when we increment finished we can check the term status
             incrementQueueEpoch(epochGuid);
-            
+            globalShutdownGuidIncQueue();
             void * data = (void*)(((char*) (db+1)) + offset);
             memcpy(data, ptr, size);
             DPRINTF("PUTTING %u From: %p\n", *((unsigned int *)data), data);
@@ -497,6 +497,7 @@ void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned
             }
             DPRINTF("FINISHING PUT %lu\n", epochGuid);
             incrementFinishedEpoch(epochGuid);
+            globalShutdownGuidIncFinished();
             hiveUpdatePerformanceMetric(hivePutBW, hiveThread, size, false);
         }
         else
@@ -519,6 +520,7 @@ void hivePutInDbAt(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned i
     hiveGuid_t epochGuid = hiveGetCurrentEpochGuid();
     DPRINTF("EPOCH %lu\n", epochGuid);
     incrementActiveEpoch(epochGuid);
+    globalShutdownGuidIncActive();
     internalPutInDb(ptr, edtGuid, dbGuid, slot, offset, size, epochGuid, rank);
 }
 
@@ -528,6 +530,7 @@ void hivePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int
     hiveGuid_t epochGuid = hiveGetCurrentEpochGuid();
     DPRINTF("EPOCH %lu\n", epochGuid);
     incrementActiveEpoch(epochGuid);
+    globalShutdownGuidIncActive();
     internalPutInDb(ptr, edtGuid, dbGuid, slot, offset, size, epochGuid, rank);
 }
 
@@ -535,6 +538,7 @@ void hivePutInDbEpoch(void * ptr, hiveGuid_t epochGuid, hiveGuid_t dbGuid, unsig
 {
     unsigned int rank = hiveGuidGetRank(dbGuid);
     incrementActiveEpoch(epochGuid);
+    globalShutdownGuidIncActive();
     internalPutInDb(ptr, NULL_GUID, dbGuid, 0, offset, size, epochGuid, rank);
 }
 

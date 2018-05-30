@@ -14,14 +14,38 @@
 #include "hiveArrayList.h"
 #include "hiveDebug.h"
 
-#define DPRINTF( ... )
-//#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
+//#define DPRINTF( ... )
+#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
 
 #define EpochMask   0x7FFFFFFFFFFFFFFF  
 #define EpochBit 0x8000000000000000
 
 #define DEFAULT_EPOCH_POOL_SIZE 128
 __thread hiveEpochPool_t * epochThreadPool;
+
+void globalShutdownGuidIncActive()
+{
+    if(hiveNodeInfo.shutdownEpoch)
+        incrementActiveEpoch(hiveNodeInfo.shutdownEpoch);
+}
+
+void globalShutdownGuidIncQueue()
+{
+    if(hiveNodeInfo.shutdownEpoch)
+        incrementQueueEpoch(hiveNodeInfo.shutdownEpoch);
+}
+
+void globalShutdownGuidIncFinished()
+{
+    if(hiveNodeInfo.shutdownEpoch)
+        incrementFinishedEpoch(hiveNodeInfo.shutdownEpoch);
+}
+
+void globalGuidShutdown()
+{
+    if(hiveNodeInfo.shutdownEpoch)
+        hiveShutdown();
+}
 
 bool decrementQueueEpoch(hiveEpoch_t * epoch)
 {
@@ -56,7 +80,7 @@ void incrementQueueEpoch(hiveGuid_t epochGuid)
         else
         {
             hiveOutOfOrderIncQueueEpoch(epochGuid);
-            DPRINTF("OOActive\n");
+            DPRINTF("OOIncQueueEpoch %lu\n", epochGuid);
         }
     }
 }
@@ -72,7 +96,7 @@ void incrementActiveEpoch(hiveGuid_t epochGuid)
     else
     {
         hiveOutOfOrderIncActiveEpoch(epochGuid);
-        DPRINTF("OOActive\n");
+        DPRINTF("OOIncActiveEpoch %lu\n", epochGuid);
     }
 }
 
@@ -227,6 +251,8 @@ bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int tota
                 DPRINTF("%lu Calling finalization continuation provided by the user %u\n", epoch->guid, totalFinish);
                 hiveSignalEdt(epoch->terminationExitGuid, totalFinish, epoch->terminationExitSlot, DB_MODE_SINGLE_VALUE);
             }
+            else
+                globalGuidShutdown();
             return false;
         }
         else //We didn't match the last one so lets try again
@@ -246,6 +272,8 @@ bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int tota
                     DPRINTF("%lu Calling finalization continuation provided by the user %u !\n", epoch->guid, totalFinish);
                     hiveSignalEdt(epoch->terminationExitGuid, totalFinish, epoch->terminationExitSlot, DB_MODE_SINGLE_VALUE);
                 }
+                else
+                    globalGuidShutdown();
                 return false;
             }
             else
@@ -495,6 +523,7 @@ bool hiveWaitOnHandle(hiveGuid_t epochGuid)
         hiveEpoch_t * epoch = hiveRouteTableLookupItem(local);
         epoch->waitPtr = &flag;
         incrementFinishedEpoch(local);
+//        globalShutdownGuidIncFinished();
         
         threadLocal_t tl;
         hiveSaveThreadLocal(&tl);

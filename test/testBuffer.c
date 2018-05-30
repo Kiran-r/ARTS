@@ -30,7 +30,7 @@ hiveGuid_t startEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     
     unsigned int result = 0;
     unsigned int * dataPtr = &result;
-    args[0] = hiveAllocateLocalBuffer((void**)&dataPtr, sizeof(unsigned int), 1);
+    args[0] = hiveAllocateLocalBuffer((void**)&dataPtr, sizeof(unsigned int), 1, NULL_GUID);
     args[1] = sizeof(unsigned int);
     
     unsigned int bufferSize = sizeof(unsigned int)*5;

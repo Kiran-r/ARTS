@@ -62,7 +62,7 @@ typedef struct
 void hiveSaveThreadLocal(threadLocal_t * tl);
 void hiveRestoreThreadLocal(threadLocal_t * tl);
 
-hiveGuid_t hiveAllocateLocalBuffer(void ** buffer, unsigned int size, unsigned int uses);
+hiveGuid_t hiveAllocateLocalBuffer(void ** buffer, unsigned int size, unsigned int uses, hiveGuid_t epochGuid);
 void * hiveSetBuffer(hiveGuid_t bufferGuid, void * buffer, unsigned int size);
 void * hiveGetBuffer(hiveGuid_t bufferGuid);
 

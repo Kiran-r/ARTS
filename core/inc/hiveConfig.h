@@ -58,6 +58,7 @@ struct hiveConfig
     bool printTopology;
     bool pinThreads;
     unsigned int firstEdt;
+    unsigned int shadLoopStride;
     u64 stackSize;
     struct hiveRemoteLauncher * launcherData;
     char * introspectiveFolder;

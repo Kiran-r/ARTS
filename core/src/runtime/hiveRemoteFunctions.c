@@ -1264,6 +1264,5 @@ void hiveRemoteHandleBufferSend(void * pack)
     struct hiveRemoteMemoryMovePacket * packet = (struct hiveRemoteMemoryMovePacket *) pack;
     unsigned int size = packet->header.size - sizeof(struct hiveRemoteMemoryMovePacket);
     void * buffer = (void*)(packet+1);
-    PRINTF("Handle: %u -> %u\n", size, *(unsigned int*)buffer);
     hiveSetBuffer(packet->guid, buffer, size);
 }

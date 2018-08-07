@@ -161,12 +161,13 @@ void hiveServerFixIbNames(struct hiveConfig * config )
         strncpy( stringFixed+curLength, testStr, testStrLength );
         *(stringFixed+curLength+testStrLength) = '\0';
         
-        DPRINTF("%s\n",stringFixed);
+        
 
         error = getaddrinfo(stringFixed, NULL, NULL, &result);
 
         if(error == 0)
         {
+            DPRINTF("%s\n",stringFixed);
             hiveRemoteFixNames(pre[i], curLength, false, &hiveGlobalMessageTable->table[j].ipAddress); 
             hiveFree(stringFixed);
             
@@ -187,12 +188,13 @@ void hiveServerFixIbNames(struct hiveConfig * config )
         strncpy( stringFixed+testStrLength, post[i], curLength ); 
         *(stringFixed+curLength+testStrLength) = '\0';
         
-        DPRINTF("%s\n",stringFixed);
+        
         
         error = getaddrinfo(stringFixed, NULL, NULL, &result);
 
         if(error == 0)
         {
+            DPRINTF("%s\n",stringFixed);
             hiveRemoteFixNames(post[i], curLength, true, &hiveGlobalMessageTable->table[j].ipAddress); 
             hiveFree(stringFixed);
             
@@ -1073,7 +1075,6 @@ void hiveServerPingPongTestRecieve(char * inBuffer, int inPacketSize)
                         if( packet->messageType == HIVE_REMOTE_PINGPONG_TEST_MSG)
                         {
                             recieved = true;
-                            HIVECOUNTERTIMERENDINCREMENT(pktReceive);
                             hiveUpdatePerformanceMetric(hiveNetworkRecieveBW, hiveThread, packet->size, false);
                             hiveUpdatePerformanceMetric(hiveFreeBW + packet->messageType, hiveThread, 1, false);
                             hiveUpdatePacketInfo(packet->size);

@@ -1,17 +1,49 @@
-#include "hiveQueue.h"
-#include "hiveMalloc.h"
-#include "hive.h"
-#define ALIGNMENT 8
-// inline int is_empty(uint64_t v) __attribute__ ((pure));
-// inline uint64_t node_index(uint64_t i) __attribute__ ((pure));
-// inline uint64_t set_unsafe(uint64_t i) __attribute__ ((pure));
-// inline uint64_t node_unsafe(uint64_t i) __attribute__ ((pure));
-// inline uint64_t tail_index(uint64_t t) __attribute__ ((pure));
-// inline int crq_is_closed(uint64_t t) __attribute__ ((pure));
+#define _GNU_SOURCE
 
-//RingQueue *head;
-//RingQueue *tail;
-//__thread RingQueue *nrq;
+#include "hiveMalloc.h"
+#include "hiveQueue.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sched.h>
+#include <sys/time.h>
+
+#define CACHE_ALIGN     __attribute__((aligned(64)))
+
+#define FAA64(ptr, inc) __sync_fetch_and_add((ptr), (inc))
+
+#define CAS64(ptr, old, new) __sync_bool_compare_and_swap((ptr), (old), (new))
+
+#define CASPTR CAS64
+
+#define StorePrefetch(val) do { } while (0)
+
+#define likely(x) __builtin_expect(!!(x), 1)
+
+#define unlikely(x) __builtin_expect(!!(x), 0)
+
+#define __CAS2(ptr, o1, o2, n1, n2)                             \
+({                                                              \
+    char __ret;                                                 \
+    __typeof__(o2) __junk;                                      \
+    __typeof__(*(ptr)) __old1 = (o1);                           \
+    __typeof__(o2) __old2 = (o2);                               \
+    __typeof__(*(ptr)) __new1 = (n1);                           \
+    __typeof__(o2) __new2 = (n2);                               \
+    asm volatile("lock cmpxchg16b %2;setz %1"                   \
+                   : "=d"(__junk), "=a"(__ret), "+m" (*ptr)     \
+                   : "b"(__new1), "c"(__new2),                  \
+                     "a"(__old1), "d"(__old2));                 \
+    __ret; })
+
+#define CAS2(ptr, o1, o2, n1, n2) __CAS2(ptr, o1, o2, n1, n2)
+
+#define BIT_TEST_AND_SET(ptr, b)                                \
+({                                                              \
+    char __ret;                                                 \
+    asm volatile("lock btsq $63, %0; setnc %1" : "+m"(*ptr), "=a"(__ret) : : "cc"); \
+    __ret;                                                      \
+})
 
 void * hiveMallocAlign(size_t size, size_t align)
 {
@@ -56,7 +88,6 @@ void hiveFreeAlign(void * ptr)
     hiveFree(trail);
 }
 
-// inline void init_ring(RingQueue *r)
 void init_ring(RingQueue *r)
 {
     for(int i = 0; i < RING_SIZE; i++)
@@ -68,37 +99,31 @@ void init_ring(RingQueue *r)
     r->next = NULL;
 }
 
-// inline int is_empty(uint64_t v)
 int is_empty(uint64_t v)
 {
     return (v == (uint64_t)-1);
 }
 
-// inline uint64_t node_index(uint64_t i)
 uint64_t node_index(uint64_t i)
 {
     return (i & ~(1ull << 63));
 }
 
-// inline uint64_t set_unsafe(uint64_t i)
 uint64_t set_unsafe(uint64_t i)
 {
     return (i | (1ull << 63));
 }
 
-// inline uint64_t node_unsafe(uint64_t i)
 uint64_t node_unsafe(uint64_t i)
 {
     return (i & (1ull << 63));
 }
 
-// inline uint64_t tail_index(uint64_t t)
 uint64_t tail_index(uint64_t t)
 {
     return (t & ~(1ull << 63));
 }
 
-// inline int crq_is_closed(uint64_t t)
 int crq_is_closed(uint64_t t)
 {
     return (t & (1ull << 63)) != 0;
@@ -113,7 +138,6 @@ hiveQueue * hiveNewQueue()
     return queue;
 }
 
-// inline void fixState(RingQueue *rq)
 void fixState(RingQueue *rq)
 {
     uint64_t t, h, n;
@@ -134,7 +158,6 @@ void fixState(RingQueue *rq)
     }
 }
 
-// inline int close_crq(RingQueue *rq, const uint64_t t, const int tries)
 int close_crq(RingQueue *rq, const uint64_t t, const int tries)
 {
     if (tries < 10)

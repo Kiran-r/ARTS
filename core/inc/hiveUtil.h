@@ -8,6 +8,8 @@ unsigned int hiveGetCurrentNode();
 unsigned int hiveGetTotalNodes();
 unsigned int hiveGetCurrentWorker();
 unsigned int hiveGetTotalWorkers();
+unsigned int hiveGetCurrentCluster();
+unsigned int hiveGetTotalClusters();
 
 #define NAMEDGUIDS(...) enum __namedGuidIndex{ firstNamedGuid=0, __VA_ARGS__, lastNamedGuid }; hiveGuid_t __namedGuid[lastNamedGuid] = { 0 }
 #define GETGUID(name) __namedGuid[name]

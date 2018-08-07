@@ -14,13 +14,13 @@
 #include "hiveArrayList.h"
 #include "hiveDebug.h"
 
-//#define DPRINTF( ... )
-#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
+#define DPRINTF( ... )
+//#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
 
 #define EpochMask   0x7FFFFFFFFFFFFFFF  
 #define EpochBit 0x8000000000000000
 
-#define DEFAULT_EPOCH_POOL_SIZE 128
+#define DEFAULT_EPOCH_POOL_SIZE 4096
 __thread hiveEpochPool_t * epochThreadPool;
 
 void globalShutdownGuidIncActive()
@@ -41,10 +41,13 @@ void globalShutdownGuidIncFinished()
         incrementFinishedEpoch(hiveNodeInfo.shutdownEpoch);
 }
 
-void globalGuidShutdown()
+void globalGuidShutdown(hiveGuid_t guid)
 {
-    if(hiveNodeInfo.shutdownEpoch)
+    if(hiveNodeInfo.shutdownEpoch == guid)
+    {
+        DPRINTF("TERMINATION GUID SHUTDOWN %lu\n", guid);
         hiveShutdown();
+    }
 }
 
 bool decrementQueueEpoch(hiveEpoch_t * epoch)
@@ -129,8 +132,14 @@ void incrementFinishedEpoch(hiveGuid_t epochGuid)
                             broadcastEpochRequest(epochGuid);
                             DPRINTF("%lu Broadcasting req... \n", epochGuid);
                         }
-//                        else
-//                            DPRINTF("OUTSTANDING: %lu\n", epoch->outstanding);
+                        else
+                        {
+                            DPRINTF("OUTSTANDING: %lu %lu\n", epoch->guid, epoch->outstanding);
+                        }
+                    }
+                    else
+                    {
+                        DPRINTF("QUEUED: %lu %lu\n", epoch->guid, epoch->outstanding);
                     }
                 }
                 else
@@ -187,6 +196,20 @@ hiveEpoch_t * createEpoch(hiveGuid_t * guid, hiveGuid_t edtGuid, unsigned int sl
     return epoch;
 }
 
+bool createShutdownEpoch()
+{
+    if(hiveNodeInfo.shutdownEpoch)
+    {
+        hiveNodeInfo.shutdownEpoch = hiveGuidCreateForRank(0, HIVE_EDT);
+        hiveEpoch_t * epoch = createEpoch(&hiveNodeInfo.shutdownEpoch, NULL_GUID, 0);
+        hiveAtomicAdd(&epoch->activeCount, hiveGetTotalWorkers());
+        hiveAtomicAddU64(&epoch->queued, hiveGetTotalWorkers());
+        DPRINTF("Shutdown guy %u : %lu --------> %lu %p\n", epoch->activeCount, epoch->queued, epoch->guid, epoch);
+        return true;
+    }
+    return false;
+}
+
 void hiveAddEdtToEpoch(hiveGuid_t edtGuid, hiveGuid_t epochGuid)
 {
     struct hiveEdt * edt = hiveRouteTableLookupItem(edtGuid);
@@ -232,6 +255,33 @@ hiveGuid_t hiveInitializeAndStartEpoch(hiveGuid_t finishEdtGuid, unsigned int sl
     return epoch->guid;
 }
 
+hiveGuid_t hiveInitializeEpoch(unsigned int rank, hiveGuid_t finishEdtGuid, unsigned int slot)
+{
+    hiveGuid_t guid = hiveGuidCreateForRank(rank, HIVE_EDT);
+    createEpoch(&guid, finishEdtGuid, slot);
+    if(!hiveNodeInfo.readyToExecute) {
+        for(unsigned int i=0; i<hiveGlobalRankCount; i++)
+        {
+            if(i != hiveGlobalRankId)
+                hiveRemoteEpochInitSend(i, guid, finishEdtGuid, slot);
+        }
+    }
+    return guid;
+}
+
+void hiveStartEpoch(hiveGuid_t epochGuid) 
+{
+    hiveEpoch_t * epoch = hiveRouteTableLookupItem(epochGuid);
+    if(epoch)
+    {
+        hiveSetCurrentEpochGuid(epoch->guid);
+        hiveAtomicAdd(&epoch->activeCount, 1);
+        hiveAtomicAddU64(&epoch->queued, 1);
+    }
+    else
+        PRINTF("Out-of-Order epoch start not supported %lu\n", epochGuid);
+}
+
 bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int totalFinish)
 {
     unsigned int diff = totalActive - totalFinish;
@@ -243,7 +293,7 @@ bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int tota
         if(epoch->phase == PHASE_2 && epoch->lastActiveCount == totalActive && epoch->lastFinishedCount == totalFinish) 
         {
             epoch->phase = PHASE_3;
-            DPRINTF("%lu epoch done\n", epoch->guid);
+            DPRINTF("%lu epoch done!!!!!!!\n", epoch->guid);
             if(epoch->waitPtr)
                 *epoch->waitPtr = 0;
             if(epoch->terminationExitGuid)
@@ -252,7 +302,9 @@ bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int tota
                 hiveSignalEdt(epoch->terminationExitGuid, totalFinish, epoch->terminationExitSlot, DB_MODE_SINGLE_VALUE);
             }
             else
-                globalGuidShutdown();
+            {
+                globalGuidShutdown(epoch->guid);
+            }
             return false;
         }
         else //We didn't match the last one so lets try again
@@ -264,7 +316,7 @@ bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int tota
             if(hiveGlobalRankCount == 1)
             {
                 epoch->phase = PHASE_3;
-                DPRINTF("%lu epoch done\n", epoch->guid);
+                DPRINTF("%lu epoch done!!!!!!!\n", epoch->guid);
                 if(epoch->waitPtr)
                     *epoch->waitPtr = 0;
                 if(epoch->terminationExitGuid)
@@ -273,7 +325,9 @@ bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int tota
                     hiveSignalEdt(epoch->terminationExitGuid, totalFinish, epoch->terminationExitSlot, DB_MODE_SINGLE_VALUE);
                 }
                 else
-                    globalGuidShutdown();
+                {
+                    globalGuidShutdown(epoch->guid);
+                }
                 return false;
             }
             else
@@ -320,7 +374,7 @@ void reduceEpoch(hiveGuid_t epochGuid, unsigned int active, unsigned int finish)
             
             DPRINTF("%lu EPOCH QUEUEU: %u\n", epochGuid, epoch->queued);
         }
-        DPRINTF("###### %lu\n", epoch->outstanding);
+        DPRINTF("###### %lu -> %lu\n", epoch->guid, epoch->outstanding);
     }
     else
         PRINTF("%lu ERROR: NO EPOCH\n", epochGuid);
@@ -506,6 +560,7 @@ hiveEpoch_t * getPoolEpoch(hiveGuid_t edtGuid, unsigned int slot)
 
 void hiveYield()
 {
+    HIVECOUNTERINCREMENT(yield);
     threadLocal_t tl;
     hiveSaveThreadLocal(&tl);
     hiveNodeInfo.scheduler();
@@ -525,6 +580,7 @@ bool hiveWaitOnHandle(hiveGuid_t epochGuid)
         incrementFinishedEpoch(local);
 //        globalShutdownGuidIncFinished();
         
+        HIVECOUNTERINCREMENT(yield);
         threadLocal_t tl;
         hiveSaveThreadLocal(&tl);
         while(flag)

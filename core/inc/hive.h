@@ -20,6 +20,7 @@ extern "C" {
 void PRINTF( const char* format, ... );
 
 #define HIVE_EDT 0
+#define HIVE_EPOCH 0
 #define HIVE_EVENT 1
 #define HIVE_DB 2
 #define HIVE_CALLBACK 3
@@ -139,6 +140,7 @@ struct hiveEdt
     hiveGuid_t currentEdt;
     hiveGuid_t outputEvent;
     hiveGuid_t epochGuid;
+    unsigned int cluster;
     volatile unsigned int depcNeeded;
     volatile unsigned int invalidateCount;
 } __attribute__ ((aligned));

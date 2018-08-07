@@ -134,7 +134,6 @@ void hiveServerSetup( struct hiveConfig * config)
 
 void hiveServerProcessPacket(struct hiveRemotePacket * packet)
 {
-    HIVECOUNTERTIMERENDINCREMENT(pktReceive);
     if(packet->messageType!=HIVE_REMOTE_METRIC_UPDATE_MSG ||
        packet->messageType!=HIVE_REMOTE_SHUTDOWN_MSG)
     {

@@ -34,6 +34,7 @@ void hiveDbCreateInternal(hiveGuid_t guid, void *addr, u64 size, u64 packetSize,
 
 hiveGuid_t hiveDbCreateRemote(unsigned int route, u64 size, bool pin)
 {
+    HIVEEDTCOUNTERTIMERSTART(dbCreateCounter);
     hiveGuid_t guid = hiveGuidCreateForRank(route, HIVE_DB);
     void * ptr = hiveMalloc(sizeof(struct hiveDb));
     struct hiveDb * db = (struct hiveDb*) ptr;
@@ -42,6 +43,7 @@ hiveGuid_t hiveDbCreateRemote(unsigned int route, u64 size, bool pin)
     db->dbList = (pin) ? (void*)0 : (void*)1;
     
     hiveRemoteMemoryMove(route, guid, ptr, sizeof(struct hiveDb), HIVE_REMOTE_DB_SEND_MSG, hiveFree);
+    HIVEEDTCOUNTERTIMERENDINCREMENT(dbCreateCounter);
 }
 
 //Creates a local DB only
@@ -469,13 +471,17 @@ void internalGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot,
 
 void hiveGetFromDb(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
 {
+    HIVEEDTCOUNTERTIMERSTART(getDbCounter);
     unsigned int rank = hiveGuidGetRank(dbGuid);
     internalGetFromDb(edtGuid, dbGuid, slot, offset, size, rank);
+    HIVEEDTCOUNTERTIMERENDINCREMENT(getDbCounter);
 }
 
 void hiveGetFromDbAt(hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank)
 {
+    HIVEEDTCOUNTERTIMERSTART(getDbCounter);
     internalGetFromDb(edtGuid, dbGuid, slot, offset, size, rank);
+    HIVEEDTCOUNTERTIMERENDINCREMENT(getDbCounter);
 }
 
 void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, hiveGuid_t epochGuid, unsigned int rank)
@@ -517,29 +523,35 @@ void internalPutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned
 
 void hivePutInDbAt(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank)
 {
+    HIVEEDTCOUNTERTIMERSTART(putDbCounter);
     hiveGuid_t epochGuid = hiveGetCurrentEpochGuid();
     DPRINTF("EPOCH %lu\n", epochGuid);
     incrementActiveEpoch(epochGuid);
     globalShutdownGuidIncActive();
     internalPutInDb(ptr, edtGuid, dbGuid, slot, offset, size, epochGuid, rank);
+    HIVEEDTCOUNTERTIMERENDINCREMENT(putDbCounter);
 }
 
 void hivePutInDb(void * ptr, hiveGuid_t edtGuid, hiveGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size)
 {
+    HIVEEDTCOUNTERTIMERSTART(putDbCounter);
     unsigned int rank = hiveGuidGetRank(dbGuid);
     hiveGuid_t epochGuid = hiveGetCurrentEpochGuid();
     DPRINTF("EPOCH %lu\n", epochGuid);
     incrementActiveEpoch(epochGuid);
     globalShutdownGuidIncActive();
     internalPutInDb(ptr, edtGuid, dbGuid, slot, offset, size, epochGuid, rank);
+    HIVEEDTCOUNTERTIMERENDINCREMENT(putDbCounter);
 }
 
 void hivePutInDbEpoch(void * ptr, hiveGuid_t epochGuid, hiveGuid_t dbGuid, unsigned int offset, unsigned int size)
 {
+    HIVEEDTCOUNTERTIMERSTART(putDbCounter);
     unsigned int rank = hiveGuidGetRank(dbGuid);
     incrementActiveEpoch(epochGuid);
     globalShutdownGuidIncActive();
     internalPutInDb(ptr, NULL_GUID, dbGuid, 0, offset, size, epochGuid, rank);
+    HIVEEDTCOUNTERTIMERENDINCREMENT(putDbCounter);
 }
 
 void hiveDbMove(hiveGuid_t dbGuid, unsigned int rank)

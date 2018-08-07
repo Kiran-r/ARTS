@@ -7,10 +7,10 @@
 
 void PRINTF( const char* format, ... )
 {
-    va_list arglist;
-    printf("[%u] ", hiveGlobalRankId);
-    va_start( arglist, format );
-    vprintf( format, arglist );
-    va_end( arglist );
-    fflush(stdout);
+        va_list arglist;
+        printf("[%u] ", hiveGlobalRankId);
+        va_start( arglist, format );
+        vprintf( format, arglist );
+        va_end( arglist );
+        fflush(stdout);
 }

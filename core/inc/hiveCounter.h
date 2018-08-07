@@ -3,11 +3,13 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+    
+#include "hiveTimer.h"
+    
 #ifdef JUSTCOUNT
 #define COUNTERTIMESTAMP 0
 #elif defined(COUNT) || defined(MODELCOUNT)
-#define COUNTERTIMESTAMP hiveExtGetTimeStamp()
+#define COUNTERTIMESTAMP hiveGetTimeStamp()
 #else
 #define COUNTERTIMESTAMP 0
 #endif
@@ -24,13 +26,6 @@ extern "C" {
 #define COUNT_freeMemory(x) x
 #define COUNT_edtFree(x) x
 #define COUNT_emptyTime(x) x
-#define COUNT_mapperTime(x) x
-#define COUNT_reducerTime(x) x
-//#define COUNT_dequePopCounter(x) x
-//#define COUNT_fireEdt(x) x
-//#define COUNT_dequeStealCounter(x) x
-//#define COUNT_stealCounter(x) x
-//#define COUNT_stealAttempt(x) x
 
 
 #define CAT(a, ...) PRIMITIVE_CAT(a, __VA_ARGS__)
@@ -75,6 +70,7 @@ extern "C" {
 #define HIVECOUNTERINCREMENTBY(counter, num)  IF(COUNTER_ON(counter)) ( hiveCounterIncrementBy,       EAT ) (hiveGetCounter(counter), num)
 #define HIVECOUNTERTIMERSTART(counter)        IF(COUNTER_ON(counter)) ( hiveCounterTimerStart,        EAT ) (hiveGetCounter(counter))
 #define HIVECOUNTERTIMERENDINCREMENT(counter) IF(COUNTER_ON(counter)) ( hiveCounterTimerEndIncrement, EAT ) (hiveGetCounter(counter)) 
+#define HIVECOUNTERTIMERENDINCREMENTBY(counter, num) IF(COUNTER_ON(counter)) ( hiveCounterTimerEndIncrementBy, EAT ) (hiveGetCounter(counter), num) 
 #define HIVECOUNTERADDTIME(counter, time)     IF(COUNTER_ON(counter)) ( hiveCounterAddTime,           EAT ) (hiveGetCounter(counter), time)
 #define HIVECOUNTERSETENDTOTIME(counter)      IF(COUNTER_ON(counter)) ( hiveCounterSetEndTime,        EAT ) (hiveGetCounter(counter), hiveExtGetTimeStamp())
 #define HIVECOUNTERADDENDTIME(counter)        IF(COUNTER_ON(counter)) ( hiveCounterAddEndTime,        EAT ) (hiveGetCounter(counter))
@@ -115,6 +111,7 @@ extern "C" {
 #define HIVECOUNTERINCREMENTBY(counter, num) hiveCounterIncrementBy(hiveGetCounter(counter), num)
 #define HIVECOUNTERTIMERSTART(counter) hiveCounterTimerStart(hiveGetCounter(counter))
 #define HIVECOUNTERTIMERENDINCREMENT(counter) hiveCounterTimerEndIncrement(hiveGetCounter(counter))
+#define HIVECOUNTERTIMERENDINCREMENTBY(counter, num) hiveCounterTimerEndIncrementBy(hiveGetCounter(counter), num)
 #define HIVECOUNTERTIMERENDOVERWRITE(counter) hiveCounterTimerEndOverwrite(hiveGetCounter(counter))
 #define HIVECOUNTERPRINT(counter, stream) hiveCounterPrint(hiveGetCounter(counter), stream)
 #define HIVECOUNTERSETSTARTTIME(counter, start) hiveCounterSetStartTime (hiveGetCounter(counter), start)
@@ -153,6 +150,7 @@ extern "C" {
 #define HIVECOUNTERINCREMENTBY(counter, num)
 #define HIVECOUNTERTIMERSTART(counter)
 #define HIVECOUNTERTIMERENDINCREMENT(counter)
+#define HIVECOUNTERTIMERENDINCREMENTBY(counter, num)
 #define HIVECOUNTERTIMERENDOVERWRITE(counter)
 #define HIVECOUNTERPRINT(counter, stream)
 #define HIVECOUNTERSETSTARTTIME(counter, start)
@@ -180,36 +178,35 @@ extern "C" {
 #include "hiveArrayList.h"
     
 #define COUNTERNAMES const char * const __counterName[] = { \
-"edt", "sleep", "total", \
-"fireEdt", "handleReadyEdt", "finishCounter", "stealAttempt", "steal", "dequeSteal", \
-"dequePushOn", "dequePopOn", \
-"guidAllocOn", "guidAssociateOn",  "guidLookupOn", \
-"edtCreateOn", "eventCreateOn", "dbCreateOn", "localDbAcquireOn", \
-"signalEventOn", "signalEdtOn", "addDependenceOn", \
-"sendQueuePushOn", "sendQueuePullOn", \
-"mallocMemoryOn", "callocMemoryOn", "freeMemoryOn", \
-"dequePush", "dequePop", \
-"guidAlloc", "guidAssociate",  "guidLookup", \
-"edtCreate", "eventCreate", "dbCreate", "localDbAcquire", "edtDelay", "acquireDelay", \
-"signalEvent", "signalEdt", "addDependence", \
-"sendQueuePush", "sendQueuePull", \
-"mallocMemory", "callocMemory", "freeMemory", \
-"pktReceive", "pktSend", "pktProc", \
-"edtMoveProc", "eventMoveProc", "dbMoveProc", \
-"roundTripMemoryMove", "roundTripMemoryMoveProc", \
-"roundTripDbAcquire", "roundTripDbAcquireProc", \
-"remoteEdtSig", "remoteEventSat", "remoteAddDep", \
-"remoteTemplateReq", "remoteTemplateSend", \
-"remoteInvalidateDb", "remoteInvalidateRequestMsg", "remoteInvalidateDbPing", "remoteDbSend", \
-"networkSendQueueSitting", \
-"totalNetworkSendTime", "goodSendAttempts", "badSendAttempts", \
-"totalNetworkRecvTime", "goodRecvAttempts", "badRecvAttempts", \
-"remoteStealRequestsSent", "remoteStealRequestsRecv", \
-"remoteEdtsSent", "remoteEdtsReceived", \
-"ooSignalEdt", "ooEventSatisfy", "ooEventSatisfySlot", \
-"ooAddDependence", "ooHandleReadyEdt", "ooRemoteDbSend", \
-"remoteDbLock", "remoteDbUnlock", "remoteDbLockAllDbs", "delayOverlap", "dbSend", "edtFree", \
-"emptyTime", "mapper", "reducer" \
+"edtCounter", \
+"sleepCounter", \
+"totalCounter", \
+"signalEventCounter", \
+"signalEventCounterOn", \
+"signalEdtCounter", \
+"signalEdtCounterOn", \
+"edtCreateCounter", \
+"edtCreateCounterOn", \
+"eventCreateCounter", \
+"eventCreateCounterOn", \
+"dbCreateCounter", \
+"dbCreateCounterOn", \
+"mallocMemory", \
+"mallocMemoryOn", \
+"callocMemory", \
+"callocMemoryOn", \
+"freeMemory", \
+"freeMemoryOn", \
+"guidAllocCounter", \
+"guidAllocCounterOn", \
+"guidLookupCounter", \
+"guidLookupCounterOn", \
+"getDbCounter", \
+"getDbCounterOn", \
+"putDbCounter", \
+"putDbCounterOn", \
+"contextSwitch", \
+"yield" \
 }
     
 #define GETCOUNTERNAME(x) __counterName[x] 
@@ -220,14 +217,35 @@ extern "C" {
 #define LASTCOUNTER lastCounter
         
     enum hiveCounterType { 
-        edtCounter=0, sleepCounter, totalCounter,
-        signalEventCounterOn, signalEdtCounterOn, addDependenceOn,
-        mallocMemoryOn, callocMemoryOn, freeMemoryOn,    
-        guidAllocCounter, guidLookupCounter,
-        edtCreateCounter, eventCreateCounter, dbCreateCounter,
-        signalEventCounter, signalEdtCounter,
-        mallocMemory, callocMemory, freeMemory,
-        emptyTime,
+        edtCounter=0, 
+        sleepCounter, 
+        totalCounter,
+        signalEventCounter,
+        signalEventCounterOn,
+        signalEdtCounter,
+        signalEdtCounterOn,
+        edtCreateCounter,
+        edtCreateCounterOn,
+        eventCreateCounter,
+        eventCreateCounterOn,
+        dbCreateCounter,
+        dbCreateCounterOn,
+        mallocMemory,
+        mallocMemoryOn,
+        callocMemory,
+        callocMemoryOn,
+        freeMemory,
+        freeMemoryOn,
+        guidAllocCounter,
+        guidAllocCounterOn,
+        guidLookupCounter,
+        guidLookupCounterOn,
+        getDbCounter,
+        getDbCounterOn,
+        putDbCounter,
+        putDbCounterOn,
+        contextSwitch,
+        yield,
         lastCounter
     };
     typedef enum hiveCounterType hiveCounterType;
@@ -254,6 +272,7 @@ extern "C" {
     void hiveCounterIncrementBy(hiveCounter * counter, uint64_t num);
     void hiveCounterTimerStart(hiveCounter * counter);
     void hiveCounterTimerEndIncrement(hiveCounter * counter);
+    void hiveCounterTimerEndIncrementBy(hiveCounter * counter, uint64_t num);
     void hiveCounterTimerEndOverwrite(hiveCounter * counter);
     void hiveCounterPrint(hiveCounter * counter, FILE * stream);
     void hiveCounterSetStartTime(hiveCounter * counter, uint64_t start);

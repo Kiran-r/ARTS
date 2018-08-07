@@ -1,6 +1,7 @@
 #include "hiveDeque.h"
 #include "hiveMalloc.h"
 #include "hiveAtomics.h"
+#include "string.h"
 
 struct circularArray
 {
@@ -60,6 +61,18 @@ static inline void *
 getCircularArray(struct circularArray * array, u64 i)
 {
     return array->segment[i%array->size];
+}
+
+__thread void * stealArray[STEALSIZE];
+
+static inline void 
+getMultipleCircularArray(struct circularArray * array, u64 i)
+{
+    if(i%array->size + STEALSIZE < array->size)
+        memcpy(stealArray, &array->segment[i%array->size],  sizeof(void*) * STEALSIZE);
+    else
+        for(unsigned int j=0; j<STEALSIZE; j++)
+            stealArray[j] = array->segment[(i+j)%array->size];
 }
 
 static inline void 
@@ -165,6 +178,26 @@ hiveDequePopBack(struct hiveDeque *deque)
         if(temp==t)
         {        
             return o;
+        }
+    }
+    return NULL;
+}
+
+
+
+void **
+hiveDequePopBackMult(struct hiveDeque *deque)
+{
+    u64 t = deque->top;
+    HW_MEMORY_FENCE();
+    u64 b = deque->bottom;
+    if(t + STEALSIZE < b)
+    {
+        getMultipleCircularArray(deque->activeArray, t);
+        u64 temp = hiveAtomicCswapU64(&deque->top, t, t+STEALSIZE);
+        if(temp==t)
+        {        
+            return stealArray;
         }
     }
     return NULL;

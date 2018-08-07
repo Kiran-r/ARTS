@@ -15,6 +15,10 @@ extern "C" {
 
 #define hiveMETRICNAME const char * const hiveMetricName[] = { \
 "hiveEdtThroughput", \
+"hiveEdtQueue", \
+"hiveEdtStealAttempt", \
+"hiveEdtSteal", \
+"hiveEdtLastLocalHit", \
 "hiveEdtSignalThroughput", \
 "hiveEventSignalThroughput", \
 "hiveGetBW", \
@@ -23,6 +27,7 @@ extern "C" {
 "hiveNetworkRecieveBW", \
 "hiveNetworkQueuePush", \
 "hiveNetworkQueuePop", \
+"hiveYield", \
 "hiveMallocBW", \
 "hiveFreeBW", \
 "hiveRemoteShutdownMsg", \
@@ -78,6 +83,10 @@ typedef enum hiveMetricType
 {
     hiveFirstMetricType = -1,
     hiveEdtThroughput,
+    hiveEdtQueue,
+    hiveEdtStealAttempt,
+    hiveEdtSteal,
+    hiveEdtLastLocalHit,
     hiveEdtSignalThroughput,
     hiveEventSignalThroughput,
     hiveGetBW,
@@ -86,6 +95,7 @@ typedef enum hiveMetricType
     hiveNetworkRecieveBW,
     hiveNetworkQueuePush,
     hiveNetworkQueuePop,
+    hiveYieldBW,
     hiveMallocBW,
     hiveFreeBW,
     hiveRemoteShutdownMsg,
@@ -251,6 +261,9 @@ void printInspectorStats(void);
 void printInspectorTime(void);
 void hiveInternalSetThreadPerformanceMetric(hiveMetricType type, u64 value);
 u64 hiveGetInspectorTime(void);
+double hiveInternalGetPerformanceMetricTotalRate(hiveMetricType type, hiveMetricLevel level);
+double hiveMetricTest(hiveMetricType type, hiveMetricLevel level, u64 num);
+
 #ifdef INSPECTOR
 
 #define hiveReadInspectorConfigFile(filename) hiveInternalReadInspectorConfigFile(filename)
@@ -260,6 +273,7 @@ u64 hiveGetInspectorTime(void);
 #define hiveInspecting() hiveInternalInspecting()
 #define hiveGetPerformanceMetricTotal(type, level) hiveInternalGetPerformanceMetricTotal(type, level)
 #define hiveGetPerformanceMetricRate(type, level, last) hiveInternalGetPerformanceMetricRate(type, level, last)
+#define hiveGetPerformanceMetricTotalRate(type, level) hiveInternalGetPerformanceMetricTotalRate(type, level)
 #define hiveGetPerformanceMetricRateU64(type, level, last) hiveInternalGetPerformanceMetricRateU64(type, level, last)
 #define hiveGetPerformanceMetricRateU64Diff(type, level, diff) hiveInternalGetPerformanceMetricRateU64Diff(type, level, diff)
 #define hiveGetTotalMetricRateU64(type, level, total, timeStamp) hiveInternalGetTotalMetricRateU64(type, level, total, timeStamp)
@@ -283,6 +297,7 @@ u64 hiveGetInspectorTime(void);
 #define hiveInspecting() 0
 #define hiveGetPerformanceMetricTotal(type, level) 0
 #define hiveGetPerformanceMetricRate(type, level, last) 0
+#define hiveGetPerformanceMetricTotalRate(type, level) 0
 #define hiveGetPerformanceMetricRateU64(type, level, last) 0
 #define hiveGetPerformanceMetricRateU64Diff(type, level, diff) 0
 #define hiveGetTotalMetricRateU64(type, level, total, timeStamp) 0

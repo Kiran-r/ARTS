@@ -278,7 +278,43 @@ double hiveInternalGetPerformanceMetricRate(hiveMetricType type, hiveMetricLevel
         }       
 
         if(localCurrentCountStamp && localCurrentTimeStamp)
-            return (localCurrentCountStamp - localWindowCountStamp) / ((localCurrentTimeStamp - localWindowTimeStamp) / 1E9);
+        {
+            double num = (double)(localCurrentCountStamp - localWindowCountStamp);
+            double den = (double)(localCurrentTimeStamp - localWindowTimeStamp);
+            PRINTF("%u %s %lf / %lf\n", level, hiveMetricName[type], num, den);
+            return  num / den / 1E9;
+        }
+    }
+    return 0;
+}
+
+double hiveInternalGetPerformanceMetricTotalRate(hiveMetricType type, hiveMetricLevel level)
+{
+    hivePerformanceUnit * metric = getMetric(type, level);
+    if(metric)
+    {
+        double num = (double)metric->totalCount;
+        double den = (double)metric->timeMethod() - inspector->startTimeStamp;
+        PRINTF("%u %s %lf / %lf\n", level, hiveMetricName[type], num, den);
+        return  num / den;
+    }
+    return 0;
+}
+
+double hiveMetricTest(hiveMetricType type, hiveMetricLevel level, u64 num)
+{
+    hivePerformanceUnit * metric = getMetric(type, level);
+    if(metric && num)
+    {
+        double tot = (double)metric->totalCount;
+        if(tot)
+        {
+            double dif = (double)metric->timeMethod() - inspector->startTimeStamp;
+            double temp = ((double)num * dif) / tot;
+//            PRINTF("%u %s (%lu * %lf / %lf\n", level, hiveMetricName[type], num, dif, tot);
+            return  temp;
+        }
+        return 100000;
     }
     return 0;
 }
@@ -612,7 +648,7 @@ hiveMetricLevel hiveInternalUpdatePerformanceCoreMetric(unsigned int core, hiveM
         PRINTF("Wrong Introspection Type %d\n", type);
         hiveDebugGenerateSegFault();
     }
-    
+     
     hiveMetricLevel updatedLevel = hiveNoLevel;
     if(inspectorOn)
     {

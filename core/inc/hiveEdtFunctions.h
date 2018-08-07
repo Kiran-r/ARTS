@@ -9,6 +9,7 @@ extern "C" {
 #define hiveEdtArgs(...) sizeof((u64[]){__VA_ARGS__})/sizeof(u64), (u64[]){__VA_ARGS__}
 #define hiveEdtEmptySignal(guid) hiveSignalEdt(guid, NULL_GUID, -1, DB_MODE_SINGLE_VALUE);
 
+bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int cluster, unsigned int edtSpace, hiveGuid_t eventGuid, hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, bool useEpoch, hiveGuid_t epochGuid, bool hasDepv);
 hiveGuid_t hiveEdtCreate(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u32 depc);
 hiveGuid_t hiveEdtCreateWithGuid(hiveEdt_t funcPtr, hiveGuid_t guid, u32 paramc, u64 * paramv, u32 depc);
 hiveGuid_t hiveEdtCreateWithEvent(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u32 depc);
@@ -51,6 +52,14 @@ void hiveSignalEdtNoData(hiveGuid_t edt);
 
 hiveGuid_t hiveEdtCreateShad(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv);
 hiveGuid_t hiveActiveMessageShad(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, void * data, unsigned int size, hiveGuid_t epochGuid);
+void hiveSynchronousActiveMessageShad(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, void * data, unsigned int size);
+
+void hiveIncLockShad();
+void hiveDecLockShad();
+void hiveCheckLockShad();
+void hiveStartIntroShad(unsigned int start);
+void hiveStopIntroShad();
+unsigned int hiveGetShadLoopStride();
 
 typedef struct 
 {
@@ -62,8 +71,18 @@ typedef struct
 void hiveSaveThreadLocal(threadLocal_t * tl);
 void hiveRestoreThreadLocal(threadLocal_t * tl);
 
+typedef struct {
+    void * buffer;
+    uint32_t * sizeToWrite;
+    unsigned int size;
+    hiveGuid_t epochGuid;
+    volatile unsigned int uses;
+} hiveBuffer_t;
+
 hiveGuid_t hiveAllocateLocalBuffer(void ** buffer, unsigned int size, unsigned int uses, hiveGuid_t epochGuid);
+hiveGuid_t hiveAllocateLocalBufferShad(void ** buffer, uint32_t * sizeToWrite, hiveGuid_t epochGuid);
 void * hiveSetBuffer(hiveGuid_t bufferGuid, void * buffer, unsigned int size);
+void * hiveSetBufferNoFree(hiveGuid_t bufferGuid, void * buffer, unsigned int size);
 void * hiveGetBuffer(hiveGuid_t bufferGuid);
 
 #endif

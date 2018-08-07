@@ -948,7 +948,9 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
     if( (foundVariableChar = hiveConfigFindVariableChar(configVariables,"counterStartPoint")) != NULL)
         config->counterStartPoint = strtol( foundVariableChar, &end , 10);
     else
+    {
         config->counterStartPoint = 1;
+    }
     
     if( (foundVariableChar = hiveConfigFindVariableChar(configVariables,"printNodeStats")) != NULL)
         config->printNodeStats = strtol( foundVariableChar, &end , 10);
@@ -964,6 +966,11 @@ struct hiveConfig * hiveConfigLoad( int argc, char ** argv, char * location )
         config->shutdownEpoch = strtol( foundVariableChar, &end , 10);
     else
         config->shutdownEpoch = 0;
+    
+    if( (foundVariableChar = hiveConfigFindVariableChar(configVariables,"shadLoopStride")) != NULL)
+        config->shadLoopStride = strtol( foundVariableChar, &end , 10);
+    else
+        config->shadLoopStride = 32;
     
     //WARNING: Slurm Launcher Set!  
     if(strncmp(config->launcher, "slurm", 5 )==0)

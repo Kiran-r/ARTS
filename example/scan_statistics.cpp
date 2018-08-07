@@ -63,6 +63,7 @@ hiveGuid_t maxReducer(u32 paramc, u64 * paramv,
   std::cout << "Max vertex: " << maxVertex << " scanStat: " << maxScanStat << std::endl;
   endTime = hiveGetTimeStamp();
   printf("Total execution time: %f s \n", (double)(endTime - startTime)/1000000000.0);
+  hiveStopIntroShad();
   hiveShutdown();
 }
 
@@ -188,6 +189,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId,
     hiveEdtCreateWithGuid(maxReducer, maxReducerGuid, 0, NULL, distribution.num_vertices);
     // hiveGuid_t exitGuid = hiveEdtCreate(exitProgram, 0, 0, NULL, 1);    
     // hiveInitializeAndStartEpoch(exitGuid, 0);
+    hiveStartIntroShad(5);
     startTime = hiveGetTimeStamp();
     for (uint64_t i = 0; i < distribution.num_vertices; ++i) {
       uint64_t source = i;  

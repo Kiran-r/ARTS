@@ -45,7 +45,6 @@ u64 * hiveGuidGeneratorGetKey( unsigned int route, unsigned int type )
 
 hiveGuid_t hiveGuidCreateForRankInternal( unsigned int route, unsigned int type, unsigned int guidCount)
 {
-    HIVEEDTCOUNTERTIMERSTART(guidAllocCounter);
     hiveGuid guid;
     u64 * key;
 #ifndef NOPARALLEL
@@ -67,7 +66,7 @@ hiveGuid_t hiveGuidCreateForRankInternal( unsigned int route, unsigned int type,
     (*key)+=guidCount;
     guid.fields.type = type;
 //    PRINTF("Key: %lu %lu %lu %lu %lu %p\n", guid.fields.isLocal, guid.fields.rank, guid.fields.thread, guid.fields.key, guid.fields.type, guid.bits);
-    HIVEEDTCOUNTERTIMERENDINCREMENT(guidAllocCounter);    
+    HIVEEDTCOUNTERINCREMENTBY(guidAllocCounter, guidCount);
     return (hiveGuid_t)guid.bits;
 }
 

@@ -11,6 +11,8 @@ hiveGuid_t fibJoin(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 
 hiveGuid_t fibFork(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 {
+    unsigned int next = (hiveGetCurrentNode() + 1) % hiveGetTotalNodes();
+//    PRINTF("NODE: %u WORKER: %u NEXT: %u\n", hiveGetCurrentNode(), hiveGetCurrentWorker(), next);
     hiveGuid_t guid = paramv[0];
     unsigned int slot = paramv[1];
     unsigned int num = paramv[2];
@@ -21,11 +23,11 @@ hiveGuid_t fibFork(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
         hiveGuid_t joinGuid = hiveEdtCreate(fibJoin, 0, paramc-1, paramv, 2);
         
         u64 args[3] = {joinGuid, 0, num-1};
-        hiveEdtCreate(fibFork, 0, 3, args, 0);
+        hiveEdtCreate(fibFork, next, 3, args, 0);
         
         args[1] = 1;
         args[2] = num-2;
-        hiveEdtCreate(fibFork, 0, 3, args, 0);
+        hiveEdtCreate(fibFork, next, 3, args, 0);
     }
 }
 

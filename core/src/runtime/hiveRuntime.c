@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include "hiveTimer.h"
 #include "hiveArrayList.h"
+#include "hiveQueue.h"
 
 //#define SIM_INTEL
 
@@ -33,6 +34,7 @@
 #define NETWORK_BACKOFF_INCREMENT 0
 
 u64 globalGuidOn;
+extern unsigned int numNumaDomains;
 extern int mainArgc;
 extern char **mainArgv;
 extern void initPerNode(unsigned int nodeId, int argc, char** argv) __attribute__((weak));
@@ -56,11 +58,10 @@ void hiveRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     hiveThreadSetOsThreadCount(config->osThreadCount);
     hiveNodeInfo.scheduler = schedulerLoop[config->scheduler];
     hiveNodeInfo.deque = (struct hiveDeque**) hiveMalloc(sizeof(struct hiveDeque*)*totalThreads);
-    hiveNodeInfo.workerDeque = (struct hiveDeque**) hiveMalloc(sizeof(struct hiveDeque*)*workerThreads);
-    hiveNodeInfo.workerNodeDeque = (struct hiveDeque**) hiveMalloc(sizeof(struct hiveDeque*)*workerThreads);
     hiveNodeInfo.receiverDeque = (struct hiveDeque**) hiveMalloc(sizeof(struct hiveDeque*)*receiverThreads);
-    hiveNodeInfo.receiverNodeDeque = (struct hiveDeque**) hiveMalloc(sizeof(struct hiveDeque*)*receiverThreads);
-    hiveNodeInfo.nodeDeque = (struct hiveDeque**) hiveMalloc(sizeof(struct hiveDeque*)*totalThreads);
+    hiveNodeInfo.numaQueue = (struct hiveQueue**) hiveMalloc(sizeof(struct hiveQueue*)*numNumaDomains);
+    for(unsigned int i=0; i<numNumaDomains; i++)
+        hiveNodeInfo.numaQueue[i] = hiveNewQueue();
     hiveNodeInfo.routeTable = (struct hiveRouteTable**) hiveCalloc(sizeof(struct hiveRouteTable*)*totalThreads);
     hiveNodeInfo.remoteRouteTable = hiveRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
     hiveNodeInfo.localSpin = (volatile bool**) hiveCalloc(sizeof(bool*)*totalThreads);
@@ -85,6 +86,7 @@ void hiveRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     hiveNodeInfo.packetSize = PACKET_SIZE;
     hiveNodeInfo.printNodeStats = config->printNodeStats;
     hiveNodeInfo.shutdownEpoch = (config->shutdownEpoch) ? 1 : NULL_GUID ;
+    hiveNodeInfo.shadLoopStride = config->shadLoopStride;
     hiveInitIntrospector(config);
 }
 
@@ -92,7 +94,6 @@ void hiveRuntimeGlobalCleanup()
 {
     hiveIntrospectivePrintTotals(hiveGlobalRankId);
     hiveFree(hiveNodeInfo.deque);
-    hiveFree(hiveNodeInfo.nodeDeque);
     hiveFree((void *)hiveNodeInfo.localSpin);
     hiveFree(hiveNodeInfo.memoryMoves);
     hiveFree(hiveNodeInfo.atomicWaits);
@@ -103,11 +104,9 @@ void hiveThreadZeroNodeStart()
     hiveStartInspector(1);
 
     globalGuidOn = 1;
-    if(hiveNodeInfo.shutdownEpoch)
-    {
-        hiveNodeInfo.shutdownEpoch = hiveGuidCreateForRank(0, HIVE_EDT);
-        createEpoch(&hiveNodeInfo.shutdownEpoch, NULL_GUID, 0);
-    }    
+    
+    createShutdownEpoch();
+    
     if(initPerNode)
         initPerNode(hiveGlobalRankId, mainArgc, mainArgv);
     if(!hiveGlobalRankId)
@@ -120,7 +119,10 @@ void hiveThreadZeroNodeStart()
     while(hiveNodeInfo.readyToParallelStart){ }
     if(initPerWorker && hiveThreadInfo.worker)
         initPerWorker(hiveGlobalRankId, hiveThreadInfo.groupId, mainArgc, mainArgv);
-
+    
+    if(artsMain && !hiveGlobalRankId)
+        hiveEdtCreate(artsMainEdt, 0, 0, NULL, 0);
+    
     hiveIncrementFinishedEpochList();
     
     hiveAtomicSub(&hiveNodeInfo.readyToInspect, 1U);
@@ -129,22 +131,13 @@ void hiveThreadZeroNodeStart()
     hiveStartInspector(3);
     hiveAtomicSub(&hiveNodeInfo.readyToExecute, 1U);
     while(hiveNodeInfo.readyToExecute){ }
-    
-    if(artsMain && !hiveGlobalRankId)
-    {
-        hiveEdtCreate(artsMainEdt, 0, 0, NULL, 0);
-    }
- 
 }
 
 void hiveRuntimePrivateInit(struct threadMask * unit, struct hiveConfig  * config)
 {
     hiveNodeInfo.deque[unit->id] = hiveThreadInfo.myDeque = hiveDequeNew(config->dequeSize);
-    hiveNodeInfo.nodeDeque[unit->id] = hiveThreadInfo.myNodeDeque = hiveDequeNew(NODEDEQUESIZE);
     if(unit->worker)
     {
-        hiveNodeInfo.workerDeque[unit->groupPos] = hiveNodeInfo.deque[unit->id];
-        hiveNodeInfo.workerNodeDeque[unit->groupPos] = hiveNodeInfo.nodeDeque[unit->id];
         hiveNodeInfo.routeTable[unit->id] = hiveThreadInfo.myRouteTable =  hiveRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
     }
 
@@ -169,7 +162,6 @@ void hiveRuntimePrivateInit(struct threadMask * unit, struct hiveConfig  * confi
         if(unit->networkReceive)
         {
             hiveNodeInfo.receiverDeque[unit->groupPos] = hiveNodeInfo.deque[unit->id];
-            hiveNodeInfo.receiverNodeDeque[unit->groupPos] = hiveNodeInfo.nodeDeque[unit->id];
             unsigned int size = (hiveGlobalRankCount-1)*config->ports / hiveNodeInfo.receiverThreadCount;
             unsigned int rem = (hiveGlobalRankCount-1)*config->ports % hiveNodeInfo.receiverThreadCount;
             unsigned int start;
@@ -194,10 +186,10 @@ void hiveRuntimePrivateInit(struct threadMask * unit, struct hiveConfig  * confi
     hiveNodeInfo.atomicWaits[unit->id] = &hiveThreadInfo.atomicWait;
     hiveThreadInfo.atomicWait.wait = true;
     hiveThreadInfo.oustandingMemoryMoves = 0;
-    //hiveThreadInfo.sim = unit->sim;
     hiveThreadInfo.coreId = unit->unitId;
     hiveThreadInfo.threadId = unit->id;
     hiveThreadInfo.groupId = unit->groupPos;
+    hiveThreadInfo.clusterId = unit->clusterId;
     hiveThreadInfo.worker = unit->worker;
     hiveThreadInfo.networkSend = unit->networkSend;
     hiveThreadInfo.networkReceive = unit->networkReceive;
@@ -206,6 +198,7 @@ void hiveRuntimePrivateInit(struct threadMask * unit, struct hiveConfig  * confi
     hiveThreadInfo.mallocType = hiveDefaultMemorySize;
     hiveThreadInfo.mallocTrace = 1;
     hiveThreadInfo.localCounting = 1;
+    hiveThreadInfo.shadLock = 0;
     hiveGuidKeyGeneratorInit();
     INITCOUNTERLIST(unit->id, hiveGlobalRankId, config->counterFolder, config->counterStartPoint);
     hiveAtomicSub(&hiveNodeInfo.readyToPush, 1U);
@@ -215,10 +208,12 @@ void hiveRuntimePrivateInit(struct threadMask * unit, struct hiveConfig  * confi
         hiveAtomicSub(&hiveNodeInfo.readyToParallelStart, 1U);
         while(hiveNodeInfo.readyToParallelStart){ };
 
-        if(initPerWorker && hiveThreadInfo.worker)
-            initPerWorker(hiveGlobalRankId, hiveThreadInfo.groupId, mainArgc, mainArgv);
-        
-        hiveIncrementFinishedEpochList();
+        if(hiveThreadInfo.worker)
+        {
+            if(initPerWorker)
+                initPerWorker(hiveGlobalRankId, hiveThreadInfo.groupId, mainArgc, mainArgv);
+            hiveIncrementFinishedEpochList();
+        }
         
         hiveAtomicSub(&hiveNodeInfo.readyToInspect, 1U);
         while(hiveNodeInfo.readyToInspect) { };
@@ -270,7 +265,12 @@ void hiveHandleReadyEdt(struct hiveEdt * edt)
     {
         incrementQueueEpoch(edt->epochGuid);
         globalShutdownGuidIncQueue();
-        hiveDequePushFront(hiveThreadInfo.myDeque, edt, 0);
+//        if(edt->cluster == hiveThreadInfo.clusterId)
+            hiveDequePushFront(hiveThreadInfo.myDeque, edt, 0);
+//        else
+//            enqueue((uint64_t)edt, hiveNodeInfo.numaQueue[hiveThreadInfo.clusterId]);
+//        enqueue((uint64_t)edt, hiveNodeInfo.numaQueue[edt->cluster]);
+        hiveUpdatePerformanceMetric(hiveEdtQueue, hiveThread, 1, false);
     }
 }
 
@@ -297,8 +297,15 @@ static inline void hiveRunEdt(void *edtPacket)
     hiveUnsetThreadLocalEdtInfo();
 
     if(edt->outputEvent != NULL_GUID)
-        hiveEventSatisfySlot(edt->outputEvent, result, HIVE_EVENT_LATCH_DECR_SLOT);
-
+    {
+        if(hiveGuidGetType(edt->outputEvent) == HIVE_EVENT)
+            hiveEventSatisfySlot(edt->outputEvent, result, HIVE_EVENT_LATCH_DECR_SLOT);
+        else //This is for a synchronous path
+        {
+            hiveSetBuffer(edt->outputEvent, hiveCalloc(sizeof(unsigned int)), sizeof(unsigned int));
+        }
+    }
+    
     releaseDbs(depc, depv);
     hiveEdtDelete(edtPacket);
 }
@@ -313,7 +320,7 @@ inline unsigned int hiveRuntimeStealAnyMultipleEdt( unsigned int amount, void **
     {
         do
         {
-            edt = hiveDequePopBack(hiveNodeInfo.workerDeque[i]);
+//            edt = hiveDequePopBack(hiveNodeInfo.workerDeque[i]);
             if(edt != NULL)
             {
                 returnList[ count ] = edt;
@@ -335,8 +342,6 @@ inline struct hiveEdt * hiveRuntimeStealFromNetwork()
         for (unsigned int i=0; i<hiveNodeInfo.receiverThreadCount; i++)
         {
             index = (index + 1) % hiveNodeInfo.receiverThreadCount;
-            if( edt = hiveDequePopBack(hiveNodeInfo.receiverNodeDeque[index]))
-                break;
             if(edt = hiveDequePopBack(hiveNodeInfo.receiverDeque[index]))
                 break;
         }
@@ -344,11 +349,21 @@ inline struct hiveEdt * hiveRuntimeStealFromNetwork()
     return edt;
 }
 
+__thread unsigned int lastHitThread = 0;
+
+inline struct hiveEdt * hiveCheckLastWorker() {
+    struct hiveEdt * ret = hiveDequePopBack(hiveNodeInfo.deque[lastHitThread]);
+    if(ret)
+        hiveUpdatePerformanceMetric(hiveEdtLastLocalHit, hiveThread, 1, false);
+    return ret;
+}
+
 inline struct hiveEdt * hiveRuntimeStealFromWorker()
 {
     struct hiveEdt *edt = NULL;
     if(hiveNodeInfo.totalThreadCount > 1)
     {
+        
         long unsigned int stealLoc;
         do
         {
@@ -356,9 +371,57 @@ inline struct hiveEdt * hiveRuntimeStealFromWorker()
             stealLoc = stealLoc % hiveNodeInfo.totalThreadCount;
         } while(stealLoc == hiveThreadInfo.threadId);
 
-        if((edt = hiveDequePopBack(hiveNodeInfo.nodeDeque[stealLoc])) == NULL)
+        edt = hiveDequePopBack(hiveNodeInfo.deque[stealLoc]);
+        
+        if(edt)
         {
-            edt = hiveDequePopBack(hiveNodeInfo.deque[stealLoc]);
+            lastHitThread = (unsigned int) stealLoc;
+        }
+    }
+    return edt;
+}
+
+inline struct hiveEdt * hiveRuntimeStealFromWorkerMult()
+{
+    struct hiveEdt * edt = NULL;
+    if(hiveNodeInfo.totalThreadCount > 1)
+    {
+        
+        long unsigned int stealLoc;
+        do
+        {
+            stealLoc = jrand48(hiveThreadInfo.drand_buf);
+            stealLoc = stealLoc % hiveNodeInfo.totalThreadCount;
+        } while(stealLoc == hiveThreadInfo.threadId);
+
+        unsigned int size = hiveDequeSize(hiveNodeInfo.deque[stealLoc]);
+        unsigned int half = size/2;
+        unsigned int stolen = 0;
+        if(STEALSIZE < half)
+        {
+            for(unsigned int i=0; i<half; i+=STEALSIZE) 
+            {
+                void ** array = hiveDequePopBackMult(hiveNodeInfo.deque[stealLoc]);
+                if(array)
+                {
+                    for(unsigned int j=0; j<STEALSIZE; j++)
+                    {
+                        if(edt)
+                            hiveDequePushFront(hiveThreadInfo.myDeque, array[j], 0);
+                        else
+                            edt = array[j];
+                    }
+                    stolen+=STEALSIZE;
+                }
+                else
+                    break;
+            }
+
+            if(edt)
+            {
+                hiveUpdatePerformanceMetric(hiveEdtSteal, hiveThread, stolen, false);
+                lastHitThread = (unsigned int) stealLoc;
+            }
         }
     }
     return edt;
@@ -366,52 +429,63 @@ inline struct hiveEdt * hiveRuntimeStealFromWorker()
 
 bool hiveNetworkFirstSchedulerLoop()
 {
-    struct hiveEdt *edtFound;
-    if(!(edtFound = hiveRuntimeStealFromNetwork()))
-    {
-        if(!(edtFound = hiveDequePopFront(hiveThreadInfo.myNodeDeque)))
-        {
-            if(!(edtFound = hiveDequePopFront(hiveThreadInfo.myDeque)))
-                edtFound = hiveRuntimeStealFromWorker();
-        }
-    }
-    if(edtFound)
-    {
-        hiveRunEdt(edtFound);
-        return true;
-    }
+//    struct hiveEdt *edtFound;
+//    if(!(edtFound = hiveRuntimeStealFromNetwork()))
+//    {
+//        if(!(edtFound = hiveDequePopFront(hiveThreadInfo.myNodeDeque)))
+//        {
+//            if(!(edtFound = hiveDequePopFront(hiveThreadInfo.myDeque)))
+//                edtFound = hiveRuntimeStealFromWorker();
+//        }
+//    }
+//    if(edtFound)
+//    {
+//        hiveRunEdt(edtFound);
+//        return true;
+//    }
     return false;
 }
 
 bool hiveNetworkBeforeStealSchedulerLoop()
 {
-    struct hiveEdt *edtFound;
-    if(!(edtFound = hiveDequePopFront(hiveThreadInfo.myNodeDeque)))
-    {
-        if(!(edtFound = hiveDequePopFront(hiveThreadInfo.myDeque)))
-        {
-            if(!(edtFound = hiveRuntimeStealFromNetwork()))
-                edtFound = hiveRuntimeStealFromWorker();
-        }
-    }
-
-    if(edtFound)
-    {
-        hiveRunEdt(edtFound);
-        return true;
-    }
+//    struct hiveEdt *edtFound;
+//    if(!(edtFound = hiveDequePopFront(hiveThreadInfo.myNodeDeque)))
+//    {
+//        if(!(edtFound = hiveDequePopFront(hiveThreadInfo.myDeque)))
+//        {
+//            if(!(edtFound = hiveRuntimeStealFromNetwork()))
+//                edtFound = hiveRuntimeStealFromWorker();
+//        }
+//    }
+//
+//    if(edtFound)
+//    {
+//        hiveRunEdt(edtFound);
+//        return true;
+//    }
     return false;
 }
 
 bool hiveDefaultSchedulerLoop()
 {
-    struct hiveEdt *edtFound = NULL;
-    if(!(edtFound = hiveDequePopFront(hiveThreadInfo.myNodeDeque)))
+    struct hiveEdt * edtFound = NULL;
+    if(!(edtFound = hiveDequePopFront(hiveThreadInfo.myDeque)))
     {
-        if(!(edtFound = hiveDequePopFront(hiveThreadInfo.myDeque)))
+//        if(!(edtFound = hiveCheckLastWorker()))
+        if(!(edtFound = hiveRuntimeStealFromWorkerMult()))
         {
-            if(!(edtFound = hiveRuntimeStealFromWorker()))
-                edtFound = hiveRuntimeStealFromNetwork();
+            hiveUpdatePerformanceMetric(hiveEdtStealAttempt, hiveThread, 1, false);
+    //        if(!(edtFound = (struct hiveEdt*)dequeue(hiveNodeInfo.numaQueue[hiveThreadInfo.clusterId])))
+            {
+                if(!(edtFound = hiveRuntimeStealFromWorker()))
+                {
+                    edtFound = hiveRuntimeStealFromNetwork();
+                }
+                else
+                {
+                    hiveUpdatePerformanceMetric(hiveEdtSteal, hiveThread, 1, false);
+                }
+            }
         }
     }
 
@@ -419,6 +493,10 @@ bool hiveDefaultSchedulerLoop()
     {
         hiveRunEdt(edtFound);
         return true;
+    }
+    else
+    {
+        usleep(1);
     }
     return false;
 }
@@ -442,6 +520,7 @@ static inline void unlockNetwork( volatile unsigned int * lock)
 
 int hiveRuntimeLoop()
 {
+    HIVECOUNTERTIMERSTART(totalCounter);
     if(hiveThreadInfo.networkReceive)
     {
         while(hiveThreadInfo.alive)
@@ -466,4 +545,5 @@ int hiveRuntimeLoop()
             hiveNodeInfo.scheduler();
         }
     }
+    HIVECOUNTERTIMERENDINCREMENT(totalCounter);
 }

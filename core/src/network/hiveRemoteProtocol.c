@@ -100,7 +100,7 @@ static inline void outInsertNode( struct outList * node, unsigned int length  )
 {
 #ifdef COUNT
     //This is for network queue sitting time...
-    node->timeStamp = hiveExtGetTimeStamp();
+//    node->timeStamp = hiveExtGetTimeStamp();
 #endif
     
     //int listId = node->rank*ports+hiveThreadInfo.threadId%ports;

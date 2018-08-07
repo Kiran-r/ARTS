@@ -27,5 +27,11 @@ target_link_libraries(graph_search hive-graph ${LIBS})
 add_executable(scan_statistics scan_statistics.cpp)
 target_link_libraries(scan_statistics hive-graph ${LIBS})
 
+add_executable(triangleCount triangleCount.c)
+target_link_libraries(triangleCount hive-graph ${LIBS})
+
+add_executable(triangleCount2 triangleCount2.c)
+target_link_libraries(triangleCount2 hive-graph ${LIBS})
+
 add_subdirectory(csr)
 add_subdirectory(rmat)

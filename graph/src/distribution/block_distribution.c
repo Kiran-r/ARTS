@@ -42,9 +42,9 @@ void initBlockDistributionWithCmdLineArgs(hive_block_dist_t* _dist,
     }
   }
 
-  printf("[INFO] Initializing Block Distribution with following parameters ...\n");
-  printf("[INFO] Vertices : %" PRIu64 "\n", n);
-  printf("[INFO] Edges : %" PRIu64 "\n", m);
+  PRINTF("[INFO] Initializing Block Distribution with following parameters ...\n");
+  PRINTF("[INFO] Vertices : %" PRIu64 "\n", n);
+  PRINTF("[INFO] Edges : %" PRIu64 "\n", m);
 
   _dist->num_vertices = n;
   _dist->num_edges = m;

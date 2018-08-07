@@ -8,6 +8,8 @@
 #include "hiveGraph.h"
 #include "hiveTerminationDetection.h"
 
+unsigned int introStart = 5;
+
 hive_block_dist_t distribution;
 csr_graph graph;
 char* _file = NULL;
@@ -47,6 +49,7 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]);
 hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
   endTime = hiveGetTimeStamp();
   printf("Total execution time: %f s \n", (double)(endTime - startTime)/1000000000.0);
+  hiveStopIntroShad();
   hiveShutdown();
 }
 
@@ -81,6 +84,7 @@ hiveGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
 }
 
 hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) { 
+//  hiveStartIntroShad(introStart);
   vertex* neighbors = NULL;
   u64 neighbor_cnt = 0;    
   vertex source = (vertex) paramv[0];
@@ -158,7 +162,7 @@ hiveGuid_t endVertexIDMapRead(u32 paramc, u64 * paramv,
 //	PRINTF("Seed chosen %d,\n", seeds[i]);
       }
     }
-
+  hiveStartIntroShad(introStart);
   startTime = hiveGetTimeStamp();
   /*Start walk from each seed in parallel*/
   for (int i = 0; i < num_seeds; i++) {

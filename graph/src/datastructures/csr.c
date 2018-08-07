@@ -171,6 +171,7 @@ int loadGraphUsingCmdLineArgs(csr_graph* _graph,
                               int argc, char** argv) {
   bool flip = false;
   bool keep_self_loops = false;
+  bool csr_format = false;
   char* file = NULL;
 
   for (int i=0; i < argc; ++i) {
@@ -185,14 +186,26 @@ int loadGraphUsingCmdLineArgs(csr_graph* _graph,
     if (strcmp("--keep-self-loops", argv[i]) == 0) {
       keep_self_loops = true;
     }
+    
+    if (strcmp("--csr-format", argv[i]) == 0) {
+        csr_format = true;
+    }
   }
 
   PRINTF("[INFO] Initializing GraphDB with following parameters ...\n");
   PRINTF("[INFO] Graph file : %s\n", file);
   PRINTF("[INFO] Flip ? : %d\n", flip);
   PRINTF("[INFO] Keep Self-loops ? : %d\n", keep_self_loops);
-
-  return loadGraphNoWeight(file,
+  PRINTF("[INFO] Csr-format : %d\n", csr_format);
+  if(csr_format) {
+    return loadGraphNoWeightCsr(file,
+                                _graph,
+                                _dist,
+                                flip,
+                                !keep_self_loops);
+  }
+  else
+    return loadGraphNoWeight(file,
                            _graph,
                            _dist,
                            flip,
@@ -301,3 +314,85 @@ int loadGraphNoWeight(const char* _file,
   return 0;
 }
 
+int loadGraphNoWeightCsr(const char* _file,
+                        csr_graph* _graph,
+                        hive_block_dist_t* _dist,
+                        bool _flip,
+                        bool _ignore_self_loops) {
+
+    FILE *file = fopen(_file, "r");
+    if (file == NULL) {
+        PRINTF("[ERROR] File cannot be open -- %s", _file);
+        return -1;
+    }
+
+    u64 numVerts = 0;
+    u64 numEdges = 0;
+    
+    hiveEdgeVector vedges;
+    initEdgeVector(&vedges, EDGE_VEC_SZ);
+
+    char str[MAXCHAR];
+    if (fgets(str, MAXCHAR, file) != NULL) {
+        char* token = strtok(str, " ");
+        numVerts = atoll(token);
+        token = strtok(NULL, " ");
+        numEdges = atoll(token);
+    }
+
+    u64 localEdges = 0;
+    u64 edgeCount = 0;
+    graph_sz_t src = 0;
+    while (fgets(str, MAXCHAR, file) != NULL) {
+        if (str[0] == '%')
+            continue;
+
+        if (str[0] == '#')
+            continue;
+
+//        PRINTF("%lu -> ", src);
+        char* token = strtok(str, " \t\n\\v\f\r");
+        while (token != NULL) {
+            graph_sz_t target = atoll(token) - 1;
+            token = strtok(NULL, " \t\n\\v\f\r");
+            
+//            printf(" %lu", target);
+            
+            if (_ignore_self_loops && (src == target))
+                continue;
+            
+            if (getOwner(src, _dist) == hiveGetCurrentNode()) {
+                pushBackEdge(&vedges, src, target, 0/*weight zeor for the moment*/);
+                localEdges++;
+            }
+            
+            if (_flip) {
+                if (getOwner(target, _dist) == hiveGetCurrentNode()) {
+                    pushBackEdge(&vedges, target, src, 0/*weight zeor for the moment*/);
+                    localEdges++;
+                }
+            }
+
+            edgeCount++;
+        }
+//        printf("\n");
+        src++;
+    }
+    fclose(file);
+    
+    if (src == numVerts) {
+        PRINTF("Sorting edges %lu local %lu\n", edgeCount, localEdges);
+        // done loading edge -- sort them by source
+        sortBySource(&vedges);
+
+        initCSR(_graph,
+                getNodeBlockSize(hiveGetCurrentNode(), _dist),
+                vedges.used,
+                _dist,
+                &vedges,
+                true);
+    }
+    
+    freeEdgeVector(&vedges);
+    return 0;
+}

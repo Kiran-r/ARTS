@@ -37,6 +37,8 @@ void sendEpoch(hiveGuid_t epochGuid, unsigned int source, unsigned int dest);
 hiveEpoch_t * createEpoch(hiveGuid_t * guid, hiveGuid_t edtGuid, unsigned int slot);
 void hiveAddEdtToEpoch(hiveGuid_t edtGuid, hiveGuid_t epochGuid);
 hiveGuid_t hiveInitializeAndStartEpoch(hiveGuid_t finishEdtGuid, unsigned int slot);
+hiveGuid_t hiveInitializeEpoch(unsigned int rank, hiveGuid_t finishEdtGuid, unsigned int slot);
+void hiveStartEpoch(hiveGuid_t epochGuid);
 void broadcastEpochRequest(hiveGuid_t epochGuid);
 bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int totalFinish);
 void reduceEpoch(hiveGuid_t epochGuid, unsigned int active, unsigned int finish);
@@ -58,6 +60,7 @@ hiveEpoch_t * getPoolEpoch(hiveGuid_t edtGuid, unsigned int slot);
 void globalShutdownGuidIncActive();
 void globalShutdownGuidIncQueue();
 void globalShutdownGuidIncFinished();
+bool createShutdownEpoch();
 
 #ifdef __cplusplus
 }

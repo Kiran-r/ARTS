@@ -8,6 +8,8 @@
 #include "hiveGlobals.h"
 #include "hiveThreads.h"
 
+unsigned int numNumaDomains = 1;
+
 enum abstractGroupId
 {
     abstractWorker=0,
@@ -107,11 +109,18 @@ void initClusterUnits(hwloc_topology_t topology, hwloc_obj_t obj, hwloc_obj_t cl
         if(obj->parent->type == HWLOC_OBJ_CORE)
         {
             units[*unitIndex].coreId = obj->parent->os_index;
+//            PRINTF("A CORE\n");
+        }
+        else
+        {
+//            PRINTF("NOT A CORE...\n");
         }
         units[*unitIndex].clusterId = cluster->os_index;
         units[*unitIndex].unitId = obj->os_index;
         units[*unitIndex].on = 0;
 
+//        PRINTF("Cluster: %u Unit: %u\n", cluster->os_index, obj->os_index);
+        
         units[*unitIndex].listHead = NULL;
         units[*unitIndex].threads = 0;
         units[*unitIndex].coreInfo = hiveMalloc(sizeof(struct hiveCoreInfo));
@@ -121,6 +130,7 @@ void initClusterUnits(hwloc_topology_t topology, hwloc_obj_t obj, hwloc_obj_t cl
     }
     else
     {
+//        PRINTF("ARITY: %u\n", obj->arity);
         int i;
         for (i=0; i<obj->arity; i++)
             initClusterUnits(topology, obj->children[i], cluster, unitIndex, units);
@@ -132,7 +142,7 @@ struct nodeMask * initTopology()
     hwloc_topology_t topology = getTopology();
 
     struct nodeMask * node = (struct nodeMask*) hiveMalloc(sizeof(struct nodeMask));
-    node->numClusters = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_NODE);
+    numNumaDomains = node->numClusters = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_NODE);
     node->cluster = (struct clusterMask*) hiveMalloc(sizeof(struct clusterMask)*node->numClusters);
     unsigned int clusterIndex = 0;
     unsigned int coreIndex = 0;
@@ -161,7 +171,7 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
     unsigned int numClusters = node->numClusters;
     unsigned int numCores = node->cluster[0].numCores;
     unsigned int numUnits = node->cluster[0].core[0].numUnits;
-    //PRINTF("%d %d %d\n", numClusters, numCores, numUnits);
+//    PRINTF("%d %d %d\n", numClusters, numCores, numUnits);
     unsigned int coresPerCluster = numCores*numUnits;
     unsigned int coreCount = numClusters*numCores*numUnits;
     unsigned int i=0, j=0, k=0, totalThreads=0;
@@ -358,6 +368,7 @@ struct hiveCoreInfo
 void hiveAbstractMachineModelPinThread(struct hiveCoreInfo * coreInfo )
 {
     //For now this will not pin anything if there is no hwloc library
+    PRINTF("NO PIN\n");
 }
 
 void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, unsigned int numberOfReceivers, struct unitMask * flat, unsigned int numCores,  struct hiveConfig * config)

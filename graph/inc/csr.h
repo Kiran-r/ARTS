@@ -8,7 +8,7 @@ extern "C" {
 #include "block_distribution.h"
 #include "hiveEdgeVector.h"
 
-#define MAXCHAR 1000
+#define MAXCHAR 4096
 
 typedef struct {
   graph_sz_t num_local_vertices;
@@ -32,6 +32,12 @@ int loadGraphNoWeight(const char* _file,
                       hive_block_dist_t* _dist,
                       bool _flip,
                       bool _ignore_self_loops);
+
+int loadGraphNoWeightCsr(const char* _file,
+                        csr_graph* _graph,
+                        hive_block_dist_t* _dist,
+                        bool _flip,
+                        bool _ignore_self_loops);
 
 void printLocalCSR(const csr_graph* _csr);
 

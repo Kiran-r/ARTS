@@ -31,6 +31,7 @@ extern u64 globalGuidOn;
 #endif
 
 extern __thread struct hiveEdt * currentEdt;
+extern unsigned int numNumaDomains;
 
 hiveGuid_t hiveGetCurrentGuid()
 {
@@ -59,6 +60,16 @@ unsigned int hiveGetTotalWorkers()
 unsigned int hiveGetCurrentWorker()
 {
     return hiveThreadInfo.groupId;
+}
+
+unsigned int hiveGetCurrentCluster()
+{
+    return hiveThreadInfo.clusterId;
+}
+
+unsigned int hiveGetTotalClusters()
+{
+    return numNumaDomains;
 }
 
 void hiveStopLocalWorker()

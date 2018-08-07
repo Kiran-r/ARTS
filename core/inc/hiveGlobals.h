@@ -7,6 +7,7 @@ extern "C" {
 #include "hive.h"
 #include "hiveArrayList.h"
 #include "hiveCounter.h"
+#include "hiveQueue.h"
 
 struct atomicCreateBarrierInfo
 {
@@ -24,11 +25,8 @@ struct hiveRuntimeShared
     char pad3[56];
     bool (*scheduler)();
     struct hiveDeque ** deque;
-    struct hiveDeque ** nodeDeque;
-    struct hiveDeque ** workerDeque;
-    struct hiveDeque ** workerNodeDeque;
     struct hiveDeque ** receiverDeque;
-    struct hiveDeque ** receiverNodeDeque;
+    hiveQueue ** numaQueue;
     struct hiveRouteTable ** routeTable;
     struct hiveRouteTable * remoteRouteTable;
     volatile bool ** localSpin;
@@ -53,6 +51,7 @@ struct hiveRuntimeShared
     u64 shutdownForceTimeout;
     unsigned int printNodeStats;
     hiveGuid_t shutdownEpoch;
+    unsigned int shadLoopStride;
 }__attribute__ ((aligned(64)));
 
 struct hiveRuntimePrivate
@@ -63,6 +62,7 @@ struct hiveRuntimePrivate
     unsigned int coreId;
     unsigned int threadId;
     unsigned int groupId;
+    unsigned int clusterId;
     unsigned int backOff;
     volatile unsigned int oustandingMemoryMoves;
     struct atomicCreateBarrierInfo atomicWait;
@@ -77,6 +77,7 @@ struct hiveRuntimePrivate
     int mallocTrace;
     int edtFree;
     int localCounting;
+    unsigned int shadLock;
     hiveArrayList * counterList;
     unsigned short drand_buf[3];
 };

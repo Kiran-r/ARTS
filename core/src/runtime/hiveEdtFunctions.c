@@ -14,6 +14,7 @@
 #include "hiveDebug.h"
 #include "hiveTerminationDetection.h"
 #include "hiveArrayList.h"
+#include "hiveQueue.h"
 #include <stdarg.h>
 #include <string.h>
 
@@ -21,13 +22,15 @@
 
 #define maxEpochArrayList 32
 
+extern unsigned int numNumaDomains;
+
 __thread hiveArrayList * epochList = NULL;
 __thread struct hiveEdt * currentEdt = NULL;
 
 bool hiveSetCurrentEpochGuid(hiveGuid_t epochGuid)
 {
     if(epochGuid)
-    {
+    {   
         if(!epochList)
             epochList = hiveNewArrayList(sizeof(hiveGuid_t), 8);
         hivePushToArrayList(epochList, &epochGuid);
@@ -83,6 +86,12 @@ void hiveSetThreadLocalEdtInfo(struct hiveEdt * edt)
 
 void hiveSaveThreadLocal(threadLocal_t * tl)
 {
+    if(currentEdt)
+    {
+        HIVECOUNTERTIMERENDINCREMENTBY(edtCounter, 0);
+    }
+    
+    HIVECOUNTERTIMERSTART(contextSwitch);
     tl->currentEdtGuid = hiveThreadInfo.currentEdtGuid;
     tl->currentEdt = currentEdt;
     tl->epochList = (void*)epochList;
@@ -90,13 +99,21 @@ void hiveSaveThreadLocal(threadLocal_t * tl)
     hiveThreadInfo.currentEdtGuid = NULL_GUID;
     currentEdt = NULL;
     epochList = NULL;
+    HIVECOUNTERTIMERENDINCREMENTBY(contextSwitch, 0);
+    hiveUpdatePerformanceMetric(hiveYieldBW, hiveThread, 1, false);
 }
 
 void hiveRestoreThreadLocal(threadLocal_t * tl)
 {
+    HIVECOUNTERTIMERSTART(contextSwitch);
     hiveThreadInfo.currentEdtGuid = tl->currentEdtGuid;
     currentEdt = tl->currentEdt;
+    if(epochList)
+        hiveDeleteArrayList(epochList);
     epochList = tl->epochList;
+    HIVECOUNTERTIMERENDINCREMENT(contextSwitch);
+    
+    HIVECOUNTERTIMERSTART(edtCounter);
 }
 
 void hiveIncrementFinishedEpochList()
@@ -118,7 +135,7 @@ void hiveIncrementFinishedEpochList()
             hiveDeleteArrayList(epochList);
             epochList = NULL;
         }
-        else
+        else         
             hiveResetArrayList(epochList);
     }
     globalShutdownGuidIncFinished();
@@ -131,7 +148,7 @@ void hiveUnsetThreadLocalEdtInfo()
     currentEdt = NULL;
 }
 
-bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int edtSpace, hiveGuid_t eventGuid, hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, bool useEpoch, hiveGuid_t epochGuid, bool hasDepv)
+bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int cluster, unsigned int edtSpace, hiveGuid_t eventGuid, hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, bool useEpoch, hiveGuid_t epochGuid, bool hasDepv)
 {
     struct hiveEdt *edt;
     HIVESETMEMSHOTTYPE(hiveEdtMemorySize);
@@ -154,7 +171,9 @@ bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int e
         edt->currentEdt = *guid;
         edt->outputEvent = NULL_GUID;
         edt->epochGuid = NULL_GUID;
+        edt->cluster = cluster;
         edt->depcNeeded = depc;
+        edt->outputEvent = eventGuid;
 
         if(useEpoch)
         {
@@ -175,11 +194,8 @@ bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int e
         if(paramc)
             memcpy((u64*) (edt+1), paramv, sizeof(u64) * paramc);
 
-        if(eventGuid != NULL_GUID)
-        {
-            edt->outputEvent = eventGuid;
+        if(eventGuid != NULL_GUID && hiveGuidGetType(eventGuid) == HIVE_EVENT)
             hiveAddDependence(*guid, eventGuid, HIVE_EVENT_LATCH_DECR_SLOT, DB_MODE_NON_COHERENT_READ);
-        }
 
         if(route != hiveGlobalRankId)
             hiveRemoteMemoryMove(route, *guid, (void*)edt, (unsigned int)edt->header.size, HIVE_REMOTE_EDT_MOVE_MSG, hiveFree);
@@ -255,7 +271,7 @@ hiveGuid_t hiveEdtCreateDep(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u
     unsigned int depSpace = (hasDepv) ? depc * sizeof(hiveEdtDep_t) : 0;
     unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64) + depSpace;
     hiveGuid_t guid = NULL_GUID;
-    hiveEdtCreateInternal(&guid, route, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
+    hiveEdtCreateInternal(&guid, route, hiveThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
     HIVEEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return guid;
 }
@@ -266,7 +282,7 @@ hiveGuid_t hiveEdtCreateWithGuidDep(hiveEdt_t funcPtr, hiveGuid_t guid, u32 para
     unsigned int route = hiveGuidGetRank(guid);
     unsigned int depSpace = (hasDepv) ? depc * sizeof(hiveEdtDep_t) : 0;
     unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64) + depSpace;
-    bool ret = hiveEdtCreateInternal(&guid, route, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
+    bool ret = hiveEdtCreateInternal(&guid, route, hiveThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
     HIVEEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return (ret) ? guid : NULL_GUID;
 }
@@ -281,7 +297,7 @@ hiveGuid_t hiveEdtCreateWithEventDep(hiveEdt_t funcPtr, unsigned int route, u32 
     {
         unsigned int depSpace = (hasDepv) ? depc * sizeof(hiveEdtDep_t) : 0;
         unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64) + depSpace;
-        hiveEdtCreateInternal(&guid, route, edtSpace, eventGuid, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
+        hiveEdtCreateInternal(&guid, route, hiveThreadInfo.clusterId, edtSpace, eventGuid, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
     }
     HIVEEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return guid;
@@ -293,7 +309,7 @@ hiveGuid_t hiveEdtCreateWithEpochDep(hiveEdt_t funcPtr, unsigned int route, u32 
     unsigned int depSpace = (hasDepv) ? depc * sizeof(hiveEdtDep_t) : 0;
     unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64) + depSpace;
     hiveGuid_t guid = NULL_GUID;
-    hiveEdtCreateInternal(&guid, route, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, epochGuid, hasDepv);
+    hiveEdtCreateInternal(&guid, route, hiveThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, epochGuid, hasDepv);
     HIVEEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return guid;
 }
@@ -325,7 +341,7 @@ hiveGuid_t hiveEdtCreateShad(hiveEdt_t funcPtr, unsigned int route, u32 paramc, 
     HIVEEDTCOUNTERTIMERSTART(edtCreateCounter);
     unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64) + sizeof(hiveGuid_t);
     hiveGuid_t guid = NULL_GUID;
-    hiveEdtCreateInternal(&guid, route, edtSpace, NULL_GUID, funcPtr, paramc, paramv, 0, false, NULL_GUID, true);
+    hiveEdtCreateInternal(&guid, route, hiveThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, 0, false, NULL_GUID, true);
     HIVEEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return guid;
 }
@@ -454,6 +470,7 @@ void hiveSignalEdtNoData(hiveGuid_t edt)
 
 void hiveSignalEdtPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * ptr, unsigned int size, u32 slot)
 {
+    HIVEEDTCOUNTERTIMERSTART(signalEdtCounter);
     struct hiveEdt * edt = hiveRouteTableLookupItem(edtGuid);
     if(edt)
     {
@@ -489,6 +506,7 @@ void hiveSignalEdtPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * ptr, unsigne
         }
     }
     hiveUpdatePerformanceMetric(hiveEdtSignalThroughput, hiveThread, 1, false);
+    HIVEEDTCOUNTERTIMERENDINCREMENT(signalEdtCounter);
 }
 
 void hiveEventSatisfySlot(hiveGuid_t eventGuid, hiveGuid_t dataGuid, u32 slot)
@@ -977,39 +995,23 @@ hiveGuid_t hiveActiveMessageWithBuffer(hiveEdt_t funcPtr, unsigned int route, u3
     return guid;
 }
 
-hiveGuid_t hiveActiveMessageShad(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, void * data, unsigned int size, hiveGuid_t epochGuid)
-{
-    hiveGuid_t guid = NULL_GUID;
-    bool useEpoch = (epochGuid != NULL_GUID);
-    unsigned int depSpace = sizeof(hiveEdtDep_t);
-    unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64) + depSpace;
-    hiveEdtCreateInternal(&guid, route, edtSpace, NULL_GUID, funcPtr, paramc, paramv, 1, useEpoch, epochGuid, true);
-    void * ptr = hiveMalloc(size);
-    memcpy(ptr, data, size);
-    hiveSignalEdtPtr(guid, NULL_GUID, ptr, size, 0);
-    return guid;
-}
-
 /*----------------------------------------------------------------------------*/
-
-typedef struct {
-    void * buffer;
-    unsigned int size;
-    hiveGuid_t epochGuid;
-    volatile unsigned int uses;
-} hiveBuffer_t;
 
 hiveGuid_t hiveAllocateLocalBuffer(void ** buffer, unsigned int size, unsigned int uses, hiveGuid_t epochGuid)
 {
     if(epochGuid)
         incrementActiveEpoch(epochGuid);
     globalShutdownGuidIncActive();
-        
-    if(*buffer == NULL)
-        *buffer = hiveMalloc(sizeof(char) * size);
+      
+    if(size)
+    {
+        if(*buffer == NULL)
+            *buffer = hiveMalloc(sizeof(char) * size);
+    }
     
     hiveBuffer_t * stub = hiveMalloc(sizeof(hiveBuffer_t));
     stub->buffer = *buffer;
+    stub->sizeToWrite = NULL;
     stub->size = size;
     stub->uses = uses;
     stub->epochGuid = epochGuid;
@@ -1018,6 +1020,7 @@ hiveGuid_t hiveAllocateLocalBuffer(void ** buffer, unsigned int size, unsigned i
     hiveRouteTableAddItem(stub, guid, hiveGlobalRankId, false);
     return guid;
 }
+
 
 void * hiveSetBuffer(hiveGuid_t bufferGuid, void * buffer, unsigned int size)
 {
@@ -1034,9 +1037,26 @@ void * hiveSetBuffer(hiveGuid_t bufferGuid, void * buffer, unsigned int size)
             globalShutdownGuidIncQueue();
             
             if(size > stub->size)
-                PRINTF("Truncating buffer data buffer size: %u stub size: %u\n", size, stub->size);
+            {
+                if(stub->size)
+                {
+                    PRINTF("Truncating buffer data buffer size: %u stub size: %u\n", size, stub->size);
+                    hiveDebugPrintStack();
+                }
+                else if(stub->buffer == NULL)
+                {
+                    stub->buffer = hiveMalloc(sizeof(char) * size);
+                    stub->size = size;
+                }
+                else
+                    stub->size = size;
+            }
+            
+            if(stub->sizeToWrite)
+                *stub->sizeToWrite = (uint32_t)size;
+            
             memcpy(stub->buffer, buffer, stub->size);
-            PRINTF("%u vs %u\n", *((unsigned int*)stub->buffer), *((unsigned int*)buffer));
+//            PRINTF("Set buffer %p %u %u\n", stub->buffer, *((unsigned int*)stub->buffer), stub->size);
             ret = stub->buffer;
             if(!hiveAtomicSub(&stub->uses, 1))
             {
@@ -1053,7 +1073,7 @@ void * hiveSetBuffer(hiveGuid_t bufferGuid, void * buffer, unsigned int size)
     }
     else
     {
-        PRINTF("Sending size: %u\n", size);
+//        PRINTF("Sending size: %u\n", size);
 //        hiveRemoteMemoryMoveNoFree(rank, bufferGuid, buffer, size, HIVE_REMOTE_BUFFER_SEND_MSG);
         hiveRemoteMemoryMove(rank, bufferGuid, buffer, size, HIVE_REMOTE_BUFFER_SEND_MSG, hiveFree);
     }

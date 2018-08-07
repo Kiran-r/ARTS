@@ -13,7 +13,8 @@
 #include <sys/stat.h>
 
 char * counterPrefix;
-unsigned int countersOn = 0;
+uint64_t countersOn = 0;
+unsigned int printCounters = 0;
 unsigned int counterStartPoint = 0;
 
 void hiveInitCounterList(unsigned int threadId, unsigned int nodeId, char * folder, unsigned int startPoint)
@@ -27,15 +28,23 @@ void hiveInitCounterList(unsigned int threadId, unsigned int nodeId, char * fold
         hivePushToArrayList(hiveThreadInfo.counterList, hiveCreateCounter(threadId, nodeId, GETCOUNTERNAME(i) ));
     }
     if(counterStartPoint == 1)
-        countersOn = 1;
+    {
+        countersOn = COUNTERTIMESTAMP;
+        printCounters = 1;
+    }
 }
 
 void hiveStartCounters(unsigned int startPoint)
 {
     if(counterStartPoint == startPoint)
     {
-//        PRINTF("TURNING COUNTERS ON");
-        countersOn = 1;
+//        PRINTF("TURNING COUNTERS ON %u\n", startPoint);
+        uint64_t temp = COUNTERTIMESTAMP;
+        if(!hiveAtomicCswapU64(&countersOn, 0, temp))
+        {
+            printCounters = 1;
+            HIVECOUNTERTIMERSTART(edtCounter);
+        } 
     }
 }
 
@@ -46,12 +55,14 @@ unsigned int hiveCountersOn()
 
 void hiveEndCounters()
 {
+    uint64_t temp = countersOn;
     countersOn = 0;
+    PRINTF("COUNT TIME: %lu countersOn: %lu\n", COUNTERTIMESTAMP - temp, countersOn);
 }
 
 hiveCounter * hiveCreateCounter(unsigned int threadId, unsigned int nodeId, const char * counterName)
 {
-    hiveCounter * counter = (hiveCounter*) hiveMalloc(sizeof(hiveCounter));
+    hiveCounter * counter = (hiveCounter*) hiveCalloc(sizeof(hiveCounter));
     counter->threadId = threadId;
     counter->nodeId = nodeId;
     counter->name = counterName;
@@ -108,6 +119,16 @@ void hiveCounterTimerEndIncrement(hiveCounter * counter)
         counter->endTime = COUNTERTIMESTAMP;
         counter->totalTime+=(counter->endTime - counter->startTime);
         counter->count++;
+    }
+}
+
+void hiveCounterTimerEndIncrementBy(hiveCounter * counter, uint64_t num)
+{
+    if(counter && countersOn && hiveThreadInfo.localCounting)
+    {
+        counter->endTime = COUNTERTIMESTAMP;
+        counter->totalTime+=(counter->endTime - counter->startTime);
+        counter->count+=num;
     }
 }
 
@@ -191,7 +212,7 @@ void hiveCounterPrint(hiveCounter * counter, FILE * stream)
 
 void hiveWriteCountersToFile(unsigned int threadId, unsigned int nodeId)
 {
-    if(countersOn)
+    if(printCounters)
     {
         char * filename;
         if(counterPrefix)

@@ -74,8 +74,9 @@ else()
 endif()
 
 find_package(Hwloc)
-if(NOT HWLOC_LIB)
-    set(HWLOC_LIB "")
+if(HWLOC_LIB)
+    include_directories(${HWLOC_INC})
+    add_definitions(-DHWLOC)
 endif()
 
 #<-------------------------------------------

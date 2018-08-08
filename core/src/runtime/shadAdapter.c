@@ -18,6 +18,16 @@
 #include <stdarg.h>
 #include <string.h>
 
+hiveGuid_t hiveEdtCreateShad(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv)
+{
+    HIVEEDTCOUNTERTIMERSTART(edtCreateCounter);
+    unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64) + sizeof(hiveGuid_t);
+    hiveGuid_t guid = NULL_GUID;
+    hiveEdtCreateInternal(&guid, route, hiveThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, 0, false, NULL_GUID, true);
+    HIVEEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
+    return guid;
+}
+
 hiveGuid_t hiveActiveMessageShad(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, void * data, unsigned int size, hiveGuid_t epochGuid)
 {
     unsigned int rank = route; //route / numNumaDomains;

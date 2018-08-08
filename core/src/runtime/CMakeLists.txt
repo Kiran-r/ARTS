@@ -14,6 +14,7 @@ set(runtime_src
     hiveServer.c
     hiveRemoteFunctions.c
     hiveEdtFunctions.c
+    hiveEventFunctions.c
     hiveDbFunctions.c
     hiveDbList.c
     hiveArrayDb.c

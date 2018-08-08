@@ -71,44 +71,9 @@ typedef struct
     void *ptr;
 } hiveEdtDep_t;
 
-typedef hiveGuid_t(*hiveEdt_t) (u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]);
+typedef hiveGuid_t (*hiveEdt_t) (u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]);
 
 typedef void (*sendHandler_t) (void * args);
-
-typedef enum
-{
-    HIVE_EVENT_ONCE_T,/**< A ONCE event simply passes along a satisfaction on its
-                          * unique pre-slot to its post-slot. Once all hive objects
-                          * linked to its post-slot have been satisfied, the ONCE event
-                          * is automatically destroyed. */
-    HIVE_EVENT_IDEM_T,/**< An IDEM event simply passes along a satisfaction on its
-                          * unique pre-slot to its post-slot. The IDEM event persists
-                          * until hiveEventDestroy() is explicitly called on it.
-                          * It can only be satisfied once and susequent
-                          * satisfactions are ignored (use case: BFS, B&B..) */
-    HIVE_EVENT_STICKY_T,
-    /**< A STICKY event is identical to an IDEM event except that
-                 * multiple satisfactions result in an error
-                 */
-    HIVE_EVENT_LATCH_T,
-    /**< A LATCH event has two pre-slots: a INCR and a DECR.
-                 * Each slot is associated with an internal monotonically
-                 * increasing counter that starts at 0. On each satisfaction
-                 * of one of the pre-slots, the counter for that slot is
-                 * incremented by 1. When both counters are equal (and non-zero),
-                 * the post-slot of the latch event is triggered.
-                 * Any data block passed along its pre-slots is ignored.
-                 * A LATCH event has the same persistent as a ONCE event and
-                 * is automatically destroyed when its post-slot is triggered.
-                 */
-    HIVE_EVENT_LOOP_T,
-    
-    HIVE_EVENT_PIPELINE_T,
-
-    HIVE_EVENT_T_MAX	 /**< This is *NOT* an event and is only used to count
-                          * the number of event types. Its use is reserved for the
-                          * runtime. */
-} hiveEventTypes_t;
 
 typedef enum
 {
@@ -165,35 +130,9 @@ struct hiveDependentList
     struct hiveDependent dependents[];
 };
 
-struct hiveDelayedSatisfyItem
-{
-    hiveGuid_t src;
-    hiveGuid_t dest;
-    volatile bool doneWriting;
-};
-
-struct hiveDelayedSatisfyList
-{
-    unsigned int size;
-    struct hiveDelayedSatisfyList * volatile next;
-    struct hiveDelayedSatisfyItem item[]; 
-};
-
-struct hiveDelayedSatisfy
-{
-    volatile bool fired;
-    volatile unsigned int canSatisfy; 
-    volatile unsigned int reuse; 
-    volatile unsigned int firedCount;
-    volatile unsigned int lastKnownCount;
-    volatile unsigned int satisfyCount;
-    struct hiveDelayedSatisfyList list;
-};
-
 struct hiveEvent
 {
     struct hiveHeader header;
-    hiveEventTypes_t eventType;
     volatile bool fired;
     volatile unsigned int destroyOnFire;
     volatile unsigned int latchCount;

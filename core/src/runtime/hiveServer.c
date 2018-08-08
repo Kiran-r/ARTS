@@ -5,6 +5,7 @@
 #include "hiveServer.h"
 #include "hiveRemoteFunctions.h"
 #include "hiveEdtFunctions.h"
+#include "hiveEventFunctions.h"
 #include "hiveRouteTable.h"
 #include "hiveRemote.h"
 #include "hiveAtomics.h"
@@ -151,13 +152,6 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
     
     switch(packet->messageType)
     {
-        case HIVE_REMOTE_EVENT_SATISFY_MSG:
-        {
-            DPRINTF("Remote Event Satisfy Recieved\n");
-            struct hiveRemoteEventSatisfyPacket *pack = (struct hiveRemoteEventSatisfyPacket *)(packet);
-            hiveEventSatisfy(pack->event, pack->db);
-            break;
-        }
         case HIVE_REMOTE_EVENT_SATISFY_SLOT_MSG:
         {
             struct hiveRemoteEventSatisfySlotPacket *pack = (struct hiveRemoteEventSatisfySlotPacket *)(packet);

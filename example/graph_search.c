@@ -7,6 +7,7 @@
 #include "hiveRT.h"
 #include "hiveGraph.h"
 #include "hiveTerminationDetection.h"
+#include "shadAdapter.h"
 
 unsigned int introStart = 5;
 

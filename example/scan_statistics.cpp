@@ -9,6 +9,7 @@
 #include <signal.h>
 #include "hiveGraph.h"
 #include "hiveTerminationDetection.h"
+#include "shadAdapter.h"
 
 #include<iostream>
 #include<set>

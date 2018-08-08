@@ -7,6 +7,7 @@
 #include "hiveGlobals.h"
 #include "hiveRouteTable.h"
 #include "hiveEdtFunctions.h"
+#include "hiveEventFunctions.h"
 #include "hiveDbFunctions.h"
 #include "hiveRemoteFunctions.h"
 #include "hiveGuid.h"
@@ -22,7 +23,6 @@
 enum hiveOutOfOrderType
 {
     ooSignalEdt,
-    ooEventSatisfy,
     ooEventSatisfySlot,
     ooAddDependence,
     ooHandleReadyEdt,
@@ -64,13 +64,6 @@ struct ooAddDependence
     hiveGuid_t destination;
     u32 slot;
     hiveDbAccessMode_t mode;
-};
-
-struct ooEventSatisfy
-{
-    enum hiveOutOfOrderType type;
-    hiveGuid_t eventGuid;
-    hiveGuid_t dataGuid;
 };
 
 struct ooEventSatisfySlot
@@ -187,12 +180,6 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
         {
             struct ooSignalEdt * edt = handleMe;
             hiveSignalEdt(edt->edtPacket, edt->dataGuid, edt->slot, edt->mode);
-            break;
-        }
-        case ooEventSatisfy:
-        {
-            struct ooEventSatisfy * event = handleMe;
-            hiveEventSatisfy( event->eventGuid, event->dataGuid );
             break;
         }
         case ooEventSatisfySlot:
@@ -317,20 +304,6 @@ void hiveOutOfOrderSignalEdt (hiveGuid_t waitOn, hiveGuid_t edtPacket, hiveGuid_
         hiveSignalEdt( edtPacket, dataGuid, slot, mode );
         hiveFree(edt);
     }   
-}
-
-void hiveOutOfOrderEventSatisfy(hiveGuid_t waitOn, hiveGuid_t eventGuid, hiveGuid_t dataGuid )
-{
-    struct ooEventSatisfy * event = hiveMalloc( sizeof(struct ooEventSatisfy) );
-    event->type = ooEventSatisfy;
-    event->eventGuid = eventGuid;
-    event->dataGuid = dataGuid;
-    bool res =  hiveRouteTableAddOO( waitOn, event);
-    if(!res)
-    {
-        hiveEventSatisfy( eventGuid, dataGuid );
-        hiveFree(event);
-    }
 }
 
 void hiveOutOfOrderEventSatisfySlot(hiveGuid_t waitOn, hiveGuid_t eventGuid, hiveGuid_t dataGuid, u32 slot )

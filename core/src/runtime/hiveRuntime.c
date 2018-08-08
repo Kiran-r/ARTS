@@ -17,6 +17,7 @@
 #include "hiveAbstractMachineModel.h"
 #include "hiveRouteTable.h"
 #include "hiveEdtFunctions.h"
+#include "hiveEventFunctions.h"
 #include "hiveThreads.h"
 #include "hiveOutOfOrder.h"
 #include "hiveIntrospection.h"

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "hiveRT.h"
+#include "hiveRemoteFunctions.h"
 
 unsigned int numElements = 0;
 

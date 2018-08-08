@@ -12,6 +12,7 @@
 
 #define DPRINTF
 //#define DPRINTF(...) PRINTF(__VA_ARGS__)
+
 #define collisionResolves 8
 #define initInvalidateSize 128
 #define guidLockSize 1024

@@ -685,7 +685,7 @@ void hiveRemoteHandleSignalEdtWithPtr(void * pack)
     void * source = (void*)(packet + 1);
     void * dest = hiveMalloc(packet->size);
     memcpy(dest, source, packet->size);
-    hiveSignalEdtPtr(packet->edtGuid, packet->dbGuid, dest, packet->size, packet->slot);
+    hiveSignalEdtPtr(packet->edtGuid, packet->slot, dest, packet->size);
 }
 
 //void hiveRemoteHandleDbExclusiveRequest(struct hiveRemoteDbExclusiveRequestPacket * pack)

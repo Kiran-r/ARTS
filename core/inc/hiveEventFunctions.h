@@ -20,7 +20,7 @@ void hiveEventDestroy(hiveGuid_t guid);
 
 void hiveEventSatisfySlot(hiveGuid_t eventGuid, hiveGuid_t dataGuid, u32 slot);
 
-void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hiveDbAccessMode_t mode);
+void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot);
 
 void hiveAddLocalEventCallback(hiveGuid_t source, eventCallback_t callback);
 

@@ -135,7 +135,7 @@ void hiveEventSatisfySlot(hiveGuid_t eventGuid, hiveGuid_t dataGuid, u32 slot) {
                     while (i < lastKnown && j < dependentList->size) {
                         while (!dependent[j].doneWriting);
                         if (dependent[j].type == HIVE_EDT) {
-                            hiveSignalEdt(dependent[j].addr, event->data, dependent[j].slot, dependent[j].mode);
+                            hiveSignalEdt(dependent[j].addr, event->data, dependent[j].slot);
                         } else if (dependent[j].type == HIVE_EVENT) {
 #ifdef COUNT
                             //THIS IS A TEMP FIX... problem is recursion...
@@ -203,7 +203,8 @@ struct hiveDependent * hiveDependentGet(struct hiveDependentList * head, int pos
     return list->dependents + position;
 }
 
-void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hiveDbAccessMode_t mode) {
+void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot) {
+    hiveDbAccessMode_t mode = DB_MODE_NON_COHERENT_READ;
     struct hiveHeader *sourceHeader = hiveRouteTableLookupItem(source);
     if (sourceHeader == NULL) {
         unsigned int rank = hiveGuidGetRank(source);
@@ -232,7 +233,7 @@ void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hive
         if (event->fired) {
             while (event->pos == 0);
             if (position >= event->pos - 1) {
-                hiveSignalEdt(destination, event->data, slot, mode);
+                hiveSignalEdt(destination, event->data, slot);
                 if (!destroyEvent) {
                     hiveEventFree(event);
                     hiveRouteTableRemoveItem(source);

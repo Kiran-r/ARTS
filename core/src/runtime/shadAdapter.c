@@ -78,7 +78,7 @@ hiveGuid_t hiveActiveMessageShad(hiveEdt_t funcPtr, unsigned int route, u32 para
 //        PRINTF("MEMCPY: %u\n", size);
         void * ptr = hiveMalloc(size);
         memcpy(ptr, data, size);
-        hiveSignalEdtPtr(guid, NULL_GUID, ptr, size, 0);
+        hiveSignalEdtPtr(guid, 0, ptr, size);
     }
     else
     {
@@ -104,7 +104,7 @@ void hiveSynchronousActiveMessageShad(hiveEdt_t funcPtr, unsigned int route, u32
 
         void * ptr = hiveMalloc(size);
         memcpy(ptr, data, size);
-        hiveSignalEdtPtr(guid, NULL_GUID, ptr, size, 0);
+        hiveSignalEdtPtr(guid, 0, ptr, size);
     }
     else
     {

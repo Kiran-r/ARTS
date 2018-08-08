@@ -52,6 +52,7 @@ typedef intptr_t hiveGuid_t; /**< GUID type */
 
 typedef enum
 {
+    DB_MODE_NONE = -1,
     DB_MODE_NON_COHERENT_READ = 0,
     DB_MODE_NON_COHERENT_WRITE,
     DB_MODE_CDAG_WRITE,
@@ -93,6 +94,7 @@ struct hiveDb
 {
     struct hiveHeader header;
     hiveGuid_t guid;
+    hiveDbAccessMode_t mode;
     void * dbList;
 } __attribute__ ((aligned));
 

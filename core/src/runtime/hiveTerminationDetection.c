@@ -299,7 +299,7 @@ bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int tota
             if(epoch->terminationExitGuid)
             {
                 DPRINTF("%lu Calling finalization continuation provided by the user %u\n", epoch->guid, totalFinish);
-                hiveSignalEdt(epoch->terminationExitGuid, totalFinish, epoch->terminationExitSlot, DB_MODE_SINGLE_VALUE);
+                hiveSignalEdtValue(epoch->terminationExitGuid, epoch->terminationExitSlot, totalFinish);
             }
             else
             {
@@ -322,7 +322,7 @@ bool checkEpoch(hiveEpoch_t * epoch, unsigned int totalActive, unsigned int tota
                 if(epoch->terminationExitGuid)
                 {
                     DPRINTF("%lu Calling finalization continuation provided by the user %u !\n", epoch->guid, totalFinish);
-                    hiveSignalEdt(epoch->terminationExitGuid, totalFinish, epoch->terminationExitSlot, DB_MODE_SINGLE_VALUE);
+                    hiveSignalEdtValue(epoch->terminationExitGuid, epoch->terminationExitSlot, totalFinish);
                 }
                 else
                 {

@@ -179,19 +179,19 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
         case ooSignalEdt:
         {
             struct ooSignalEdt * edt = handleMe;
-            hiveSignalEdt(edt->edtPacket, edt->dataGuid, edt->slot, edt->mode);
+            hiveSignalEdt(edt->edtPacket, edt->slot, edt->dataGuid);
             break;
         }
         case ooEventSatisfySlot:
         {
             struct ooEventSatisfySlot * event = handleMe;
-            hiveEventSatisfySlot( event->eventGuid, event->dataGuid, event->slot );
+            hiveEventSatisfySlot(event->eventGuid, event->dataGuid, event->slot);
             break;
         }
         case ooAddDependence:
         {
             struct ooAddDependence * dep = handleMe;
-            hiveAddDependence( dep->source, dep->destination, dep->slot, dep->mode );
+            hiveAddDependence(dep->source, dep->destination, dep->slot);
             break;
         }
         case ooHandleReadyEdt:
@@ -228,7 +228,7 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
         case ooSignalEdtPtr:
         {
             struct ooSignalEdtPtr * req = handleMe;
-            hiveSignalEdtPtr(req->edtGuid, req->dbGuid, req->ptr, req->size, req->slot);
+            hiveSignalEdtPtr(req->edtGuid, req->slot, req->ptr, req->size);
             break;
         }
         case ooPutInDb:
@@ -301,7 +301,7 @@ void hiveOutOfOrderSignalEdt (hiveGuid_t waitOn, hiveGuid_t edtPacket, hiveGuid_
     bool res =  hiveRouteTableAddOO(waitOn, edt);
     if(!res)
     {
-        hiveSignalEdt( edtPacket, dataGuid, slot, mode );
+        hiveSignalEdt(edtPacket, slot, dataGuid);
         hiveFree(edt);
     }   
 }
@@ -332,7 +332,7 @@ void hiveOutOfOrderAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 
     bool res = hiveRouteTableAddOO(waitOn, dep);
     if(!res)
     {
-        hiveAddDependence(source, destination, slot, mode);
+        hiveAddDependence(source, destination, slot);
         hiveFree(dep);
     }
 }
@@ -442,7 +442,7 @@ void hiveOutOfOrderSignalEdtWithPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void 
     bool res = hiveRouteTableAddOO(edtGuid, req);
     if(!res)
     {
-        hiveSignalEdtPtr(req->edtGuid, req->dbGuid, req->ptr, req->size, req->slot);
+        hiveSignalEdtPtr(req->edtGuid, req->slot, req->ptr, req->size);
         hiveFree(req);
     }
 }

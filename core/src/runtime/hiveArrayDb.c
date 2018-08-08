@@ -198,7 +198,7 @@ void internalAtomicAddInArrayDb(hiveGuid_t dbGuid, unsigned int index, unsigned 
         if(edtGuid)
         {
 //            PRINTF("Signaling edtGuid: %lu\n", edtGuid);
-            hiveSignalEdt(edtGuid, result, slot, DB_MODE_SINGLE_VALUE);
+            hiveSignalEdtValue(edtGuid, slot, result);
         }
 
         incrementFinishedEpoch(epochGuid);
@@ -240,7 +240,7 @@ void internalAtomicCompareAndSwapInArrayDb(hiveGuid_t dbGuid, unsigned int index
         if(edtGuid)
         {
 //            PRINTF("Signaling edtGuid: %lu\n", edtGuid);
-            hiveSignalEdt(edtGuid, result, slot, DB_MODE_SINGLE_VALUE);
+            hiveSignalEdtValue(edtGuid, slot, result);
         }
 
         incrementFinishedEpoch(epochGuid);

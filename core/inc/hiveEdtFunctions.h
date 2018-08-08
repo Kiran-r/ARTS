@@ -6,7 +6,7 @@ extern "C" {
 #include <stdarg.h>
 
 #define hiveEdtArgs(...) sizeof((u64[]){__VA_ARGS__})/sizeof(u64), (u64[]){__VA_ARGS__}
-#define hiveEdtEmptySignal(guid) hiveSignalEdt(guid, NULL_GUID, -1, DB_MODE_SINGLE_VALUE);
+#define hiveEdtEmptySignal(guid) hiveSignalEdt(guid, NULL_GUID, -1);
 
 bool hiveEdtCreateInternal(hiveGuid_t * guid, unsigned int route, unsigned int cluster, unsigned int edtSpace, hiveGuid_t eventGuid, hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, bool useEpoch, hiveGuid_t epochGuid, bool hasDepv);
 
@@ -21,8 +21,9 @@ hiveGuid_t hiveEdtCreateWithEpochDep(hiveEdt_t funcPtr, unsigned int route, u32 
 void hiveEdtDelete(struct hiveEdt * edt);
 void hiveEdtDestroy(hiveGuid_t guid);
 
-void hiveSignalEdt(hiveGuid_t edtPacket, hiveGuid_t dataGuid, u32 slot, hiveDbAccessMode_t mode);
-void hiveSignalEdtPtr(hiveGuid_t edtGuid, hiveGuid_t dbGuid, void * ptr, unsigned int size, u32 slot);
+void hiveSignalEdt(hiveGuid_t edtGuid, u32 slot, hiveGuid_t dataGuid);
+void hiveSignalEdtValue(hiveGuid_t edtGuid, u32 slot, u64 dataGuid);
+void hiveSignalEdtPtr(hiveGuid_t edtGuid, u32 slot, void * ptr, unsigned int size);
 
 typedef struct 
 {

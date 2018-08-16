@@ -6,6 +6,7 @@ unsigned int elementsPerBlock = 0;
 unsigned int blocks = 0;
 unsigned int numAdd = 0;
 hiveArrayDb_t * array = NULL;
+hiveGuid_t arrayGuid = NULL_GUID;
 
 hiveGuid_t end(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 {
@@ -28,7 +29,7 @@ hiveGuid_t check(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
             PRINTF("i: %u j: %u %u\n", i, j, data[j]);
         }
     }
-    hiveSignalEdt(paramv[0], NULL_GUID, numAdd*elementsPerBlock*blocks, DB_MODE_SINGLE_VALUE);
+    hiveSignalEdtValue(paramv[0], numAdd*elementsPerBlock*blocks, 0);
 }
 
 //This is run at the end of the epoch
@@ -44,7 +45,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     elementsPerBlock = atoi(argv[1]);
     blocks = hiveGetTotalNodes();
     numAdd = atoi(argv[2]);
-    
+    arrayGuid = hiveReserveGuidRoute(HIVE_DB_PIN, 0);
     if(!nodeId)
         PRINTF("ElementsPerBlock: %u Blocks: %u\n", elementsPerBlock, blocks);
 }
@@ -60,7 +61,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         hiveGuid_t endEpochGuid = hiveEdtCreate(epochEnd, 0, 1, &endGuid, 1);
         hiveInitializeAndStartEpoch(endEpochGuid, 0);
 
-        hiveGuid_t guid = hiveNewArrayDb(&array, sizeof(unsigned int), elementsPerBlock * blocks);
+        array = hiveNewArrayDbWithGuid(arrayGuid, sizeof(unsigned int), elementsPerBlock * blocks);
 
         for(unsigned int j=0; j<numAdd; j++)
         {

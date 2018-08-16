@@ -26,9 +26,7 @@
 
 #define DPRINTF( ... )
 
-#ifndef NOPARALLEL
 extern u64 globalGuidOn;
-#endif
 
 extern __thread struct hiveEdt * currentEdt;
 extern unsigned int numNumaDomains;

@@ -43,7 +43,7 @@ hiveArrayDb_t * hiveNewArrayDbWithGuid(hiveGuid_t guid, unsigned int elementSize
     hiveArrayDb_t * block = NULL;
     if(numBlocks)
     {
-        block = hiveDbCreateWithGuid(guid, allocSize, true);
+        block = hiveDbCreateWithGuid(guid, allocSize);
         block->elementSize = elementSize;
         block->elementsPerBlock = elementsPerBlock;
         block->numBlocks = numBlocks;
@@ -62,7 +62,7 @@ hiveArrayDb_t * hiveNewArrayDbWithGuid(hiveGuid_t guid, unsigned int elementSize
 
 hiveGuid_t hiveNewArrayDb(hiveArrayDb_t **addr, unsigned int elementSize, unsigned int numElements)
 {
-    hiveGuid_t guid = hiveReserveGuidRoute(HIVE_DB, hiveGlobalRankId);
+    hiveGuid_t guid = hiveReserveGuidRoute(HIVE_DB_PIN, hiveGlobalRankId);
     *addr = hiveNewArrayDbWithGuid(guid, elementSize, numElements);
     return guid;
 }

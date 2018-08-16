@@ -163,7 +163,7 @@ void hiveServerProcessPacket(struct hiveRemotePacket * packet)
         {
             DPRINTF("EDT Signal Recieved\n");
             struct hiveRemoteEdtSignalPacket *pack = (struct hiveRemoteEdtSignalPacket *)(packet);
-            hiveSignalEdt( pack->edt, pack->db, pack->slot);
+            internalSignalEdt(pack->edt, pack->slot, pack->db, pack->mode, NULL, 0);
             break;
         }   
         case HIVE_REMOTE_ADD_DEPENDENCE_MSG:

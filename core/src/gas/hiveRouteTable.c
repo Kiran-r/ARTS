@@ -345,7 +345,7 @@ static inline u64 getRouteTableKey(u64 x, unsigned int shift, u64 func)
 static inline struct hiveRouteTable * hiveGetRouteTable(hiveGuid_t guid)
 {
     hiveGuid bytes = (hiveGuid)guid;
-    if( bytes.fields.rank == hiveGlobalRankId && bytes.fields.key >= hiveGuidMin && bytes.fields.key <= hiveGuidMax && hiveNodeInfo.routeTable[bytes.fields.thread])
+    if( bytes.fields.local && hiveNodeInfo.routeTable[bytes.fields.thread])
         return  hiveNodeInfo.routeTable[bytes.fields.thread];
     return hiveNodeInfo.remoteRouteTable;
 }

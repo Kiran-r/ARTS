@@ -18,8 +18,7 @@ void initCSR(csr_graph* _csr,
 
 #ifndef NO_HIVE_MALLOC
   _csr->data = hiveDbCreateWithGuid(*getGuidForCurrentNode(_dist), 
-                                    totsz * sizeof(vertex), 
-                                    true/*no moving*/);
+                                    totsz * sizeof(vertex));
 #else
   _csr->data = malloc(totsz * sizeof(vertex));
 #endif

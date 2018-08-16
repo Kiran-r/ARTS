@@ -89,7 +89,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     graphGuid = hiveMalloc(sizeof(hiveGuid_t)*hiveGetTotalNodes());
     for(unsigned int i=0; i<hiveGetTotalNodes(); i++)
     {
-        graphGuid[i] = hiveReserveGuidRoute(HIVE_DB, i % hiveGetTotalNodes());
+        graphGuid[i] = hiveReserveGuidRoute(HIVE_DB_READ, i % hiveGetTotalNodes());
     }
 }
 
@@ -102,7 +102,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
             if(hiveIsGuidLocal(graphGuid[i]))
             {
                 PRINTF("SIZE ALLOC: %u vert %u edge %u\n", sizeof(vertex) * NUMVERT, sizeof(vertex), sizeof(edge));
-                vertex * v = hiveDbCreateWithGuid(graphGuid[i], sizeof(vertex) * NUMVERT, false);
+                vertex * v = hiveDbCreateWithGuid(graphGuid[i], sizeof(vertex) * NUMVERT);
                 for(unsigned int j=0; j<NUMVERT; j++)
                 {
                     
@@ -124,7 +124,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         hiveGuid_t guid = hiveEdtCreate(shutDown, 0, 0, NULL, hiveGetTotalNodes(), NULL);
         for(unsigned int i=0; i<hiveGetTotalNodes(); i++)
         {
-            hiveSignalEdt(guid, graphGuid[i], i, DB_MODE_NON_COHERENT_READ);
+            hiveSignalEdt(guid, graphGuid[i], i);
         }
     }
     

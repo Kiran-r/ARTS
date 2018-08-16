@@ -41,7 +41,7 @@ static inline void hiveFillPacketHeader(struct hiveRemotePacket * header, unsign
     header->rank = hiveGlobalRankId;
 }
 
-void hiveRemoteAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hiveDbAccessMode_t mode, unsigned int rank)
+void hiveRemoteAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hiveType_t mode, unsigned int rank)
 {
     DPRINTF("Remote Add dependence sent %d\n", rank);
     struct hiveRemoteAddDependencePacket packet;
@@ -284,7 +284,7 @@ void hiveRemoteHandleDbMove(void * ptr)
         memcpy(memPacket, packet+1, size);
     else
     {
-        memPacket->type = HIVE_DB;
+        memPacket->type = (unsigned int) hiveGuidGetType(packet->guid);
         memPacket->size = dbSize;
     }
     //We need a local pointer for this node
@@ -312,7 +312,7 @@ void hiveRemoteHandleEventMove(void * ptr)
     hiveRouteTableFireOO(packet->guid, hiveOutOfOrderHandler);
 }
 
-void hiveRemoteSignalEdt(hiveGuid_t edt, hiveGuid_t db, u32 slot, hiveDbAccessMode_t mode)
+void hiveRemoteSignalEdt(hiveGuid_t edt, hiveGuid_t db, u32 slot, hiveType_t mode)
 {
     DPRINTF("Remote Signal %ld %ld %d %d\n",edt,db,slot, hiveGuidGetRank(edt));
     struct hiveRemoteEdtSignalPacket packet;
@@ -375,7 +375,7 @@ void hiveDbRequestCallback(struct hiveEdt *edt, unsigned int slot, struct hiveDb
         hiveHandleRemoteStolenEdt(edt);
 }
 
-bool hiveRemoteDbRequest(hiveGuid_t dataGuid, int rank, struct hiveEdt * edt, int pos, hiveDbAccessMode_t mode, bool aggRequest)
+bool hiveRemoteDbRequest(hiveGuid_t dataGuid, int rank, struct hiveEdt * edt, int pos, hiveType_t mode, bool aggRequest)
 {
     if(hiveRouteTableAddSent(dataGuid, edt, pos, aggRequest))
     {
@@ -390,7 +390,7 @@ bool hiveRemoteDbRequest(hiveGuid_t dataGuid, int rank, struct hiveEdt * edt, in
     return false;
 }
 
-void hiveRemoteDbForward(int destRank, int sourceRank, hiveGuid_t dataGuid, hiveDbAccessMode_t mode)
+void hiveRemoteDbForward(int destRank, int sourceRank, hiveGuid_t dataGuid, hiveType_t mode)
 {
     struct hiveRemoteDbRequestPacket packet;
     packet.header.size = sizeof(packet);
@@ -411,7 +411,7 @@ void hiveRemoteDbSendNow(int rank, struct hiveDb * db)
     hiveRemoteSendRequestPayloadAsync(rank, (char *)&packet, sizeof(packet), (char *)db, db->header.size);
 }
 
-void hiveRemoteDbSendCheck(int rank, struct hiveDb * db, hiveDbAccessMode_t mode)
+void hiveRemoteDbSendCheck(int rank, struct hiveDb * db, hiveType_t mode)
 {
     if(!hiveIsGuidLocal(db->guid))
     {
@@ -501,7 +501,7 @@ void hiveRemoteHandleDbRecieved(struct hiveRemoteDbSendPacket * packet)
     hiveRouteTableDecItem(packetDb->guid, dataPtr);
 }
 
-void hiveRemoteDbFullRequest(hiveGuid_t dataGuid, int rank, struct hiveEdt * edt, int pos, hiveDbAccessMode_t mode)
+void hiveRemoteDbFullRequest(hiveGuid_t dataGuid, int rank, struct hiveEdt * edt, int pos, hiveType_t mode)
 {
     //Do not try to reduce full requests since they are unique
     struct hiveRemoteDbFullRequestPacket packet;
@@ -513,7 +513,7 @@ void hiveRemoteDbFullRequest(hiveGuid_t dataGuid, int rank, struct hiveEdt * edt
     hiveRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
 }
 
-void hiveRemoteDbForwardFull(int destRank, int sourceRank, hiveGuid_t dataGuid, struct hiveEdt * edt, int pos, hiveDbAccessMode_t mode)
+void hiveRemoteDbForwardFull(int destRank, int sourceRank, hiveGuid_t dataGuid, struct hiveEdt * edt, int pos, hiveType_t mode)
 {
     struct hiveRemoteDbFullRequestPacket packet;
     packet.header.size = sizeof(packet);
@@ -526,7 +526,7 @@ void hiveRemoteDbForwardFull(int destRank, int sourceRank, hiveGuid_t dataGuid, 
     hiveRemoteSendRequestAsync(sourceRank, (char *)&packet, sizeof(packet));
 }
 
-void hiveRemoteDbFullSendNow(int rank, struct hiveDb * db, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
+void hiveRemoteDbFullSendNow(int rank, struct hiveDb * db, struct hiveEdt * edt, unsigned int slot, hiveType_t mode)
 {
     DPRINTF("SEND FULL NOW: %u -> %u\n", hiveGlobalRankId, rank);
     struct hiveRemoteDbFullSendPacket packet;
@@ -538,7 +538,7 @@ void hiveRemoteDbFullSendNow(int rank, struct hiveDb * db, struct hiveEdt * edt,
     hiveRemoteSendRequestPayloadAsync(rank, (char *)&packet, sizeof(packet), (char *)db, db->header.size);
 }
 
-void hiveRemoteDbFullSendCheck(int rank, struct hiveDb * db, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
+void hiveRemoteDbFullSendCheck(int rank, struct hiveDb * db, struct hiveEdt * edt, unsigned int slot, hiveType_t mode)
 {
     if(!hiveIsGuidLocal(db->guid))
     {
@@ -606,7 +606,7 @@ void hiveRemoteHandleDbFullRecieved(struct hiveRemoteDbFullSendPacket * packet)
         hiveRouteTableDecItem(packetDb->guid, dataPtr);
 }
 
-void hiveRemoteSendAlreadyLocal(int rank, hiveGuid_t guid, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
+void hiveRemoteSendAlreadyLocal(int rank, hiveGuid_t guid, struct hiveEdt * edt, unsigned int slot, hiveType_t mode)
 {
     struct hiveRemoteDbFullRequestPacket packet;
     packet.dbGuid = guid;
@@ -929,104 +929,6 @@ unsigned int handleIncomingEdts( char* address, int edtSizes )
     }
     return totalEdtsRecieved;
 }
-void handleIncomingEdtsAndDbs( char* address, int edtSizes )
-{
-    struct hiveHeader * header;
-    int size = 0;
-    struct hiveDb * db;
-    int i, totalSize=0;
-    void * newEdt;
-    struct hiveEdt * edt;
-    u32 depc;
-    hiveEdtDep_t *depv;
-    void * newDb;
-    struct hiveDb * dbRes;
-    DPRINTF("---------------Edts Incoming-----------------\n");
-    while(totalSize != edtSizes)
-    {
-        header = (struct hiveHeader *) (address+totalSize);
-
-        totalSize += header->size;
-        HIVESETMEMSHOTTYPE(hiveEdtMemorySize);
-        newEdt = hiveMalloc( header->size );
-        HIVESETMEMSHOTTYPE(hiveDefaultMemorySize);
-        memcpy(newEdt, header, header->size);
-
-        edt = newEdt;
-        depc = edt->depc;
-        depv = (hiveEdtDep_t *)(((u64 *)(edt + 1)) + edt->paramc);
-        DPRINTF("Edt Stolen %d %d\n", header->size, edtSizes);
-        if(depc == 0 )
-        {
-            DPRINTF("gerror\n");
-        }
-
-        for(i=0; i< depc; i++)
-        {
-            if( depv[i].ptr != NULL)
-            {
-                DPRINTF("sdsd %p\n", depv[i].ptr);
-                void * tPtr = NULL;
-                if( tPtr == NULL)
-                {
-
-                    if(depv[i].ptr == (void *) 0x2 )
-                    {
-                        DPRINTF("Edt guid not found %ld\n", depv[i].guid);
-                        header = (struct hiveHeader *) (address+totalSize);
-                        DPRINTF("Edt Stolen dep %d %d\n", i, header->size);
-                        HIVESETMEMSHOTTYPE(hiveDbMemorySize);
-                        newDb = hiveMalloc(header->size);
-                        HIVESETMEMSHOTTYPE(hiveDefaultMemorySize);
-                        memcpy( newDb, header, header->size );
-                        dbRes =newDb;
-
-                        depv[i].ptr = dbRes+1;
-
-                        totalSize += header->size;
-
-                        depv[i].guid = hiveGuidCreate(newDb);
-                        DPRINTF("gll %ld %p\n", depv[i].guid, depv[i].ptr);
-                    }
-                    else if(depv[i].ptr == (void *) 0x1 )
-                    {
-                        DPRINTF("Edt Stolen fail %d\n", i);
-                        depv[i].ptr=NULL;
-                    }
-                    else
-                    {
-                        DPRINTF("Edt Stolen fail2 %d %ld\n", i, depv[i].guid);
-                        void * ptr = hiveRouteTableLookupItem( (hiveGuid_t) depv[i].guid );
-                        depv[i].ptr=ptr;
-
-                        if(ptr != NULL)
-                            depv[i].ptr = ((struct hiveDb*)ptr)+1;
-                    }
-                }
-                else
-                {
-                    DPRINTF("Rocal %p\n", depv[i].ptr);
-                    if(depv[i].ptr != (void *) 0x1 )
-                    {
-                        DPRINTF("Houston\n");
-                    }
-                    else
-                    {
-                        DPRINTF("Error 12334\n");
-                    }
-                    depv[i].ptr = tPtr;
-
-                }
-                DPRINTF("depv[i].ptr = %p\n", depv[i].ptr);
-            }
-            DPRINTF("tot %d\n",totalSize);
-        }
-        DPRINTF("tota %d\n",totalSize);
-        hiveHandleReadyEdt( newEdt );
-    }
-    DPRINTF("%d %d\n", totalSize, edtSizes);
-    DPRINTF("---------------Edts Done-----------------\n");
-}
 
 void hiveRemoteMetricUpdate(int rank, int type, int level, u64 timeStamp, u64 toAdd, bool sub)
 {
@@ -1246,7 +1148,7 @@ void hiveDbMoveRequest(hiveGuid_t dbGuid, unsigned int destRank)
 {
     struct hiveRemoteDbRequestPacket packet;
     packet.dbGuid = dbGuid;
-    packet.mode = DB_MODE_ONCE;
+    packet.mode = HIVE_DB_ONCE;
     packet.header.size = sizeof(packet);
     packet.header.messageType = HIVE_REMOTE_DB_MOVE_REQ_MSG;
     packet.header.rank = destRank;

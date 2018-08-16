@@ -231,7 +231,7 @@ bool hivePushDbToElement(struct hiveDbElement * head, unsigned int position, uns
     return false;
 }
 
-void hivePushDelayedEdt(struct hiveLocalDelayedEdt * head, unsigned int position, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
+void hivePushDelayedEdt(struct hiveLocalDelayedEdt * head, unsigned int position, struct hiveEdt * edt, unsigned int slot, hiveType_t mode)
 {
     unsigned int numElements = position / DBSPERELEMENT;
     unsigned int elementPos = position % DBSPERELEMENT;
@@ -247,7 +247,7 @@ void hivePushDelayedEdt(struct hiveLocalDelayedEdt * head, unsigned int position
     current->mode[elementPos] = mode;
 }
 
-bool hivePushDbToFrontier(struct hiveDbFrontier * frontier, unsigned int data, bool write, bool exclusive, bool local, bool bypass, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode, bool * unique)
+bool hivePushDbToFrontier(struct hiveDbFrontier * frontier, unsigned int data, bool write, bool exclusive, bool local, bool bypass, struct hiveEdt * edt, unsigned int slot, hiveType_t mode, bool * unique)
 {
     if(bypass)
     {
@@ -305,7 +305,7 @@ bool hivePushDbToFrontier(struct hiveDbFrontier * frontier, unsigned int data, b
  * rank to the frontier is unique.  If the db is local then we return if the DB
  * is added to the first frontier reguardless of if there are duplicates.
  */
-bool hivePushDbToList(struct hiveDbList * dbList, unsigned int data, bool write, bool exclusive, bool local, bool bypass, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
+bool hivePushDbToList(struct hiveDbList * dbList, unsigned int data, bool write, bool exclusive, bool local, bool bypass, struct hiveEdt * edt, unsigned int slot, hiveType_t mode)
 {
     if(!dbList->head)
     {
@@ -440,7 +440,7 @@ void hiveSignalFrontierRemote(struct hiveDbFrontier * frontier, struct hiveDb * 
         {
             if(node != hiveGlobalRankId && !(frontier->exEdt &&  node == frontier->exNode))
             {
-                hiveRemoteDbForward(node, getFrom, db->guid, DB_MODE_NON_COHERENT_READ); //Don't care about mode
+                hiveRemoteDbForward(node, getFrom, db->guid, HIVE_DB_READ); //Don't care about mode
             }
         }
     }
@@ -454,7 +454,7 @@ void hiveSignalFrontierRemote(struct hiveDbFrontier * frontier, struct hiveDb * 
             struct hiveEdt * edt = current->edt[pos];
             unsigned int slot = current->slot[pos];
             //send through aggregation
-            hiveRemoteDbRequest(db->guid, getFrom, edt, slot, DB_MODE_NON_COHERENT_READ, true);
+            hiveRemoteDbRequest(db->guid, getFrom, edt, slot, HIVE_DB_READ, true);
             if(pos+1 == DBSPERELEMENT)
                 current = current->next;
         }

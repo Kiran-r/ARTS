@@ -30,7 +30,7 @@ hiveGuid_t creater(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     {
         data[i] = i;
     }
-    hiveDbCreateWithGuidAndData(dbGuid, data, sizeof(unsigned int) * numElements, true);
+    hiveDbCreateWithGuidAndData(dbGuid, data, sizeof(unsigned int) * numElements);
     hiveEdtCreateWithGuid(getter, edtGuidFixed, 0, NULL, blockSize/stride);
 }
 

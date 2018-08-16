@@ -298,61 +298,53 @@ void hiveEdtDestroy(hiveGuid_t guid)
     hiveEdtFree(edt);
 }
 
-void internalSignalEdt(hiveGuid_t edtPacket, u32 slot, hiveGuid_t dataGuid, hiveDbAccessMode_t mode, void * ptr, unsigned int size)
+extern const char * const _hiveTypeName[];
+
+void internalSignalEdt(hiveGuid_t edtPacket, u32 slot, hiveGuid_t dataGuid, hiveType_t mode, void * ptr, unsigned int size)
 {
-    HIVEEDTCOUNTERTIMERSTART(signalEdtCounter);    
+    HIVEEDTCOUNTERTIMERSTART(signalEdtCounter);  
+    //This is old CDAG code... 
     if(currentEdt && currentEdt->invalidateCount > 0)
     {
-        if(DB_MODE_PTR)
+        if(mode == HIVE_PTR)
             hiveOutOfOrderSignalEdtWithPtr(edtPacket, dataGuid, ptr, size, slot);
         else
             hiveOutOfOrderSignalEdt(currentEdt->currentEdt, edtPacket, dataGuid, slot, mode);
     }
     else
     {
-        struct hiveEdt * edt = hiveRouteTableLookupItem(edtPacket);
-        if(edt)
+        unsigned int rank = hiveGuidGetRank(edtPacket);
+        if(rank == hiveGlobalRankId)
         {
-            hiveEdtDep_t *edtDep = (hiveEdtDep_t *)((u64 *)(edt + 1) + edt->paramc);
-            if(slot < edt->depc)
+            struct hiveEdt * edt = hiveRouteTableLookupItem(edtPacket);
+            if(edt)
             {
-                edtDep[slot].guid = dataGuid;
-                edtDep[slot].mode = mode;
-                edtDep[slot].ptr = ptr;
-            }
-            unsigned int res = hiveAtomicSub(&edt->depcNeeded, 1U);
-            DPRINTF("SIG: %lu %lu %u res: %u\n", edtPacket, dataGuid, slot, res);
-            if(res == 0)
-                hiveHandleReadyEdt(edt);
-        }
-        else
-        {
-            unsigned int rank = hiveGuidGetRank(edtPacket);
-            if(rank != hiveGlobalRankId)
-            {
-                if(DB_MODE_PTR)
-                    hiveOutOfOrderSignalEdtWithPtr(edtPacket, dataGuid, ptr, size, slot);
-                else
-                    hiveRemoteSignalEdt(edtPacket, dataGuid, slot, mode);
+                hiveEdtDep_t *edtDep = (hiveEdtDep_t *)((u64 *)(edt + 1) + edt->paramc);
+                if(slot < edt->depc)
+                {
+                    edtDep[slot].guid = dataGuid;
+                    edtDep[slot].mode = mode;
+                    edtDep[slot].ptr = ptr;
+                }
+                unsigned int res = hiveAtomicSub(&edt->depcNeeded, 1U);
+                PRINTF("SIG: %lu %lu %u %p %d res: %u %s\n", edtPacket, dataGuid, slot, ptr, mode, res, getTypeName(edtDep[slot].mode));
+                if(res == 0)
+                    hiveHandleReadyEdt(edt);
             }
             else
             {
-                rank = hiveRouteTableLookupRank(edtPacket);
-                if(rank == hiveGlobalRankId || rank == -1)
-                {
-                    if(DB_MODE_PTR)
-                        hiveOutOfOrderSignalEdtWithPtr(edtPacket, dataGuid, ptr, size, slot);
-                    else
-                        hiveOutOfOrderSignalEdt(edtPacket, edtPacket, dataGuid, slot, mode);
-                }
+                if(mode == HIVE_PTR)
+                    hiveOutOfOrderSignalEdtWithPtr(edtPacket, dataGuid, ptr, size, slot);
                 else
-                {
-                    if(DB_MODE_PTR)
-                        hiveRemoteSignalEdtWithPtr(edtPacket, dataGuid, ptr, size, slot);
-                    else
-                        hiveRemoteSignalEdt(edtPacket, dataGuid, slot, mode);
-                }
+                    hiveOutOfOrderSignalEdt(edtPacket, edtPacket, dataGuid, slot, mode);
             }
+        }
+        else
+        {
+            if(mode == HIVE_PTR)
+                hiveRemoteSignalEdtWithPtr(edtPacket, dataGuid, ptr, size, slot);
+            else
+                hiveRemoteSignalEdt(edtPacket, dataGuid, slot, mode);
         }
     }
     hiveUpdatePerformanceMetric(hiveEdtSignalThroughput, hiveThread, 1, false);
@@ -361,17 +353,21 @@ void internalSignalEdt(hiveGuid_t edtPacket, u32 slot, hiveGuid_t dataGuid, hive
 
 void hiveSignalEdt(hiveGuid_t edtGuid, u32 slot, hiveGuid_t dataGuid)
 {
-    internalSignalEdt(edtGuid, dataGuid, slot, DB_MODE_NONE, NULL, 0);
+    hiveGuid_t acqGuid = dataGuid;
+    hiveType_t mode = hiveGuidGetType(dataGuid);
+    if(mode == HIVE_DB_WRITE)
+        acqGuid = hiveGuidCast(dataGuid, HIVE_DB_READ);
+    internalSignalEdt(edtGuid, slot, acqGuid, mode, NULL, 0);
 }
 
 void hiveSignalEdtValue(hiveGuid_t edtGuid, u32 slot, u64 value)
 {
-    internalSignalEdt(edtGuid, value, slot, DB_MODE_SINGLE_VALUE, NULL, 0);
+    internalSignalEdt(edtGuid, slot, value, HIVE_SINGLE_VALUE, NULL, 0);
 }
 
 void hiveSignalEdtPtr(hiveGuid_t edtGuid,  u32 slot, void * ptr, unsigned int size)
 {
-    internalSignalEdt(edtGuid, NULL_GUID, slot, DB_MODE_PTR, ptr, size);
+    internalSignalEdt(edtGuid, slot, NULL_GUID, HIVE_PTR, ptr, size);
 }
 
 hiveGuid_t hiveActiveMessageWithDb(hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, hiveGuid_t dbGuid)

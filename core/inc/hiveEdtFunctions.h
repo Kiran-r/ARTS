@@ -21,6 +21,8 @@ hiveGuid_t hiveEdtCreateWithEpochDep(hiveEdt_t funcPtr, unsigned int route, u32 
 void hiveEdtDelete(struct hiveEdt * edt);
 void hiveEdtDestroy(hiveGuid_t guid);
 
+void internalSignalEdt(hiveGuid_t edtPacket, u32 slot, hiveGuid_t dataGuid, hiveType_t mode, void * ptr, unsigned int size);
+
 void hiveSignalEdt(hiveGuid_t edtGuid, u32 slot, hiveGuid_t dataGuid);
 void hiveSignalEdtValue(hiveGuid_t edtGuid, u32 slot, u64 dataGuid);
 void hiveSignalEdtPtr(hiveGuid_t edtGuid, u32 slot, void * ptr, unsigned int size);

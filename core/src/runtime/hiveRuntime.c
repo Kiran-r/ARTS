@@ -110,8 +110,8 @@ void hiveThreadZeroNodeStart()
     
     if(initPerNode)
         initPerNode(hiveGlobalRankId, mainArgc, mainArgv);
-    if(!hiveGlobalRankId)
-        setGuidGeneratorAfterParallelStart();
+    
+    setGuidGeneratorAfterParallelStart();
     globalGuidOn = 0;
 
     hiveStartInspector(2);
@@ -139,7 +139,7 @@ void hiveRuntimePrivateInit(struct threadMask * unit, struct hiveConfig  * confi
     hiveNodeInfo.deque[unit->id] = hiveThreadInfo.myDeque = hiveDequeNew(config->dequeSize);
     if(unit->worker)
     {
-        hiveNodeInfo.routeTable[unit->id] = hiveThreadInfo.myRouteTable =  hiveRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
+        hiveNodeInfo.routeTable[unit->id] =  hiveRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
     }
 
     if(unit->networkSend || unit->networkReceive)

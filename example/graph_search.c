@@ -97,7 +97,7 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
   if (neighbor_cnt) {
     unsigned int dbSize = sizeof (sourceInfo); // + neighbor_cnt * sizeof(vertex);
     void * ptr = NULL;
-    hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, false);
+    hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, HIVE_DB_ONCE_LOCAL);
     sourceInfo * srcInfo = ptr;
     srcInfo->source = source;
     srcInfo->step = nSteps;
@@ -111,7 +111,7 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
 						      hiveGetCurrentNode(), 0,
 						      NULL, 2 * neighbor_cnt + 1);
         
-    hiveSignalEdt(GatherNeighborPropertyValGuid, dbGuid, 2 * neighbor_cnt, DB_MODE_ONCE_LOCAL);
+    hiveSignalEdt(GatherNeighborPropertyValGuid, dbGuid, 2 * neighbor_cnt);
         
     hiveArrayDb_t * vertexPropertyMap = depv[0].ptr;
     for (unsigned int i = 0; i < neighbor_cnt; i++) {
@@ -242,8 +242,8 @@ hiveGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
 void initPerNode(unsigned int nodeId, int argc, char** argv) {
 
   //This is the dbGuid we will need to aquire to do gets and puts to the score property arrayDb
-  vertexPropertyMapGuid = hiveReserveGuidRoute(HIVE_DB, 0);
-  vertexIDMapGuid = hiveReserveGuidRoute(HIVE_DB, 0);
+  vertexPropertyMapGuid = hiveReserveGuidRoute(HIVE_DB_PIN, 0);
+  vertexIDMapGuid = hiveReserveGuidRoute(HIVE_DB_PIN, 0);
 
   // distribution must be initialized in initPerNode
   initBlockDistributionWithCmdLineArgs(&distribution,

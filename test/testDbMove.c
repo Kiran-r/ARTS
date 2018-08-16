@@ -28,10 +28,10 @@ hiveGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    guid[0] = hiveReserveGuidRoute(HIVE_DB, 0);
-    guid[1] = hiveReserveGuidRoute(HIVE_DB, 0);
-    guid[2] = hiveReserveGuidRoute(HIVE_DB, 1);
-    guid[3] = hiveReserveGuidRoute(HIVE_DB, 1);
+    guid[0] = hiveReserveGuidRoute(HIVE_DB_READ, 0);
+    guid[1] = hiveReserveGuidRoute(HIVE_DB_READ, 0);
+    guid[2] = hiveReserveGuidRoute(HIVE_DB_READ, 1);
+    guid[3] = hiveReserveGuidRoute(HIVE_DB_READ, 1);
     
     shutdownGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
 }
@@ -43,12 +43,12 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         if(nodeId == 0)
         {
             //Local to local
-            unsigned int * aPtr = hiveDbCreateWithGuid(guid[0], sizeof(unsigned int), false);
+            unsigned int * aPtr = hiveDbCreateWithGuid(guid[0], sizeof(unsigned int));
             *aPtr = 1;
             hiveDbMove(guid[0], 0);
             
             //Local to remote
-            unsigned int * aPtr2 = hiveDbCreateWithGuid(guid[1], sizeof(unsigned int), false);
+            unsigned int * aPtr2 = hiveDbCreateWithGuid(guid[1], sizeof(unsigned int));
             *aPtr2 = 2;
             hiveDbMove(guid[1], 1);
             
@@ -61,10 +61,10 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         
         if(nodeId == 1)
         {
-            unsigned int * bPtr = hiveDbCreateWithGuid(guid[2], sizeof(unsigned int), false);
+            unsigned int * bPtr = hiveDbCreateWithGuid(guid[2], sizeof(unsigned int));
             *bPtr = 3;
             
-            unsigned int * cPtr = hiveDbCreateWithGuid(guid[3], sizeof(unsigned int), false);
+            unsigned int * cPtr = hiveDbCreateWithGuid(guid[3], sizeof(unsigned int));
             *cPtr = 4;
         }
     }

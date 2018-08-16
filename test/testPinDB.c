@@ -40,7 +40,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         int * ptr = NULL;
         //Set pin to true to pin to node given by command line
         //It is pinned to the node creating the DB
-        hiveGuid_t dbGuid = hiveDbCreate((void**)&ptr, sizeof(unsigned int), true);
+        hiveGuid_t dbGuid = hiveDbCreate((void**)&ptr, sizeof(unsigned int), HIVE_DB_PIN);
         *ptr = 1234;
         
         //EDT is going to run on node given by command line
@@ -51,7 +51,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         hiveSignalEdt(edtGuid, someDbGuid, 1, DB_MODE_PIN); //Note the mode
         
         //This is the delayed DB 
-        int * ptr2 = hiveDbCreateWithGuid(someDbGuid, sizeof(unsigned int), true);
+        int * ptr2 = hiveDbCreateWithGuid(someDbGuid, sizeof(unsigned int));
         *ptr2 = 9876;
     }
 }

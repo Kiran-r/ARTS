@@ -135,7 +135,7 @@ void hiveEventSatisfySlot(hiveGuid_t eventGuid, hiveGuid_t dataGuid, u32 slot) {
                     while (i < lastKnown && j < dependentList->size) {
                         while (!dependent[j].doneWriting);
                         if (dependent[j].type == HIVE_EDT) {
-                            hiveSignalEdt(dependent[j].addr, event->data, dependent[j].slot);
+                            hiveSignalEdt(dependent[j].addr, dependent[j].slot, event->data);
                         } else if (dependent[j].type == HIVE_EVENT) {
 #ifdef COUNT
                             //THIS IS A TEMP FIX... problem is recursion...
@@ -151,7 +151,7 @@ void hiveEventSatisfySlot(hiveGuid_t eventGuid, hiveGuid_t dataGuid, u32 slot) {
                             hiveEdtDep_t arg;
                             arg.guid = event->data;
                             arg.ptr = hiveRouteTableLookupItem(event->data);
-                            arg.mode = DB_MODE_NON_COHERENT_READ;
+                            arg.mode = HIVE_NULL;
                             dependent[j].callback(arg);
                         }
                         j++;
@@ -204,7 +204,7 @@ struct hiveDependent * hiveDependentGet(struct hiveDependentList * head, int pos
 }
 
 void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot) {
-    hiveDbAccessMode_t mode = DB_MODE_NON_COHERENT_READ;
+    hiveType_t mode = hiveGuidGetType(destination);
     struct hiveHeader *sourceHeader = hiveRouteTableLookupItem(source);
     if (sourceHeader == NULL) {
         unsigned int rank = hiveGuidGetRank(source);
@@ -217,7 +217,7 @@ void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot) {
     }
 
     struct hiveEvent *event = (struct hiveEvent *) sourceHeader;
-    if (hiveGuidGetType(destination) == HIVE_EDT) {
+    if (mode == HIVE_EDT) {
         struct hiveDependentList *dependentList = &event->dependent;
         struct hiveDependent *dependent;
         unsigned int position = hiveAtomicFetchAdd(&event->dependentCount, 1U);
@@ -225,7 +225,6 @@ void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot) {
         dependent->type = HIVE_EDT;
         dependent->addr = destination;
         dependent->slot = slot;
-        dependent->mode = mode;
         COMPILER_DO_NOT_REORDER_WRITES_BETWEEN_THIS_POINT();
         dependent->doneWriting = true;
 
@@ -233,14 +232,14 @@ void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot) {
         if (event->fired) {
             while (event->pos == 0);
             if (position >= event->pos - 1) {
-                hiveSignalEdt(destination, event->data, slot);
+                hiveSignalEdt(destination, slot, event->data);
                 if (!destroyEvent) {
                     hiveEventFree(event);
                     hiveRouteTableRemoveItem(source);
                 }
             }
         }
-    } else if (hiveGuidGetType(destination) == HIVE_EVENT) {
+    } else if (mode == HIVE_EVENT) {
         struct hiveDependentList *dependentList = &event->dependent;
         struct hiveDependent *dependent;
         unsigned int position = hiveAtomicFetchAdd(&event->dependentCount, 1U);
@@ -248,7 +247,6 @@ void hiveAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot) {
         dependent->type = HIVE_EVENT;
         dependent->addr = destination;
         dependent->slot = slot;
-        dependent->mode = mode;
         COMPILER_DO_NOT_REORDER_WRITES_BETWEEN_THIS_POINT();
         dependent->doneWriting = true;
 
@@ -288,7 +286,7 @@ void hiveAddLocalEventCallback(hiveGuid_t source, eventCallback_t callback) {
                 hiveEdtDep_t arg;
                 arg.guid = event->data;
                 arg.ptr = hiveRouteTableLookupItem(event->data);
-                arg.mode = DB_MODE_NON_COHERENT_READ;
+                arg.mode = HIVE_NULL;
                 callback(arg);
                 if (!destroyEvent) {
                     hiveEventFree(event);

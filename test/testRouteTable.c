@@ -39,7 +39,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         {
             if(hiveIsGuidLocal(guids[i]))
             {
-                unsigned int * ptr = hiveDbCreateWithGuid(guids[i], sizeof(unsigned int), false);
+                unsigned int * ptr = hiveDbCreateWithGuid(guids[i], sizeof(unsigned int));
                 *ptr = i;
                 PRINTF("Created i: %u guid: %ld\n", i, guids[i]);
             }

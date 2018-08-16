@@ -25,7 +25,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     
     graphGuids = hiveMalloc(sizeof(hiveGuid_t)*hiveGetTotalNodes());
     for(unsigned int i=0; i<hiveGetTotalNodes(); i++)
-        graphGuids[i] = hiveReserveGuidRoute(HIVE_DB, i);
+        graphGuids[i] = hiveReserveGuidRoute(HIVE_DB_PIN, i);
 
     PRINTF("Reading...\n");
     u64 nodeVert = readGraph(fileName, graphGuids[nodeId], nodeId, hiveGetTotalNodes(), numVert);
@@ -33,7 +33,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     
     printGuids = hiveMalloc(sizeof(hiveGuid_t)*hiveGetTotalNodes());
     for(unsigned int i=0; i<hiveGetTotalNodes(); i++)
-        printGuids[i] = hiveReserveGuidRoute(HIVE_DB, i);
+        printGuids[i] = hiveReserveGuidRoute(HIVE_DB_PIN, i);
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)

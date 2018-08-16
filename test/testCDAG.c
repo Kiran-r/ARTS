@@ -94,7 +94,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     {
         if(!nodeId)
         {
-            unsigned int * ptr = hiveDbCreateWithGuid(dbGuid, sizeof(unsigned int) * numWrites, false);
+            unsigned int * ptr = hiveDbCreateWithGuid(dbGuid, sizeof(unsigned int) * numWrites);
             for(unsigned int i=0; i<numWrites; i++)
                 ptr[i] = 0;
 

@@ -22,7 +22,7 @@ void initBlockDistribution(hive_block_dist_t* _dist,
   // copied from ssspStart.c
   _dist->graphGuid = hiveMalloc(sizeof(hiveGuid_t)*hiveGetTotalNodes());
   for(unsigned int i=0; i<hiveGetTotalNodes(); i++) {
-    _dist->graphGuid[i] = hiveReserveGuidRoute(HIVE_DB, i % hiveGetTotalNodes());
+    _dist->graphGuid[i] = hiveReserveGuidRoute(HIVE_DB_PIN, i % hiveGetTotalNodes());
   }
 }
 
@@ -53,7 +53,7 @@ void initBlockDistributionWithCmdLineArgs(hive_block_dist_t* _dist,
   // copied from ssspStart.c
   _dist->graphGuid = hiveMalloc(sizeof(hiveGuid_t)*hiveGetTotalNodes());
   for(unsigned int i=0; i<hiveGetTotalNodes(); i++) {
-    _dist->graphGuid[i] = hiveReserveGuidRoute(HIVE_DB, i % hiveGetTotalNodes());
+    _dist->graphGuid[i] = hiveReserveGuidRoute(HIVE_DB_PIN, i % hiveGetTotalNodes());
   }
 }
 

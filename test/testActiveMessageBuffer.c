@@ -17,7 +17,8 @@ hiveGuid_t setter(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     {
         dest[id*blockSize + i] = buffer[i];
     }
-    hiveSignalEdt(shutdownGuid, dbDestGuid, id, DB_MODE_PIN);
+    PRINTF("Setter: %u\n", id);
+    hiveSignalEdt(shutdownGuid, id, dbDestGuid);
 }
 
 hiveGuid_t getter(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
@@ -25,9 +26,10 @@ hiveGuid_t getter(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     unsigned int id = paramv[0];
     unsigned int * source = depv[0].ptr;
     unsigned int * buffer = &source[id*blockSize];
+    PRINTF("Getter: %u\n", id);
     //This one actually sends to a remote node... yea for testing!
     hiveGuid_t am = hiveActiveMessageWithBuffer(setter, hiveGetTotalNodes() - 1, paramc, paramv, 1, buffer, sizeof(unsigned int)*blockSize);
-    hiveSignalEdt(am, dbDestGuid, 1, DB_MODE_PIN);
+    hiveSignalEdt(am, 1, dbDestGuid);
 }
 
 
@@ -53,8 +55,8 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
     blockSize = atoi(argv[1]);
     numElements = blockSize * hiveGetTotalNodes();
-    dbDestGuid = hiveReserveGuidRoute(HIVE_DB, hiveGetTotalNodes() - 1);
-    shutdownGuid = hiveReserveGuidRoute(HIVE_DB, hiveGetTotalNodes() - 1);
+    dbDestGuid = hiveReserveGuidRoute(HIVE_DB_PIN, hiveGetTotalNodes() - 1);
+    shutdownGuid = hiveReserveGuidRoute(HIVE_EDT, hiveGetTotalNodes() - 1);
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
@@ -74,7 +76,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
             hiveEdtCreateWithGuid(shutDownEdt, shutdownGuid, 0, NULL, hiveGetTotalNodes());
         
         if(nodeId == hiveGetTotalNodes() - 1)
-            hiveDbCreateWithGuid(dbDestGuid, sizeof(unsigned int) * numElements, true);
+            hiveDbCreateWithGuid(dbDestGuid, sizeof(unsigned int) * numElements);
     }
 }
 

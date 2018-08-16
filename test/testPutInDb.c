@@ -65,7 +65,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         
         if(!nodeId)
         {
-            hiveDbCreateWithGuid(dbGuid, sizeof(unsigned int) * numElements, true);
+            hiveDbCreateWithGuid(dbGuid, sizeof(unsigned int) * numElements);
             hiveEdtCreateWithGuid(shutDownEdt, shutdownGuid, 0, NULL, numElements/stride);
         }
     }

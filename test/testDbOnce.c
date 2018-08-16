@@ -9,7 +9,7 @@ hiveGuid_t bGuid = NULL_GUID;
 hiveGuid_t check(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 {
     unsigned int * ptr;
-    hiveGuid_t guid = hiveDbCreate((void**)&ptr, sizeof(unsigned int), false);
+    hiveGuid_t guid = hiveDbCreate((void**)&ptr, sizeof(unsigned int), HIVE_DB_ONCE);
     *ptr = 2;
     
     PRINTF("Check: %lu %u newGuid: %lu\n", depv[0].guid, *((unsigned int*)depv[0].ptr), guid);
@@ -35,7 +35,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     {
         if(nodeId == 0)
         {
-            unsigned int * aPtr = hiveDbCreateWithGuid(dbGuid, sizeof(unsigned int), false);
+            unsigned int * aPtr = hiveDbCreateWithGuid(dbGuid, sizeof(unsigned int));
             *aPtr = 1;
         }
         

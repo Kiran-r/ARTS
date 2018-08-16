@@ -11,36 +11,29 @@ extern "C" {
 
 typedef union
 {
-    struct
-    {
-        u8 isLocal:  1;
-        u32 rank:   20; //1 million nodes
-        u8  type:    2;
-        u64 addr:   41;
-    } local;
-    struct
-    {
-        u8 isLocal:  1;
-        u32 rank:   15; //1 million nodes
-        u8  type:    2;
-        u16 thread: 13; //256 threads
-        u64 key:    33; //unique key
-    } fields;
     intptr_t bits: 64;
+    struct __attribute__((packed))
+    {
+        u8  local:   1; //Means it is created locally
+        u8  type:    5;
+        u16 rank:   13; //1 million nodes
+        u16 thread: 13; //256 threads
+        u32 key:    32; //unique key
+    } fields;
 } hiveGuid;
 
-void * hiveGuidGetFastPathLocal( hiveGuid_t guid );
-hiveGuid_t hiveGuidCreate( void * address );
-hiveGuid_t hiveGuidCreateForRank( unsigned int route, unsigned int type );
-void hiveGuidTableRemove();
-void hiveGuidTableInit( unsigned int routeInitSize );
-u32 hiveGuidGetType( hiveGuid_t guid );
-unsigned int hiveGuidGetRank( hiveGuid_t guid );
-void setGuidGeneratorAfterParallelStart();
-void hiveGuidKeyGeneratorInit();
-hiveGuid_t hiveGuidCreateForRankInternal( unsigned int route, unsigned int type, unsigned int guidCount);
-hiveGuid_t hiveReserveGuidRoute(unsigned int type, unsigned int route);
+//External API
+hiveGuid_t hiveReserveGuidRoute(hiveType_t type, unsigned int route);
+hiveGuid_t hiveReserveGuidRouteRemote(hiveType_t type, unsigned int route);
 bool hiveIsGuidLocal(hiveGuid_t guid);
+unsigned int hiveGuidGetRank(hiveGuid_t guid);
+hiveType_t hiveGuidGetType(hiveGuid_t guid);
+hiveType_t hiveGuidCast(hiveGuid_t guid, hiveType_t type);
+
+//Internal API
+hiveGuid_t hiveGuidCreateForRank(unsigned int route, unsigned int type);
+void hiveGuidKeyGeneratorInit();
+void setGuidGeneratorAfterParallelStart();
 
 typedef struct
 {

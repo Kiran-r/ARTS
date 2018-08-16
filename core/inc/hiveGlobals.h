@@ -58,7 +58,6 @@ struct hiveRuntimePrivate
 {
     struct hiveDeque * myDeque;
     struct hiveDeque * myNodeDeque;
-    struct hiveRouteTable *  myRouteTable;
     unsigned int coreId;
     unsigned int threadId;
     unsigned int groupId;

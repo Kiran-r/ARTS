@@ -47,7 +47,7 @@ struct ooSignalEdt
     hiveGuid_t edtPacket;
     hiveGuid_t dataGuid;
     u32 slot;
-    hiveDbAccessMode_t mode;
+    hiveType_t mode;
 };
 
 struct ooDbRequestSatisfy
@@ -63,7 +63,7 @@ struct ooAddDependence
     hiveGuid_t source;
     hiveGuid_t destination;
     u32 slot;
-    hiveDbAccessMode_t mode;
+    hiveType_t mode;
 };
 
 struct ooEventSatisfySlot
@@ -84,7 +84,7 @@ struct ooRemoteDbSend
 {
     enum hiveOutOfOrderType type;
     int rank;
-    hiveDbAccessMode_t mode;
+    hiveType_t mode;
     hiveGuid_t dataGuid;
 };
 
@@ -94,7 +94,7 @@ struct ooRemoteDbFullSend
     int rank;
     struct hiveEdt * edt;
     unsigned int slot;
-    hiveDbAccessMode_t mode;
+    hiveType_t mode;
 };
 
 struct ooGetFromDb
@@ -179,7 +179,7 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
         case ooSignalEdt:
         {
             struct ooSignalEdt * edt = handleMe;
-            hiveSignalEdt(edt->edtPacket, edt->slot, edt->dataGuid);
+            internalSignalEdt(edt->edtPacket, edt->slot, edt->dataGuid, edt->mode, NULL, 0);
             break;
         }
         case ooEventSatisfySlot:
@@ -290,7 +290,7 @@ inline void hiveOutOfOrderHandler(void * handleMe, void * memoryPtr)
 
 }
 
-void hiveOutOfOrderSignalEdt (hiveGuid_t waitOn, hiveGuid_t edtPacket, hiveGuid_t dataGuid, u32 slot, hiveDbAccessMode_t mode)
+void hiveOutOfOrderSignalEdt (hiveGuid_t waitOn, hiveGuid_t edtPacket, hiveGuid_t dataGuid, u32 slot, hiveType_t mode)
 {
     struct ooSignalEdt * edt = hiveMalloc(sizeof(struct ooSignalEdt));
     edt->type = ooSignalEdt;
@@ -301,7 +301,7 @@ void hiveOutOfOrderSignalEdt (hiveGuid_t waitOn, hiveGuid_t edtPacket, hiveGuid_
     bool res =  hiveRouteTableAddOO(waitOn, edt);
     if(!res)
     {
-        hiveSignalEdt(edtPacket, slot, dataGuid);
+        internalSignalEdt(edtPacket, slot, dataGuid, mode, NULL, 0);
         hiveFree(edt);
     }   
 }
@@ -321,7 +321,7 @@ void hiveOutOfOrderEventSatisfySlot(hiveGuid_t waitOn, hiveGuid_t eventGuid, hiv
     }
 }
 
-void hiveOutOfOrderAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hiveDbAccessMode_t mode, hiveGuid_t waitOn)
+void hiveOutOfOrderAddDependence(hiveGuid_t source, hiveGuid_t destination, u32 slot, hiveType_t mode, hiveGuid_t waitOn)
 {
     struct ooAddDependence * dep = hiveMalloc(sizeof(struct ooAddDependence));
     dep->type = ooAddDependence;
@@ -350,7 +350,7 @@ void hiveOutOfOrderHandleReadyEdt(hiveGuid_t triggerGuid, struct hiveEdt *edt)
     }
 }
 
-void hiveOutOfOrderHandleRemoteDbSend(int rank, hiveGuid_t dbGuid, hiveDbAccessMode_t mode)
+void hiveOutOfOrderHandleRemoteDbSend(int rank, hiveGuid_t dbGuid, hiveType_t mode)
 {
     struct ooRemoteDbSend * readySend = hiveMalloc(sizeof(struct ooRemoteDbSend));
     readySend->type = ooRemoteDbSend;
@@ -396,7 +396,7 @@ void hiveOutOfOrderHandleDbRequestWithOOList(struct hiveOutOfOrderList * addToMe
     }
 }
 
-void hiveOutOfOrderHandleRemoteDbFullSend(hiveGuid_t dbGuid, int rank, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode)
+void hiveOutOfOrderHandleRemoteDbFullSend(hiveGuid_t dbGuid, int rank, struct hiveEdt * edt, unsigned int slot, hiveType_t mode)
 {
     struct ooRemoteDbFullSend * dbSend = hiveMalloc(sizeof(struct ooRemoteDbFullSend));
     dbSend->type = ooDbFullSend;

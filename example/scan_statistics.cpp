@@ -89,12 +89,12 @@ hiveGuid_t findIntersection(u32 paramc, u64 * paramv,
 
   unsigned int dbSize =  sizeof(perVertexScanStat);
   void * ptr = NULL;
-  hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, false);
+  hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, HIVE_DB_READ);
   perVertexScanStat * vertexScanStat = (perVertexScanStat *) ptr;  
   vertexScanStat->source = source;
   vertexScanStat->scanStat = sum;
   // std::cout << "Source " << source << " ScanStat: " << sum << std::endl;
-  hiveSignalEdt(maxReducerGuid, dbGuid, source, DB_MODE_NON_COHERENT_READ);
+  hiveSignalEdt(maxReducerGuid, dbGuid, source);
 }
 
 hiveGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
@@ -122,12 +122,12 @@ hiveGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
 
   unsigned int dbSize =  sizeof(perVertexScanStat);
   void * ptr = NULL;
-  hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, false);
+  hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, HIVE_DB_READ);
   perVertexScanStat * vertexScanStat = (perVertexScanStat *) ptr;  
   vertexScanStat->source = srcInfo->source;
   vertexScanStat->scanStat = localIntersection.size();
   // std::cout << "Source: " << srcInfo->source << " rank: "  << hiveGetCurrentNode() << " set intersection size: " << localIntersection.size() <<std::endl;
-  hiveSignalEdt(srcInfo->findIntersectionGuid, dbGuid, hiveGetCurrentNode(), DB_MODE_NON_COHERENT_READ);
+  hiveSignalEdt(srcInfo->findIntersectionGuid, dbGuid, hiveGetCurrentNode());
 }
 
 hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) { 
@@ -143,7 +143,7 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
     for (unsigned int i = 0; i < hiveGetTotalNodes(); i++) {
       unsigned int dbSize = sizeof (sourceInfo) + (sizeof(vertex) * neighbor_cnt);
       void * ptr = NULL;
-      hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, false);
+      hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, HIVE_DB_READ);
       sourceInfo * srcInfo = (sourceInfo *) ptr;
       srcInfo->findIntersectionGuid = findIntersectionGuid;
       srcInfo->source = source;
@@ -151,18 +151,18 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
       memcpy(&(srcInfo->neighbors), neighbors, sizeof(vertex) * neighbor_cnt);
       /*create the edt to find # one-hop neighbors*/
       hiveGuid_t visitOneHopNeighborGuid = hiveEdtCreate(visitOneHopNeighborOnRank, i, 0, NULL, 1);
-      hiveSignalEdt(visitOneHopNeighborGuid, dbGuid, 0, DB_MODE_NON_COHERENT_READ);
+      hiveSignalEdt(visitOneHopNeighborGuid, dbGuid, 0);
    }
   } else {
     /*signal maxreducer*/
     unsigned int dbSize =  sizeof(perVertexScanStat);
     void * ptr = NULL;
-    hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, false);
+    hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, HIVE_DB_READ);
     perVertexScanStat * vertexScanStat = (perVertexScanStat *) ptr;  
     vertexScanStat->source = source;
     vertexScanStat->scanStat = 1;
     // std::cout << "signaling maxruducer for source " << source << std::endl;
-    hiveSignalEdt(maxReducerGuid, dbGuid, source, DB_MODE_NON_COHERENT_READ);
+    hiveSignalEdt(maxReducerGuid, dbGuid, source);
   }
 }
 

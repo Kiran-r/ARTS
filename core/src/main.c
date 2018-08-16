@@ -43,7 +43,6 @@ int hiveRT(int argc, char **argv)
             return -1;
     }
 
-    hiveGuidTableInit(config->routeTableSize);
     hiveThreadInit(config);
     hiveThreadZeroNodeStart();
        

@@ -138,7 +138,7 @@ struct __attribute__ ((__packed__)) hiveRemoteAddDependencePacket
     hiveGuid_t source;
     hiveGuid_t destination;
     u32 slot;
-    hiveDbAccessMode_t mode;
+    hiveType_t mode;
 
     unsigned int destRoute;
 };
@@ -149,7 +149,7 @@ struct __attribute__ ((__packed__)) hiveRemoteEdtSignalPacket
     hiveGuid_t edt;
     hiveGuid_t db;
     u32 slot;
-    hiveDbAccessMode_t mode;
+    hiveType_t mode;
     //-------------------------Routing info
     unsigned int dbRoute;
 };
@@ -177,7 +177,7 @@ struct __attribute__ ((__packed__)) hiveRemoteDbRequestPacket
 {
     struct hiveRemotePacket header;
     hiveGuid_t dbGuid;
-    hiveDbAccessMode_t mode;
+    hiveType_t mode;
 };
 
 struct __attribute__ ((__packed__)) hiveRemoteDbSendPacket
@@ -191,7 +191,7 @@ struct __attribute__ ((__packed__)) hiveRemoteDbFullRequestPacket
     hiveGuid_t dbGuid;
     void * edt;
     unsigned int slot;
-    hiveDbAccessMode_t mode;
+    hiveType_t mode;
 };
 
 struct __attribute__ ((__packed__)) hiveRemoteDbFullSendPacket
@@ -199,7 +199,7 @@ struct __attribute__ ((__packed__)) hiveRemoteDbFullSendPacket
     struct hiveRemotePacket header;
     struct hiveEdt * edt;
     unsigned int slot;
-    hiveDbAccessMode_t mode;
+    hiveType_t mode;
 };
 
 struct __attribute__ ((__packed__)) hiveRemoteMemoryMovePingPacket

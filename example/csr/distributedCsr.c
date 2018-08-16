@@ -9,7 +9,7 @@ graph_csr_distr * createGraphDB(hiveGuid_t guid, u64 index, u64 numPartitions, u
     //Allocate space for struct, row vector (vertSize+1), column vector (columnSize)
     u64 space = sizeof(graph_csr_distr) + 
                 sizeof(u64) * (numPartitions+1+vertSize+columnSize+1);
-    graph_csr_distr * graph = hiveDbCreateWithGuid(guid, space, true);
+    graph_csr_distr * graph = hiveDbCreateWithGuid(guid, space);
     memset(graph, '0', sizeof(space));
     graph->partition = index;
     graph->partSize  = numPartitions;

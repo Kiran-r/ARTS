@@ -17,7 +17,7 @@ struct hiveLocalDelayedEdt
     struct hiveLocalDelayedEdt * next;
     struct hiveEdt * edt[DBSPERELEMENT];
     unsigned int slot[DBSPERELEMENT];
-    hiveDbAccessMode_t mode[DBSPERELEMENT];
+    hiveType_t mode[DBSPERELEMENT];
 };
 
 struct hiveDbFrontier
@@ -35,7 +35,7 @@ struct hiveDbFrontier
     unsigned int exNode;
     struct hiveEdt * exEdt;
     unsigned int exSlot;
-    hiveDbAccessMode_t exMode;
+    hiveType_t exMode;
     
     /* 
      * This is dumb, but we need somewhere to store requests
@@ -70,7 +70,7 @@ bool hiveDbFrontierIterHasNext(struct hiveDbFrontierIterator * iter);
 void hiveDbFrontierIterDelete(struct hiveDbFrontierIterator * iter);
 void hiveProgressFrontier(struct hiveDb * db, unsigned int rank);
 struct hiveDbFrontierIterator * hiveProgressAndGetFrontier(struct hiveDbList * dbList);
-bool hivePushDbToList(struct hiveDbList * dbList, unsigned int data, bool write, bool exclusive, bool local, bool bypass, struct hiveEdt * edt, unsigned int slot, hiveDbAccessMode_t mode);
+bool hivePushDbToList(struct hiveDbList * dbList, unsigned int data, bool write, bool exclusive, bool local, bool bypass, struct hiveEdt * edt, unsigned int slot, hiveType_t mode);
 struct hiveDbFrontierIterator * hiveCloseFrontier(struct hiveDbList * dbList);
 #ifdef __cplusplus
 }

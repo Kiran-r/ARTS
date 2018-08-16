@@ -18,13 +18,13 @@ hiveGuid_t setter(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     {
         dest[id*blockSize + i] = buffer[i];
     }
-    hiveSignalEdt(shutdownGuid, dbDestGuid, id, DB_MODE_PIN);
+    hiveSignalEdt(shutdownGuid, id, dbDestGuid);
 }
 
 hiveGuid_t getter(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 {
     unsigned int * buffer;
-    hiveGuid_t cpyDb = hiveDbCreate((void **) &buffer, sizeof(unsigned int)*blockSize, false);
+    hiveGuid_t cpyDb = hiveDbCreate((void **) &buffer, sizeof(unsigned int)*blockSize, HIVE_DB_READ);
     
     unsigned int id = paramv[0];
     unsigned int * source = depv[0].ptr;
@@ -33,7 +33,7 @@ hiveGuid_t getter(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
         buffer[i] = source[id*blockSize + i];
     }
     hiveGuid_t am = hiveActiveMessageWithDb(setter, paramc, paramv, 1, dbDestGuid);
-    hiveSignalEdt(am, cpyDb, 1, DB_MODE_NON_COHERENT_READ);
+    hiveSignalEdt(am, 1, cpyDb);
 }
 
 
@@ -59,9 +59,9 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
     blockSize = atoi(argv[1]);
     numElements = blockSize * hiveGetTotalNodes();
-    dbSourceGuid = hiveReserveGuidRoute(HIVE_DB, 0);
-    dbDestGuid = hiveReserveGuidRoute(HIVE_DB, hiveGetTotalNodes() - 1);
-    shutdownGuid = hiveReserveGuidRoute(HIVE_DB, hiveGetTotalNodes() - 1);
+    dbSourceGuid = hiveReserveGuidRoute(HIVE_DB_PIN, 0);
+    dbDestGuid = hiveReserveGuidRoute(HIVE_DB_READ, hiveGetTotalNodes() - 1);
+    shutdownGuid = hiveReserveGuidRoute(HIVE_EDT, hiveGetTotalNodes() - 1);
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
@@ -78,12 +78,12 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
             {
                 data[i] = i;
             }
-            hiveDbCreateWithGuidAndData(dbSourceGuid, data, sizeof(unsigned int) * numElements, true);
+            hiveDbCreateWithGuidAndData(dbSourceGuid, data, sizeof(unsigned int) * numElements);
             hiveEdtCreateWithGuid(shutDownEdt, shutdownGuid, 0, NULL, hiveGetTotalNodes());
         }
         
         if(nodeId == hiveGetTotalNodes() - 1)
-            hiveDbCreateWithGuid(dbDestGuid, sizeof(unsigned int) * numElements, true);
+            hiveDbCreateWithGuid(dbDestGuid, sizeof(unsigned int) * numElements);
     }
 }
 

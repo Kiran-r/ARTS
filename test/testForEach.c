@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "hiveRT.h"
 
+unsigned int elemsPerNode = 4;
 hiveArrayDb_t * array = NULL;
 
 hiveGuid_t shutdown(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
@@ -10,9 +12,9 @@ hiveGuid_t shutdown(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     for(unsigned int i=0; i<depc; i++)
     {
         unsigned int * data = depv[i].ptr;
-        for(unsigned int j=0; j<4; j++)
+        for(unsigned int j=0; j<elemsPerNode; j++)
         {
-            PRINTF("%u: %u\n", i*4+j, data[j]);
+            PRINTF("%u: %u\n", i*elemsPerNode+j, data[j]);
         }
     }
     hiveShutdown();
@@ -29,8 +31,8 @@ hiveGuid_t edtFunc(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     hiveGuid_t checkGuid = paramv[1];
     unsigned int * value = depv[0].ptr;
     *value = index;
-    PRINTF("%u: %u %p\n", index, value, value);
-    hiveSignalEdt(checkGuid, NULL_GUID, 0, DB_MODE_SINGLE_VALUE);
+    PRINTF("%u:  %u %p\n", index, *value, value);
+    hiveSignalEdtValue(checkGuid, 0, 0);
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
@@ -42,8 +44,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 {   
     if(!nodeId && !workerId)
     {
-        hiveGuid_t checkGuid = hiveEdtCreate(check, 0, 0, NULL, 32);
-        hiveGuid_t guid = hiveNewArrayDb(&array, sizeof(unsigned int), 32);
+        hiveGuid_t checkGuid = hiveEdtCreate(check, 0, 0, NULL, elemsPerNode * hiveGetTotalNodes());
+        hiveGuid_t guid = hiveNewArrayDb(&array, sizeof(unsigned int), elemsPerNode * hiveGetTotalNodes());
         hiveForEachInArrayDbAtData(array, 1, edtFunc, 1, &checkGuid);
 //        hiveForEachInArrayDb(array, edtFunc, 1, &checkGuid);
     }

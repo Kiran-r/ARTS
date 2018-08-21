@@ -19,6 +19,6 @@ set(main_src
     hiveUtil.c
 )
 
-add_library(hive SHARED ${main_inc} ${main_src} $<TARGET_OBJECTS:gas> $<TARGET_OBJECTS:network> $<TARGET_OBJECTS:introspection> $<TARGET_OBJECTS:runtime> $<TARGET_OBJECTS:system> $<TARGET_OBJECTS:common>)
+add_library(hive STATIC ${main_inc} ${main_src} $<TARGET_OBJECTS:gas> $<TARGET_OBJECTS:network> $<TARGET_OBJECTS:introspection> $<TARGET_OBJECTS:runtime> $<TARGET_OBJECTS:system> $<TARGET_OBJECTS:common>)
 install(FILES ${main_inc} DESTINATION include)
-install(TARGETS hive LIBRARY DESTINATION lib)
+install(TARGETS hive ARCHIVE DESTINATION lib)

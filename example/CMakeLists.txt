@@ -32,6 +32,3 @@ target_link_libraries(triangleCount hive-graph ${LIBS})
 
 add_executable(triangleCount2 triangleCount2.c)
 target_link_libraries(triangleCount2 hive-graph ${LIBS})
-
-add_subdirectory(csr)
-add_subdirectory(rmat)

@@ -18,8 +18,8 @@ hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     for(unsigned int i=0; i<depc; i++)
     {
         unsigned int numEdts = depv[i].guid;
-        if(numEdts!=numNodes*numDummy+1)
-            PRINTF("Error: %u vs %u\n", numEdts, numNodes*numDummy+1);
+        if(numEdts!=numNodes*numDummy+2)
+            PRINTF("Error: %u vs %u\n", numEdts, numNodes*numDummy+2);
     }
     PRINTF("Exit %u\n", counter);
     hiveShutdown();

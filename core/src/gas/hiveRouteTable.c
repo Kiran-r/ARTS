@@ -341,14 +341,31 @@ static inline u64 getRouteTableKey(u64 x, unsigned int shift, u64 func)
 
     return (hash64(x, hash) >> (64-shift))*collisionResolves;
 }
+extern u64 numTables;
+extern u64 maxGuid;
+extern u64 keysPerThread;
+extern u64 minGlobalGuidThread;
+extern u64 maxGlobalGuidThread;
 
 static inline struct hiveRouteTable * hiveGetRouteTable(hiveGuid_t guid)
 {
-    hiveGuid bytes = (hiveGuid)guid;
-    if( bytes.fields.local && hiveNodeInfo.routeTable[bytes.fields.thread])
-        return  hiveNodeInfo.routeTable[bytes.fields.thread];
+    hiveGuid raw = (hiveGuid) guid;
+    u64 key = raw.fields.key;
+    u64 globalThread = (key / keysPerThread);
+    if(minGlobalGuidThread <= globalThread && globalThread < maxGlobalGuidThread)
+        return hiveNodeInfo.routeTable[globalThread - minGlobalGuidThread];
     return hiveNodeInfo.remoteRouteTable;
 }
+
+//static inline struct hiveRouteTable * hiveGetRouteTable(hiveGuid_t guid)
+//{
+//    hiveGuid raw = (hiveGuid) guid;
+//    u64 key = raw.fields.key;
+//    u64 index = key % numTables;
+//    if(index < hiveNodeInfo.workerThreadCount) 
+//        return hiveNodeInfo.routeTable[index];        
+//    return hiveNodeInfo.remoteRouteTable;
+//}
 
 void hiveRouteTableNew(struct hiveRouteTable * routeTable, unsigned int size, unsigned int shift, unsigned int func, bool overide)
 {

@@ -16,7 +16,7 @@ hiveGuid_t acquireTest(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
         unsigned int * num = depv[i].ptr;
         printf("%u %u i: %u %u\n", hiveGetCurrentNode(), hiveGetCurrentWorker(), i, *num);
     }
-    hiveSignalEdt(shutdownGuid, 0, 0, DB_MODE_SINGLE_VALUE);
+    hiveSignalEdtValue(shutdownGuid, 0, 0);
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
@@ -24,7 +24,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     guids = hiveMalloc(sizeof(hiveGuid_t)*hiveGetTotalNodes());
     for(unsigned int i=0; i<hiveGetTotalNodes(); i++)
     {
-        guids[i] = hiveReserveGuidRoute(HIVE_DB, i);
+        guids[i] = hiveReserveGuidRoute(HIVE_DB_READ, i);
         if(!nodeId)
             PRINTF("i: %u guid: %ld\n", i, guids[i]);
     }
@@ -53,7 +53,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     hiveGuid_t edtGuid = hiveEdtCreate(acquireTest, nodeId, 0, NULL, hiveGetTotalNodes());
     for(unsigned int i=0; i<hiveGetTotalNodes(); i++)
     {
-        hiveSignalEdt(edtGuid, guids[i], i, DB_MODE_NON_COHERENT_READ);
+        hiveSignalEdt(edtGuid, i, guids[i]);
     }
 }
 

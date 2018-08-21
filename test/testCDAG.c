@@ -33,7 +33,7 @@ hiveGuid_t readTest(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
             PRINTF("BAD VALUE i: %u %u\n", i, array[i]);
         }
     }
-    hiveEdtEmptySignal(shutdownGuid);
+    hiveSignalEdtValue(shutdownGuid, -1, 0);
     // Need to fix the return value
     return NULL_GUID;
 }
@@ -48,20 +48,20 @@ hiveGuid_t writeTest(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     for(unsigned int i=0; i<numDynamicReads; i++)
     {
         hiveGuid_t guid = hiveEdtCreate(readTest, hiveGetCurrentNode(), 0, NULL, 1);
-        hiveSignalEdt(guid, dbGuid, 0, DB_MODE_NON_COHERENT_READ);
+        hiveSignalEdt(guid, 0, dbGuid);
     }
 
     for(unsigned int i=0; i<numDynamicWrites; i++)
     {
         paramv[0] = (paramv[0]+1) % numWrites;
         hiveGuid_t guid = hiveEdtCreate(readTest, hiveGetCurrentNode(), 0, NULL, 1);
-        hiveSignalEdt(guid, dbGuid, 0, DB_MODE_NON_COHERENT_READ);
+        hiveSignalEdt(guid, 0, dbGuid);
     }
 
     if(!index)
-        hiveSignalEdt(shutdownGuid, depv[0].guid, 0, DB_MODE_NON_COHERENT_READ);
+        hiveSignalEdt(shutdownGuid, 0, hiveGuidCast(dbGuid, HIVE_DB_WRITE));
     else
-        hiveEdtEmptySignal(shutdownGuid);
+        hiveSignalEdtValue(shutdownGuid, -1, 0);
     // Need to fix the return value
     return NULL_GUID;
 }
@@ -78,7 +78,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     readGuids = hiveMalloc(sizeof(hiveGuid_t)*numReads);
     writeGuids = hiveMalloc(sizeof(hiveGuid_t)*numWrites);
 
-    dbGuid = hiveReserveGuidRoute(HIVE_DB, 0);
+    dbGuid = hiveReserveGuidRoute(HIVE_DB_READ, 0);
 
     for(unsigned int i=0; i<numReads; i++)
         readGuids[i] = hiveReserveGuidRoute(HIVE_EDT, i % hiveGetTotalNodes());
@@ -106,7 +106,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
             if(hiveIsGuidLocal(readGuids[i]))
             {
                 hiveEdtCreateWithGuid(readTest, readGuids[i], 0, NULL, 1);
-                hiveSignalEdt(readGuids[i], dbGuid, 0, DB_MODE_NON_COHERENT_READ);
+                hiveSignalEdt(readGuids[i], 0, dbGuid);
             }
         }
 
@@ -115,7 +115,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
             if(hiveIsGuidLocal(writeGuids[i]))
             {
                 hiveEdtCreateWithGuid(writeTest, writeGuids[i], 1, &i, 1);
-                hiveSignalEdt(writeGuids[i], dbGuid, 0, DB_MODE_CDAG_WRITE);
+                hiveSignalEdt(writeGuids[i], 0, hiveGuidCast(dbGuid, HIVE_DB_WRITE));
             }
         }
 

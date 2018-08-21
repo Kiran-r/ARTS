@@ -4,6 +4,8 @@
 extern "C" {
 #endif
     
+void hiveDbCreateInternal(hiveGuid_t guid, void *addr, u64 size, u64 packetSize, hiveType_t mode);    
+    
 hiveGuid_t hiveDbCreate(void **addr, u64 size, hiveType_t mode);
 void * hiveDbCreateWithGuid(hiveGuid_t guid, u64 size);
 void * hiveDbCreateWithGuidAndData(hiveGuid_t guid, void * data, u64 size);

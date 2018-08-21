@@ -6,7 +6,7 @@ hiveGuid_t fibJoin(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 {
     unsigned int x = depv[0].guid;
     unsigned int y = depv[1].guid;
-    hiveSignalEdt(paramv[0], x+y, paramv[1], DB_MODE_SINGLE_VALUE);
+    hiveSignalEdtValue(paramv[0], paramv[1], x+y);
 }
 
 hiveGuid_t fibFork(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
@@ -17,7 +17,7 @@ hiveGuid_t fibFork(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     unsigned int slot = paramv[1];
     unsigned int num = paramv[2];
     if(num < 2)
-        hiveSignalEdt(guid, num, slot, DB_MODE_SINGLE_VALUE);
+        hiveSignalEdtValue(guid, slot, num);
     else
     {
         hiveGuid_t joinGuid = hiveEdtCreate(fibJoin, 0, paramc-1, paramv, 2);
@@ -39,7 +39,7 @@ hiveGuid_t fibDone(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    
+
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)

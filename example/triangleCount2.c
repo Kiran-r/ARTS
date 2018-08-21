@@ -44,7 +44,7 @@ hiveGuid_t finalReduce(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
 
 hiveGuid_t localReduce(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
 //    PRINTF("Local Count: %lu Signal: %lu\n", localTriangleCount, finalEdtGuid);
-    hiveSignalEdt(finalReduceGuid, localTriangleCount, hiveGetCurrentNode(), DB_MODE_SINGLE_VALUE);
+    hiveSignalEdtValue(finalReduceGuid, hiveGetCurrentNode(), localTriangleCount);
 }
 
 hiveGuid_t startReduce(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {

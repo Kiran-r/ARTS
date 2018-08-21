@@ -12,44 +12,60 @@
 #define DPRINTF
 //#define DPRINTF(...) PRINTF(__VA_ARGS__)
 
-u64 * parallelStartKeys;
-u64 * keys;
-extern u64 globalGuidOn;
+__thread u64 globalGuidThreadId = 0;
+__thread u64 * keys;
+u64 numTables = 0;
+u64 keysPerThread = 0;
+u64 globalGuidOn = 0;
+u64 minGlobalGuidThread = 0;
+u64 maxGlobalGuidThread = 0;
+
+void setGlobalGuidOn()
+{
+    globalGuidOn = ((u64)1) << 40;
+}
 
 u64 * hiveGuidGeneratorGetKey(unsigned int route, unsigned int type )
 {
-    if(globalGuidOn && hiveGlobalRankId)
-        return &parallelStartKeys[route*HIVE_LAST_TYPE + type];
     return &keys[route*HIVE_LAST_TYPE + type];
 }
 
 hiveGuid_t hiveGuidCreateForRankInternal(unsigned int route, unsigned int type, unsigned int guidCount)
 {
     hiveGuid guid;
-    u64 * key = hiveGuidGeneratorGetKey(route, type);
     if(globalGuidOn)
     {
-        guid.fields.local = 1;
-        guid.fields.thread = 0;
-    }
-    else
-    {
-        if(route == hiveGlobalRankId)
+        //Safeguard against wrap around
+        if(globalGuidOn > guidCount)
         {
-            guid.fields.local = 1;
-            guid.fields.thread = hiveThreadInfo.threadId;
+            guid.fields.key = globalGuidOn - guidCount;
+            globalGuidOn -= guidCount;
         }
         else
         {
-            guid.fields.local = 0;
-            guid.fields.thread = hiveGlobalRankId;
+            PRINTF("Parallel Start out of guid keys\n");
+            hiveDebugGenerateSegFault();
+        }
+    }
+    else
+    {
+        
+        u64 * key = hiveGuidGeneratorGetKey(route, type);
+        u64 value = *key;
+        if(value + guidCount < keysPerThread)
+        {
+            guid.fields.key = value + keysPerThread * globalGuidThreadId;
+            (*key)+=guidCount;
+        }
+        else
+        {
+            PRINTF("Out of guid keys\n");
+            hiveDebugGenerateSegFault();
         }
     }
     guid.fields.type = type;
     guid.fields.rank = route;
-    guid.fields.key = (*key)+1;
-    (*key)+=guidCount;
-    DPRINTF("Key: %lu %lu %lu %lu %lu %p sizeof(hiveGuid): %u\n", guid.fields.local, guid.fields.type, guid.fields.rank, guid.fields.thread, guid.fields.key, guid.bits, sizeof(hiveGuid));
+    DPRINTF("Key: %lu %lu %lu %p %lu sizeof(hiveGuid): %u parallel start: %u\n", guid.fields.type, guid.fields.rank, guid.fields.key, guid.bits, (hiveGuid_t) guid.bits, sizeof(hiveGuid), (globalGuidOn!=0));
     HIVEEDTCOUNTERINCREMENTBY(guidAllocCounter, guidCount);
     return (hiveGuid_t)guid.bits;
 }
@@ -60,23 +76,32 @@ hiveGuid_t hiveGuidCreateForRank(unsigned int route, unsigned int type)
 }
 
 void setGuidGeneratorAfterParallelStart()
-{   
-    for(unsigned int i=0; i<HIVE_LAST_TYPE; i++)
-        keys[hiveGlobalRankId*HIVE_LAST_TYPE + i] = parallelStartKeys[hiveGlobalRankId*HIVE_LAST_TYPE + i];
-    hiveFree(parallelStartKeys);
+{
+        unsigned int numOfTables = hiveNodeInfo.workerThreadCount + 1;
+        keysPerThread = globalGuidOn / (numOfTables * hiveGlobalRankCount);
+        DPRINTF("Keys per thread %lu\n", keysPerThread);
+        globalGuidOn = 0;
 }
 
 void hiveGuidKeyGeneratorInit()
 {
-    parallelStartKeys = hiveCalloc(sizeof(u64) * HIVE_LAST_TYPE * hiveGlobalRankCount);
-    keys = hiveCalloc(sizeof(u64) * HIVE_LAST_TYPE * hiveGlobalRankCount);
+    numTables           = (hiveGlobalRankCount == 1) ? hiveNodeInfo.workerThreadCount : hiveNodeInfo.workerThreadCount + 1;
+    u64 localId         = (hiveThreadInfo.worker) ? hiveThreadInfo.threadId : hiveNodeInfo.workerThreadCount;
+    minGlobalGuidThread = numTables * hiveGlobalRankId;
+    maxGlobalGuidThread = (hiveGlobalRankCount == 1) ? minGlobalGuidThread + numTables : minGlobalGuidThread + numTables -1;
+    globalGuidThreadId  = minGlobalGuidThread + localId;
+    
+//    PRINTF("numTables: %lu localId: %lu minGlobalGuidThread: %lu maxGlobalGuidThread: %lu globalGuidThreadId: %lu\n", numTables, localId, minGlobalGuidThread, maxGlobalGuidThread, globalGuidThreadId);
+    keys = hiveMalloc(sizeof(u64) * HIVE_LAST_TYPE * hiveGlobalRankCount);
+    for(unsigned int i=0; i<HIVE_LAST_TYPE * hiveGlobalRankCount; i++)
+        keys[i] = 1;
 }
 
-hiveType_t hiveGuidCast(hiveGuid_t guid, hiveType_t type)
+hiveGuid_t hiveGuidCast(hiveGuid_t guid, hiveType_t type)
 {
     hiveGuid addressInfo = (hiveGuid) guid;
     addressInfo.fields.type = (unsigned int) type;
-    return guid;
+    return (hiveGuid_t) addressInfo.bits;
 }
 
 hiveType_t hiveGuidGetType(hiveGuid_t guid)
@@ -189,9 +214,6 @@ bool hiveIsInGuidRange(hiveGuidRange * range, hiveGuid_t guid)
         return false;
     
     if(startGuid.fields.type != toCheck.fields.type)
-        return false;
-    
-    if(startGuid.fields.thread != toCheck.fields.thread)
         return false;
     
     if(startGuid.fields.key <= toCheck.fields.key && toCheck.fields.key < startGuid.fields.key + range->index)

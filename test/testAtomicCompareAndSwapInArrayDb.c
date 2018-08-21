@@ -28,7 +28,7 @@ hiveGuid_t check(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
             PRINTF("i: %u j: %u %u\n", i, j, data[j]);
         }
     }
-    hiveSignalEdt(paramv[0], NULL_GUID, (numAdd+1)*elementsPerBlock*blocks, DB_MODE_SINGLE_VALUE);
+    hiveSignalEdtValue(paramv[0], (numAdd+1)*elementsPerBlock*blocks, 0);
 }
 
 //This is run at the end of the epoch

@@ -20,6 +20,7 @@ set(runtime_src
     hiveArrayDb.c
     hiveTerminationDetection.c
     shadAdapter.c
+    hiveLoopPolicy.c
 )
 
 add_library(runtime OBJECT ${runtime_inc} ${runtime_src})

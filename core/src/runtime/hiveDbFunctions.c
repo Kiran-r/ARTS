@@ -82,7 +82,6 @@ void * hiveDbCreateWithGuid(hiveGuid_t guid, u64 size)
         HIVESETMEMSHOTTYPE(hiveDefaultMemorySize);
         if(ptr)
         {
-            unsigned int route = hiveGuidGetRank(guid);
             hiveDbCreateInternal(guid, ptr, size, dbSize, mode);
             if(hiveRouteTableAddItemRace(ptr, guid, hiveGlobalRankId, false))
                 hiveRouteTableFireOO(guid, hiveOutOfOrderHandler);
@@ -108,7 +107,6 @@ void * hiveDbCreateWithGuidAndData(hiveGuid_t guid, void * data, u64 size)
         
         if(ptr)
         {
-            unsigned int route = hiveGuidGetRank(guid);
             hiveDbCreateInternal(guid, ptr, size, dbSize, mode);
             void * dbData = (void*)((struct hiveDb *) ptr + 1);
             memcpy(dbData, data, size);

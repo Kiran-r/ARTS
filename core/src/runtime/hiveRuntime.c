@@ -34,7 +34,6 @@
 #define PACKET_SIZE 4096
 #define NETWORK_BACKOFF_INCREMENT 0
 
-u64 globalGuidOn;
 extern unsigned int numNumaDomains;
 extern int mainArgc;
 extern char **mainArgv;
@@ -104,15 +103,12 @@ void hiveThreadZeroNodeStart()
 {
     hiveStartInspector(1);
 
-    globalGuidOn = 1;
-    
+    setGlobalGuidOn();
     createShutdownEpoch();
     
     if(initPerNode)
         initPerNode(hiveGlobalRankId, mainArgc, mainArgv);
-    
     setGuidGeneratorAfterParallelStart();
-    globalGuidOn = 0;
 
     hiveStartInspector(2);
     HIVESTARTCOUNTING(2);
@@ -382,7 +378,7 @@ inline struct hiveEdt * hiveRuntimeStealFromWorker()
     return edt;
 }
 
-inline struct hiveEdt * hiveRuntimeStealFromWorkerMult()
+struct hiveEdt * hiveRuntimeStealFromWorkerMult()
 {
     struct hiveEdt * edt = NULL;
     if(hiveNodeInfo.totalThreadCount > 1)

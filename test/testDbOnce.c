@@ -13,7 +13,7 @@ hiveGuid_t check(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     *ptr = 2;
     
     PRINTF("Check: %lu %u newGuid: %lu\n", depv[0].guid, *((unsigned int*)depv[0].ptr), guid);
-    hiveSignalEdt(bGuid, guid, 0, DB_MODE_ONCE);
+    hiveSignalEdt(bGuid, 0, guid);
 }
 
 hiveGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
@@ -24,7 +24,7 @@ hiveGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    dbGuid = hiveReserveGuidRoute(HIVE_DB, 0);
+    dbGuid = hiveReserveGuidRoute(HIVE_DB_ONCE, 0);
     aGuid = hiveReserveGuidRoute(HIVE_EDT, 1);
     bGuid = hiveReserveGuidRoute(HIVE_EDT, 2);
 }
@@ -42,7 +42,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         if(nodeId == 1)
         {
             hiveEdtCreateWithGuid(check, aGuid, 0, NULL, 1);
-            hiveSignalEdt(aGuid, dbGuid, 0, DB_MODE_ONCE);
+            hiveSignalEdt(aGuid, 0, dbGuid);
         }
         
         if(nodeId == 2)

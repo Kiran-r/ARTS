@@ -94,7 +94,7 @@ hiveGuid_t findIntersection(u32 paramc, u64 * paramv,
   vertexScanStat->source = source;
   vertexScanStat->scanStat = sum;
   // std::cout << "Source " << source << " ScanStat: " << sum << std::endl;
-  hiveSignalEdt(maxReducerGuid, dbGuid, source);
+  hiveSignalEdt(maxReducerGuid, source, dbGuid);
 }
 
 hiveGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
@@ -127,7 +127,7 @@ hiveGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
   vertexScanStat->source = srcInfo->source;
   vertexScanStat->scanStat = localIntersection.size();
   // std::cout << "Source: " << srcInfo->source << " rank: "  << hiveGetCurrentNode() << " set intersection size: " << localIntersection.size() <<std::endl;
-  hiveSignalEdt(srcInfo->findIntersectionGuid, dbGuid, hiveGetCurrentNode());
+  hiveSignalEdt(srcInfo->findIntersectionGuid, hiveGetCurrentNode(), dbGuid);
 }
 
 hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) { 
@@ -151,7 +151,7 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
       memcpy(&(srcInfo->neighbors), neighbors, sizeof(vertex) * neighbor_cnt);
       /*create the edt to find # one-hop neighbors*/
       hiveGuid_t visitOneHopNeighborGuid = hiveEdtCreate(visitOneHopNeighborOnRank, i, 0, NULL, 1);
-      hiveSignalEdt(visitOneHopNeighborGuid, dbGuid, 0);
+      hiveSignalEdt(visitOneHopNeighborGuid, 0, dbGuid);
    }
   } else {
     /*signal maxreducer*/
@@ -162,7 +162,7 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
     vertexScanStat->source = source;
     vertexScanStat->scanStat = 1;
     // std::cout << "signaling maxruducer for source " << source << std::endl;
-    hiveSignalEdt(maxReducerGuid, dbGuid, source);
+    hiveSignalEdt(maxReducerGuid, source, dbGuid);
   }
 }
 
@@ -197,7 +197,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId,
       node_t rank = getOwner(source, &distribution);
       u64 packed_values[1] = {source};
       hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 1, (u64*) &packed_values, 1);
-      hiveSignalEdt(visitSourceGuid, 0, 0, DB_MODE_PIN);
+      hiveSignalEdtValue(visitSourceGuid, -1, 0);
     }
     // hiveShutdown();
   }

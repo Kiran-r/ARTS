@@ -18,7 +18,7 @@ hiveGuid_t check(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
             }
         }
     }
-    hiveSignalEdt(shutdownGuid, NULL_GUID, 0, DB_MODE_SINGLE_VALUE);
+    hiveSignalEdtValue(shutdownGuid, -1, 0);
 }
 
 hiveGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
@@ -28,10 +28,10 @@ hiveGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    guid[0] = hiveReserveGuidRoute(HIVE_DB_READ, 0);
-    guid[1] = hiveReserveGuidRoute(HIVE_DB_READ, 0);
-    guid[2] = hiveReserveGuidRoute(HIVE_DB_READ, 1);
-    guid[3] = hiveReserveGuidRoute(HIVE_DB_READ, 1);
+    guid[0] = hiveReserveGuidRoute(HIVE_DB_ONCE_LOCAL, 0);
+    guid[1] = hiveReserveGuidRoute(HIVE_DB_ONCE_LOCAL, 0);
+    guid[2] = hiveReserveGuidRoute(HIVE_DB_ONCE_LOCAL, 1);
+    guid[3] = hiveReserveGuidRoute(HIVE_DB_ONCE_LOCAL, 1);
     
     shutdownGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
 }
@@ -73,8 +73,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         if(nodeId == 0)
         {
             hiveGuid_t edtGuid = hiveEdtCreate(check, nodeId, 0, NULL, 2);
-            hiveSignalEdt(edtGuid, guid[0], 0, DB_MODE_ONCE_LOCAL);
-            hiveSignalEdt(edtGuid, guid[2], 1, DB_MODE_ONCE_LOCAL);
+            hiveSignalEdt(edtGuid, 0, guid[0]);
+            hiveSignalEdt(edtGuid, 1, guid[2]);
             
             hiveEdtCreateWithGuid(shutDownEdt, shutdownGuid, 0, NULL, 3);
         }
@@ -82,13 +82,13 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         if(nodeId == 1)
         {
             hiveGuid_t edtGuid = hiveEdtCreate(check, nodeId, 0, NULL, 1);
-            hiveSignalEdt(edtGuid, guid[1], 0, DB_MODE_ONCE_LOCAL);
+            hiveSignalEdt(edtGuid, 0, guid[1]);
         }
         
         if(nodeId == 2)
         {
             hiveGuid_t edtGuid = hiveEdtCreate(check, nodeId, 0, NULL, 1);
-            hiveSignalEdt(edtGuid, guid[3], 0, DB_MODE_ONCE_LOCAL);
+            hiveSignalEdt(edtGuid, 0, guid[3]);
         }
     }
 }

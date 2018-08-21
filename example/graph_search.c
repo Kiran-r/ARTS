@@ -79,8 +79,8 @@ hiveGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
     u64 packed_values[3] = {source, srcInfo->step - 1, srcInfo->seed};
     hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 3, (u64*) & packed_values, 2);
     //        PRINTF("New Edt: %lu Source is located on rank %d Guid: %lu\n", visitSourceGuid, rank, vertexPropertyMapGuid);
-    hiveSignalEdt(visitSourceGuid, vertexPropertyMapGuid, 0, DB_MODE_PIN);     
-    hiveSignalEdt(visitSourceGuid, vertexIDMapGuid, 1, DB_MODE_PIN);
+    hiveSignalEdt(visitSourceGuid, 0, vertexPropertyMapGuid);     
+    hiveSignalEdt(visitSourceGuid, 1, vertexIDMapGuid);
   }
 }
 
@@ -111,7 +111,7 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
 						      hiveGetCurrentNode(), 0,
 						      NULL, 2 * neighbor_cnt + 1);
         
-    hiveSignalEdt(GatherNeighborPropertyValGuid, dbGuid, 2 * neighbor_cnt);
+    hiveSignalEdt(GatherNeighborPropertyValGuid, 2 * neighbor_cnt, dbGuid);
         
     hiveArrayDb_t * vertexPropertyMap = depv[0].ptr;
     for (unsigned int i = 0; i < neighbor_cnt; i++) {
@@ -174,9 +174,9 @@ hiveGuid_t endVertexIDMapRead(u32 paramc, u64 * paramv,
     u64 packed_values[3] = {source, num_steps, source};
     hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 3, (u64*) &packed_values, 2);
     // TODO: why pass vertexpropertguid as an argument?
-    hiveSignalEdt(visitSourceGuid, vertexPropertyMapGuid, 0, DB_MODE_PIN);
+    hiveSignalEdt(visitSourceGuid, 0, vertexPropertyMapGuid);
 
-    hiveSignalEdt(visitSourceGuid, vertexIDMapGuid, 1, DB_MODE_PIN);
+    hiveSignalEdt(visitSourceGuid, 1, vertexIDMapGuid);
   }
 }
 
@@ -191,7 +191,7 @@ hiveGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
   
   // TODO: Is the following line necessary ?
   //Signal the ID map guid
-  hiveSignalEdt(endVertexIDMapReadEpochGuid, vertexIDMapGuid, 1, DB_MODE_PIN);
+  hiveSignalEdt(endVertexIDMapReadEpochGuid, 1, vertexIDMapGuid);
 
   //Start the epoch
   hiveInitializeAndStartEpoch(endVertexIDMapReadEpochGuid, 0);
@@ -298,7 +298,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId,
       = hiveEdtCreate(endVertexPropertyRead, 0, 0, NULL, 2);
         
     //Signal the property map guid
-    hiveSignalEdt(endVertexPropertyReadEpochGuid, vertexPropertyMapGuid, 1, DB_MODE_PIN);
+    hiveSignalEdt(endVertexPropertyReadEpochGuid, 1, vertexPropertyMapGuid);
 
     //Start the epoch
     hiveInitializeAndStartEpoch(endVertexPropertyReadEpochGuid, 0);

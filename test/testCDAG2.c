@@ -18,7 +18,7 @@ hiveGuid_t writeTest(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     if(paramc > 1)
     {
         PRINTF("-----------------SIGNALLING NEXT %u\n", index);
-        hiveEdtEmptySignal((hiveGuid_t) paramv[1]);
+        hiveSignalEdtValue((hiveGuid_t) paramv[1], -1, 0);
     }
     else
     {
@@ -33,7 +33,7 @@ hiveGuid_t writeTest(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    dbGuid = hiveReserveGuidRoute(HIVE_DB, 0);
+    dbGuid = hiveReserveGuidRoute(HIVE_DB_READ, 0);
     
     numWrites = atoi(argv[1]);
     writeGuids = hiveMalloc(sizeof(hiveGuid_t)*numWrites);
@@ -68,11 +68,11 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
                 {
                     hiveEdtCreateWithGuid(writeTest, writeGuids[i], 1, args, 2);
                 }
-                hiveSignalEdt(writeGuids[i], dbGuid, 0, DB_MODE_CDAG_WRITE);
+                hiveSignalEdt(writeGuids[i], 0, hiveGuidCast(dbGuid, HIVE_DB_WRITE));
             }
         }
         if(!nodeId)
-            hiveEdtEmptySignal(writeGuids[0]);
+            hiveSignalEdtValue(writeGuids[0], -1, 0);
         
     }
 }

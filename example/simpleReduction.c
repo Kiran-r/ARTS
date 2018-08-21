@@ -13,7 +13,7 @@ hiveGuid_t reduction(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
         int * dbPtr = depv[i].ptr;
         total+=dbPtr[0];
     }
-    hiveSignalEdt(paramv[0], total, 0, DB_MODE_SINGLE_VALUE);
+    hiveSignalEdtValue(paramv[0], 0, total);
 }
 
 hiveGuid_t shutDown(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
@@ -24,7 +24,7 @@ hiveGuid_t shutDown(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    numDbs = atoi(argv[1]);  
+    numDbs = hiveGetTotalNodes();  
     reductionGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
 }
 
@@ -36,7 +36,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         hiveGuid_t dbGuid = hiveDbCreate((void**)&ptr, sizeof(unsigned int), HIVE_DB_READ);
         *ptr = nodeId;
         
-        hiveSignalEdt(reductionGuid, dbGuid, nodeId);
+        hiveSignalEdt(reductionGuid, nodeId, dbGuid);
         
         if(!nodeId)
         {

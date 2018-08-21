@@ -30,8 +30,8 @@ hiveGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    dbGuid = hiveReserveGuidRoute(HIVE_DB, 0);
-    shutdownGuid = hiveReserveGuidRoute(HIVE_DB, 0);
+    dbGuid = hiveReserveGuidRoute(HIVE_DB_PIN, 0);
+    shutdownGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
     numElements = atoi(argv[1]);
     blockSize = numElements / hiveGetTotalNodes();
     stride = atoi(argv[2]);

@@ -56,7 +56,7 @@ hiveGuid_t finalReduce(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
 
 hiveGuid_t localReduce(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
     PRINTF("Local: %lu Remote: %lu Incoming: %lu\n", local, remote, incoming);
-    hiveSignalEdt(finalReduceGuid, localTriangleCount+otherCount, hiveGetCurrentNode(), DB_MODE_SINGLE_VALUE);
+    hiveSignalEdtValue(finalReduceGuid, hiveGetCurrentNode(), localTriangleCount+otherCount);
 }
 
 hiveGuid_t startReduce(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
@@ -117,7 +117,7 @@ inline u64 processVertex(vertex i, vertex * neighbors, u64 neighborCount, u64 * 
             args[1] = i;
             args[2] = neighborCount;
             hiveGuid_t guid = hiveEdtCreate(visitVertex, owner, 3, args, 1);
-            hiveSignalEdtPtr(guid, NULL_GUID, neighbors, sizeof(vertex) * neighborCount, 0);
+            hiveSignalEdtPtr(guid, 0, neighbors, sizeof(vertex) * neighborCount);
             (*procRemote)++;
         }
     }

@@ -77,3 +77,6 @@ target_link_libraries(testEpochPool ${LIBS})
 
 add_executable(testBuffer testBuffer.c)
 target_link_libraries(testBuffer ${LIBS})
+
+add_executable(testEvent testEvent.c)
+target_link_libraries(testEvent ${LIBS})

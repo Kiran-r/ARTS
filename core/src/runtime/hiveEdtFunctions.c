@@ -327,7 +327,7 @@ void internalSignalEdt(hiveGuid_t edtPacket, u32 slot, hiveGuid_t dataGuid, hive
                     edtDep[slot].ptr = ptr;
                 }
                 unsigned int res = hiveAtomicSub(&edt->depcNeeded, 1U);
-                PRINTF("SIG: %lu %lu %u %p %d res: %u %s\n", edtPacket, dataGuid, slot, ptr, mode, res, getTypeName(edtDep[slot].mode));
+                DPRINTF("SIG: %lu %lu %u %p %d res: %u %s\n", edtPacket, dataGuid, slot, ptr, mode, res, getTypeName(edtDep[slot].mode));
                 if(res == 0)
                     hiveHandleReadyEdt(edt);
             }
@@ -356,7 +356,9 @@ void hiveSignalEdt(hiveGuid_t edtGuid, u32 slot, hiveGuid_t dataGuid)
     hiveGuid_t acqGuid = dataGuid;
     hiveType_t mode = hiveGuidGetType(dataGuid);
     if(mode == HIVE_DB_WRITE)
+    {
         acqGuid = hiveGuidCast(dataGuid, HIVE_DB_READ);
+    }
     internalSignalEdt(edtGuid, slot, acqGuid, mode, NULL, 0);
 }
 
@@ -382,7 +384,7 @@ hiveGuid_t hiveActiveMessageWithDb(hiveEdt_t funcPtr, u32 paramc, u64 * paramv, 
 hiveGuid_t hiveActiveMessageWithDbAt(hiveEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, hiveGuid_t dbGuid, unsigned int rank)
 {
     hiveGuid_t guid = hiveEdtCreate(funcPtr, rank, paramc, paramv, depc+1);
-//    PRINTF("AM -> %lu rank: %u depc: %u\n", guid, rank, depc+1);
+    PRINTF("AM -> %lu rank: %u depc: %u\n", guid, rank, depc+1);
     hiveSignalEdt(guid, 0, dbGuid);
     return guid;
 }

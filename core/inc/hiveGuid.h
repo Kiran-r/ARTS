@@ -14,11 +14,9 @@ typedef union
     intptr_t bits: 64;
     struct __attribute__((packed))
     {
-        u8  local:   1; //Means it is created locally
-        u8  type:    5;
-        u16 rank:   13; //1 million nodes
-        u16 thread: 13; //256 threads
-        u32 key:    32; //unique key
+        u8  type:    8;
+        u16 rank:   16; 
+        u64 key:    40;
     } fields;
 } hiveGuid;
 
@@ -28,11 +26,12 @@ hiveGuid_t hiveReserveGuidRouteRemote(hiveType_t type, unsigned int route);
 bool hiveIsGuidLocal(hiveGuid_t guid);
 unsigned int hiveGuidGetRank(hiveGuid_t guid);
 hiveType_t hiveGuidGetType(hiveGuid_t guid);
-hiveType_t hiveGuidCast(hiveGuid_t guid, hiveType_t type);
+hiveGuid_t hiveGuidCast(hiveGuid_t guid, hiveType_t type);
 
 //Internal API
 hiveGuid_t hiveGuidCreateForRank(unsigned int route, unsigned int type);
 void hiveGuidKeyGeneratorInit();
+void setGlobalGuidOn();
 void setGuidGeneratorAfterParallelStart();
 
 typedef struct

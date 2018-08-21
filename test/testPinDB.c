@@ -29,7 +29,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     //This is the node we are going to pin to
     node = atoi(argv[1]);
     //Allocate some DB to test hiveDbCreateWithGuid
-    someDbGuid = hiveReserveGuidRoute(HIVE_DB, node);
+    someDbGuid = hiveReserveGuidRoute(HIVE_DB_PIN, node);
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
@@ -47,8 +47,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         hiveGuid_t edtGuid = hiveEdtCreate(edtFunc, node, 0, NULL, 2);
         
         //Put both signals up front forcing one to be out of order to test the OO code path
-        hiveSignalEdt(edtGuid, dbGuid, 0, DB_MODE_PIN); //Note the mode
-        hiveSignalEdt(edtGuid, someDbGuid, 1, DB_MODE_PIN); //Note the mode
+        hiveSignalEdt(edtGuid, 0, dbGuid); //Note the mode
+        hiveSignalEdt(edtGuid, 1, someDbGuid); //Note the mode
         
         //This is the delayed DB 
         int * ptr2 = hiveDbCreateWithGuid(someDbGuid, sizeof(unsigned int));

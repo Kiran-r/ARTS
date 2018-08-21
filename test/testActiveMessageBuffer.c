@@ -32,7 +32,6 @@ hiveGuid_t getter(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     hiveSignalEdt(am, 1, dbDestGuid);
 }
 
-
 hiveGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 {
     bool pass = true;

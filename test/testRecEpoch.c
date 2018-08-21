@@ -13,7 +13,7 @@ hiveGuid_t dummytask(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 
 hiveGuid_t syncTask(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
 { 
-//    PRINTF("Guid: %lu Sync %lu: %lu\n", hiveGetCurrentGuid(), paramv[0], depv[0].guid);
+    PRINTF("Guid: %lu Sync %lu: %lu\n", hiveGetCurrentGuid(), paramv[0], depv[0].guid);
 }
 
 hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
@@ -30,7 +30,7 @@ hiveGuid_t rootTask(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
         dep--;
         hiveGuid_t guid = hiveEdtCreate(syncTask, hiveGetCurrentNode(), 1, &dep, 1);
         hiveGuid_t epochGuid = hiveInitializeAndStartEpoch(guid, 0);
-//        PRINTF("Guid: %lu Root: %lu sync: %lu epoch: %lu\n", hiveGetCurrentGuid(), dep, guid, epochGuid);
+        PRINTF("Guid: %lu Root: %lu sync: %lu epoch: %lu\n", hiveGetCurrentGuid(), dep, guid, epochGuid);
         
         unsigned int numNodes = hiveGetTotalNodes();
         for (unsigned int rank = 0; rank < numNodes; rank++)

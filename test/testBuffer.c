@@ -20,7 +20,7 @@ hiveGuid_t dummy(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
         PRINTF("%u\n", buffer[i]);
         *sum+=buffer[i];
     }
-    PRINTF("Sum before: %u\n", sum);
+    PRINTF("Sum before: %u\n", *sum);
     hiveSetBuffer(resultGuid, sum, resultSize);
 }
 

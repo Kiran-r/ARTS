@@ -30,10 +30,10 @@ unsigned int globalIndexToOffset(unsigned int index)
     return index % NUMVERT;
 }
 
-artsGuid_t visit(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void visit(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     unsigned int index = paramv[0];
-    u64 * neighbors = &paramv[1];
+    uint64_t * neighbors = &paramv[1];
     vertex * home = depv[0].ptr;
     unsigned int * distance = &home[index].distance;
     
@@ -47,12 +47,12 @@ artsGuid_t visit(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
     
 }
 
-artsGuid_t getDistances(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void getDistances(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     vertex * v = depv[0].ptr;
     for(unsigned int i=0; i<NUMVERT; i++)
     {
-        u64 edges[NUMEDGE+1];
+        uint64_t edges[NUMEDGE+1];
         edges[0] = i;
         for(unsigned int j=0; j<NUMEDGE; j++)
             edges[j+1] = v[i].edgeList[j].target;
@@ -67,7 +67,7 @@ artsGuid_t getDistances(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
     artsShutdown();
 }
 
-artsGuid_t shutDown(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void shutDown(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     for(unsigned int i=0; i<depc; i++)
     {

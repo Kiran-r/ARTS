@@ -6,7 +6,7 @@ unsigned int elementsPerBlock = 0;
 unsigned int blocks = 0;
 artsArrayDb_t * array = NULL;
 
-artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void check(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     for(unsigned int i=0; i<blocks; i++)
     {
@@ -19,14 +19,14 @@ artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
     artsShutdown();
 }
 
-artsGuid_t epochEnd(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void epochEnd(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {    
     artsGatherArrayDb(array, check, 0, 0, NULL, 0);
     unsigned int numInEpoch = depv[0].guid;
     PRINTF("%u in Epoch\n", numInEpoch);
 }
 
-artsGuid_t epochStart(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void epochStart(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     PRINTF("Launching\n");
     artsGuid_t guid = artsNewArrayDb(&array, sizeof(unsigned int), elementsPerBlock * blocks);

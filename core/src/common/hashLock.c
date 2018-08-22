@@ -92,17 +92,17 @@ artsHashListDelete(struct artsHash *hash)
     artsFree(hash->data);
 }
 
-#define hash64(x)       ( (u64)(x) * 14695981039346656037U )
+#define hash64(x)       ( (uint64_t)(x) * 14695981039346656037U )
 //#define H_BITS          16   // Hashtable size = 2 ^ 4 = 16
 #define H_SHIFT_64      ( 64 - H_BITS )
 
-static inline u64 getHashKey( u64 x, unsigned int shift )
+static inline uint64_t getHashKey( uint64_t x, unsigned int shift )
 {
     //return hash64(x) >> H_SHIFT_64;
     return hash64(x) >> (64-shift);
 }
 
-static inline void artsHashKeySet(struct artsHash *current, artsGuid_t key, u64 keyVal)
+static inline void artsHashKeySet(struct artsHash *current, artsGuid_t key, uint64_t keyVal)
 {
     current->data[ keyVal ].key = key;
 }
@@ -116,10 +116,10 @@ artsHashAddItem(struct artsHash *hash, void *item, artsGuid_t key)
 {
     volatile struct artsHash * volatile current = hash;
     volatile struct artsHash * volatile next;
-    u64 keyVal;
+    uint64_t keyVal;
     while( 1 )
     {
-        keyVal =  getHashKey( (u64) key, current->shift);
+        keyVal =  getHashKey( (uint64_t) key, current->shift);
         //PRINTF("Hash %d/%d %d %ld\n", current->use, current->size, current->col, keyVal);
         if( current->data[ keyVal ].lock == 0U  )
         {
@@ -202,10 +202,10 @@ bool
 artsHashDeleteItem(struct artsHash *hash, artsGuid_t key)
 {
     volatile struct artsHash * volatile current = hash;
-    u64 keyVal;
+    uint64_t keyVal;
     while( current != NULL  )
     {
-        keyVal =  getHashKey( (u64) key, current->shift);
+        keyVal =  getHashKey( (uint64_t) key, current->shift);
         if( current->data[ keyVal ].key == key  )
         {
             current->data[ keyVal ].lock = 0U;
@@ -224,10 +224,10 @@ void*
 artsHashLookupItem(struct artsHash *hash, artsGuid_t key)
 {
     volatile struct artsHash * volatile current = hash;
-    u64 keyVal;
+    uint64_t keyVal;
     while( current != NULL  )
     {
-        keyVal =  getHashKey( (u64) key, current->shift);
+        keyVal =  getHashKey( (uint64_t) key, current->shift);
         if( current->data[keyVal].lock == 1U )
         {
             if( current->data[ keyVal ].key == key  )

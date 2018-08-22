@@ -7,12 +7,12 @@ unsigned int counter = 0;
 unsigned int numDummy = 0;
 artsGuid_t exitGuid = NULL_GUID;
 
-artsGuid_t dummytask(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) 
+void dummytask(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) 
 {
     artsAtomicAdd(&counter, 1);
 }
 
-artsGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) 
+void exitProgram(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) 
 {
     unsigned int numNodes = artsGetTotalNodes();
     for(unsigned int i=0; i<depc; i++)
@@ -25,7 +25,7 @@ artsGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
     artsShutdown();
 }
 
-artsGuid_t rootTask(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) 
+void rootTask(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) 
 {
     artsGuid_t guid = artsGetCurrentEpochGuid();
     PRINTF("Starting %lu %u\n", guid, artsGuidGetRank(guid));

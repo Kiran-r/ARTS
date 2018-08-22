@@ -7,7 +7,7 @@ artsGuid_t shutdownGuid = NULL_GUID;
 unsigned int numElements = 0;
 unsigned int blockSize = 0;
 
-artsGuid_t dummy(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void dummy(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     artsGuid_t resultGuid = paramv[0];
     unsigned int resultSize = paramv[1];
@@ -24,7 +24,7 @@ artsGuid_t dummy(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
     artsSetBuffer(resultGuid, sum, resultSize);
 }
 
-artsGuid_t startEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void startEdt(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     uint64_t args[3];
     

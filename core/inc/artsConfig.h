@@ -59,7 +59,7 @@ struct artsConfig
     bool pinThreads;
     unsigned int firstEdt;
     unsigned int shadLoopStride;
-    u64 stackSize;
+    uint64_t stackSize;
     struct artsRemoteLauncher * launcherData;
     char * introspectiveFolder;
     char * introspectiveConf;

@@ -6,7 +6,7 @@ artsAtomicSwap(volatile unsigned int *destination, unsigned int swapIn)
     return __sync_lock_test_and_set(destination, swapIn);
 }
 
-volatile u64 artsAtomicSwapU64(volatile u64 *destination, u64 swapIn)
+volatile uint64_t artsAtomicSwapU64(volatile uint64_t *destination, uint64_t swapIn)
 {
     return __sync_lock_test_and_set(destination, swapIn);
 }
@@ -29,26 +29,26 @@ artsAtomicFetchAdd(volatile unsigned int *destination, unsigned int addVal)
     return __sync_fetch_and_add(destination, addVal);
 }
 
-volatile u64
-artsAtomicFetchAddU64(volatile u64 *destination, u64 addVal)
+volatile uint64_t
+artsAtomicFetchAddU64(volatile uint64_t *destination, uint64_t addVal)
 {
     return __sync_fetch_and_add(destination, addVal);
 }
 
-volatile u64
-artsAtomicFetchSubU64(volatile u64 *destination, u64 subVal)
+volatile uint64_t
+artsAtomicFetchSubU64(volatile uint64_t *destination, uint64_t subVal)
 {
     return __sync_fetch_and_sub(destination, subVal);
 }
 
-volatile u64
-artsAtomicAddU64(volatile u64 *destination, u64 addVal)
+volatile uint64_t
+artsAtomicAddU64(volatile uint64_t *destination, uint64_t addVal)
 {
     return __sync_add_and_fetch(destination, addVal);
 }
 
-volatile u64
-artsAtomicSubU64(volatile u64 *destination, u64 subVal)
+volatile uint64_t
+artsAtomicSubU64(volatile uint64_t *destination, uint64_t subVal)
 {
     return __sync_sub_and_fetch(destination, subVal);
 }
@@ -67,9 +67,9 @@ artsAtomicCswap(volatile unsigned int *destination, unsigned int oldVal,
 
 }
 
-volatile u64 
-artsAtomicCswapU64(volatile u64 *destination, u64 oldVal,
-               u64 swapIn)
+volatile uint64_t 
+artsAtomicCswapU64(volatile uint64_t *destination, uint64_t oldVal,
+               uint64_t swapIn)
 {
     return __sync_val_compare_and_swap(destination, oldVal, swapIn);
 
@@ -105,12 +105,12 @@ bool artsTryLock( volatile unsigned int * lock)
     return (artsAtomicCswap( lock, 0U, 1U ) == 0U);
 }
 
-volatile u64 artsAtomicFetchAndU64(volatile u64 * destination, u64 addVal)
+volatile uint64_t artsAtomicFetchAndU64(volatile uint64_t * destination, uint64_t addVal)
 {
     return __sync_fetch_and_and(destination, addVal);
 }
 
-volatile u64 artsAtomicFetchOrU64(volatile u64 * destination, u64 addVal)
+volatile uint64_t artsAtomicFetchOrU64(volatile uint64_t * destination, uint64_t addVal)
 {
     return __sync_fetch_and_or(destination, addVal);
 }

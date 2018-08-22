@@ -71,7 +71,7 @@ void pushBackEdge(artsEdgeVector *v, vertex s,
 }
 
 void printEdgeVector(const artsEdgeVector *v) {
-  for (u64 i = 0; i < v->used; ++i) {
+  for (uint64_t i = 0; i < v->used; ++i) {
     //PRINTF("(%" PRIu64 ", %" PRIu64 ", %" PRIu64 ")", v->edge_array[i].source, v->edge_array[i].target, v->edge_array[i].data);
     PRINTF("(%" PRIu64 ", %" PRIu64 ")", v->edge_array[i].source, 
            v->edge_array[i].target);

@@ -8,7 +8,7 @@ unsigned int numAdd = 0;
 artsArrayDb_t * array = NULL;
 artsGuid_t arrayGuid = NULL_GUID;
 
-artsGuid_t end(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void end(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     for(unsigned int i=0; i<depc-1; i++)
     {
@@ -19,7 +19,7 @@ artsGuid_t end(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 }
 
 //Created by the epochEnd via gather will signal end
-artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void check(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     for(unsigned int i=0; i<blocks; i++)
     {
@@ -33,7 +33,7 @@ artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 }
 
 //This is run at the end of the epoch
-artsGuid_t epochEnd(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void epochEnd(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {    
     unsigned int numInEpoch = depv[0].guid;
     PRINTF("%u in Epoch\n", numInEpoch);

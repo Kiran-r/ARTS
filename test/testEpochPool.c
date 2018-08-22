@@ -5,14 +5,14 @@
 
 uint64_t numDummy = 0;
 
-artsGuid_t dummytask(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) 
+void dummytask(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) 
 {
     uint64_t index = paramv[0];
     uint64_t dep = paramv[1];
     PRINTF("Dep: %lu ID: %lu Current Node: %u Current Worker: %u\n", dep, index, artsGetCurrentNode(), artsGetCurrentWorker());
 }
 
-artsGuid_t rootTask(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) 
+void rootTask(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) 
 {    
     uint64_t dep = paramv[0];
     PRINTF("Root: %lu\n", dep);

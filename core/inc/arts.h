@@ -19,14 +19,6 @@ extern "C" {
 
 void PRINTF( const char* format, ... );
 
-typedef uint64_t u64; /**< 64-bit unsigned integer */
-typedef uint32_t u32; /**< 32-bit unsigned integer */
-typedef uint16_t u16; /**< 16-bit unsigned integer */
-typedef uint8_t u8;   /**< 8-bit unsigned integer */
-typedef int64_t s64;  /**< 64-bit signed integer */
-typedef int32_t s32;  /**< 32-bit signed integer */
-typedef int8_t s8;    /**< 8-bit signed integer */
-
 /* boolean support in C */
 #ifdef __cplusplus
 #define TRUE true
@@ -36,7 +28,7 @@ typedef int8_t s8;    /**< 8-bit signed integer */
 #define TRUE 1
 #define false 0
 #define FALSE 0
-typedef u8 bool;
+typedef uint8_t bool;
 #endif /* __cplusplus */
 
 typedef intptr_t artsGuid_t; /**< GUID type */
@@ -60,24 +52,6 @@ typedef enum
     ARTS_PTR
 } artsType_t;
 
-#define artsTypeName const char * const _artsTypeName[] = { \
-"ARTS_NULL", \
-"ARTS_EDT", \
-"ARTS_EVENT", \
-"ARTS_EPOCH", \
-"ARTS_CALLBACK", \
-"ARTS_BUFFER", \
-"ARTS_DB_READ", \
-"ARTS_DB_WRITE", \
-"ARTS_DB_PIN", \
-"ARTS_DB_ONCE", \
-"ARTS_DB_ONCE_LOCAL", \
-"ARTS_LAST_TYPE", \
-"ARTS_SINGLE_VALUE", \
-"ARTS_PTR" }
-
-#define getTypeName(x) _artsTypeName[x]
-
 typedef struct
 {
     artsGuid_t guid;
@@ -85,8 +59,7 @@ typedef struct
     void *ptr;
 } artsEdtDep_t;
 
-typedef artsGuid_t (*artsEdt_t) (u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]);
-
+typedef void (*artsEdt_t) (uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
 typedef void (*sendHandler_t) (void * args);
 
 typedef enum
@@ -99,8 +72,8 @@ typedef void (*eventCallback_t)(artsEdtDep_t data);
 
 struct artsHeader
 {
-    u8 type:8;
-    u64 size:56;
+    uint8_t type:8;
+    uint64_t size:56;
 } __attribute__ ((aligned));
 
 struct artsDb
@@ -114,10 +87,10 @@ struct artsEdt
 {
     struct artsHeader header;
     artsEdt_t funcPtr;
-    u32 paramc;
-    u32 depc;
+    uint32_t paramc;
+    uint32_t depc;
     artsGuid_t currentEdt;
-    artsGuid_t outputEvent;
+    artsGuid_t outputBuffer;
     artsGuid_t epochGuid;
     unsigned int cluster;
     volatile unsigned int depcNeeded;
@@ -126,7 +99,7 @@ struct artsEdt
 
 struct artsDependent
 {
-    u8 type;
+    uint8_t type;
     volatile unsigned int slot;
     volatile artsGuid_t addr;
     volatile eventCallback_t callback;

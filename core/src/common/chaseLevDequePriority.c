@@ -11,9 +11,9 @@ struct circularArray
 
 struct artsDeque
 {
-    volatile u64  top;
+    volatile uint64_t  top;
     char pad1[56];
-    volatile u64 bottom;
+    volatile uint64_t bottom;
     char pad2[56];
     struct circularArray * volatile activeArray;
     char pad3[56];
@@ -64,23 +64,23 @@ artsDequeSize(struct artsDeque *deque)
 }
 
 static inline void * 
-getCircularArray(struct circularArray * array, u64 i)
+getCircularArray(struct circularArray * array, uint64_t i)
 {
     return array->segment[i%array->size];
 }
 
 static inline void 
-putCircularArray(struct circularArray * array, u64 i, void * object)
+putCircularArray(struct circularArray * array, uint64_t i, void * object)
 {
     array->segment[i%array->size] = object;
 }
 
 static inline struct circularArray *
-growCircularArray(struct circularArray * array, u64 b, u64 t)
+growCircularArray(struct circularArray * array, uint64_t b, uint64_t t)
 {
     struct circularArray * a = newCircularArray(array->size*2);
     array->next = a;
-    u64 i;
+    uint64_t i;
     for(i=t; i<b; i++)
         putCircularArray(a, i, getCircularArray(array, i));
     return a;
@@ -172,8 +172,8 @@ artsDequePushFront(struct artsDeque *deque, void *item, unsigned int priority)
 {
     deque = findTheDeque(deque, priority);
     struct circularArray * a = deque->activeArray;
-    u64 b = deque->bottom;
-    u64 t = deque->top;
+    uint64_t b = deque->bottom;
+    uint64_t t = deque->top;
     if(b >= a->size - 1 + t)
     {
         a = growCircularArray(a, b, t);
@@ -196,9 +196,9 @@ artsDequePopFront(struct artsDeque *deque)
     if(!o)
     {
 
-        u64 b = --deque->bottom;
+        uint64_t b = --deque->bottom;
         HW_MEMORY_FENCE();
-        u64 t = deque->top;
+        uint64_t t = deque->top;
         
         o = getCircularArray(deque->activeArray, b);
         if(t > b)
@@ -235,13 +235,13 @@ artsDequePopBack(struct artsDeque *deque)
     
     if(!o)
     {
-        u64 t = deque->top;
+        uint64_t t = deque->top;
         HW_MEMORY_FENCE();
-        u64 b = deque->bottom;
+        uint64_t b = deque->bottom;
         if(t < b)
         {
             o = getCircularArray(deque->activeArray, t);
-            u64 temp = artsAtomicCswapU64(&deque->top, t, t+1);
+            uint64_t temp = artsAtomicCswapU64(&deque->top, t, t+1);
             if(temp!=t)
             {
                 o=NULL;

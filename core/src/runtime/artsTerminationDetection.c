@@ -53,7 +53,7 @@ void globalGuidShutdown(artsGuid_t guid)
 bool decrementQueueEpoch(artsEpoch_t * epoch)
 {
     DPRINTF("Dec queue Epoch: %lu\n", epoch->guid);
-    u64 local;
+    uint64_t local;
     while(1)
     {
         local = epoch->queued;

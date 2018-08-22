@@ -46,7 +46,7 @@ struct ooSignalEdt
     enum artsOutOfOrderType type;
     artsGuid_t edtPacket;
     artsGuid_t dataGuid;
-    u32 slot;
+    uint32_t slot;
     artsType_t mode;
 };
 
@@ -54,7 +54,7 @@ struct ooDbRequestSatisfy
 {
     enum artsOutOfOrderType type;
     struct artsEdt * edt;
-    u32 slot;
+    uint32_t slot;
 };
 
 struct ooAddDependence
@@ -62,7 +62,7 @@ struct ooAddDependence
     enum artsOutOfOrderType type;
     artsGuid_t source;
     artsGuid_t destination;
-    u32 slot;
+    uint32_t slot;
     artsType_t mode;
 };
 
@@ -71,7 +71,7 @@ struct ooEventSatisfySlot
     enum artsOutOfOrderType type;
     artsGuid_t eventGuid;
     artsGuid_t dataGuid;
-    u32 slot;
+    uint32_t slot;
 };
 
 struct ooHandleReadyEdt
@@ -290,7 +290,7 @@ inline void artsOutOfOrderHandler(void * handleMe, void * memoryPtr)
 
 }
 
-void artsOutOfOrderSignalEdt (artsGuid_t waitOn, artsGuid_t edtPacket, artsGuid_t dataGuid, u32 slot, artsType_t mode)
+void artsOutOfOrderSignalEdt (artsGuid_t waitOn, artsGuid_t edtPacket, artsGuid_t dataGuid, uint32_t slot, artsType_t mode)
 {
     struct ooSignalEdt * edt = artsMalloc(sizeof(struct ooSignalEdt));
     edt->type = ooSignalEdt;
@@ -306,7 +306,7 @@ void artsOutOfOrderSignalEdt (artsGuid_t waitOn, artsGuid_t edtPacket, artsGuid_
     }   
 }
 
-void artsOutOfOrderEventSatisfySlot(artsGuid_t waitOn, artsGuid_t eventGuid, artsGuid_t dataGuid, u32 slot )
+void artsOutOfOrderEventSatisfySlot(artsGuid_t waitOn, artsGuid_t eventGuid, artsGuid_t dataGuid, uint32_t slot )
 {
     struct ooEventSatisfySlot * event = artsMalloc( sizeof(struct ooEventSatisfySlot) );
     event->type = ooEventSatisfySlot;
@@ -321,7 +321,7 @@ void artsOutOfOrderEventSatisfySlot(artsGuid_t waitOn, artsGuid_t eventGuid, art
     }
 }
 
-void artsOutOfOrderAddDependence(artsGuid_t source, artsGuid_t destination, u32 slot, artsType_t mode, artsGuid_t waitOn)
+void artsOutOfOrderAddDependence(artsGuid_t source, artsGuid_t destination, uint32_t slot, artsType_t mode, artsGuid_t waitOn)
 {
     struct ooAddDependence * dep = artsMalloc(sizeof(struct ooAddDependence));
     dep->type = ooAddDependence;

@@ -6,7 +6,7 @@ artsGuid_t dbGuid;
 artsGuid_t * writeGuids;
 
 
-artsGuid_t writeTest(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void writeTest(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     unsigned int index = paramv[0];
     unsigned int * array = depv[0].ptr;
@@ -27,8 +27,7 @@ artsGuid_t writeTest(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
             PRINTF("i: %u %u\n", i, array[i]);
         }
         artsShutdown();
-    }
-        
+    } 
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
@@ -52,8 +51,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
                 ptr[i] = 0;
         }
         
-        u64 args[2];
-        for(u64 i=0; i<numWrites; i++)
+        uint64_t args[2];
+        for(uint64_t i=0; i<numWrites; i++)
         {
             if(artsIsGuidLocal(writeGuids[i]))
             {

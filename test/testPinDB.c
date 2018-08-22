@@ -6,7 +6,7 @@ unsigned int node = 0;
 artsGuid_t someDbGuid = NULL_GUID;
 
 //This will hang but print a warning if the edt is not on the same node as the pinned DBs
-artsGuid_t edtFunc(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void edtFunc(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     unsigned int * ptr = depv[0].ptr;
     unsigned int * ptr2 = depv[1].ptr;

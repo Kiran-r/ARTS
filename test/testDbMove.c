@@ -5,7 +5,7 @@
 artsGuid_t guid[4];
 artsGuid_t shutdownGuid = NULL_GUID;
 
-artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void check(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     for(unsigned int i=0; i<depc; i++)
     {
@@ -21,7 +21,7 @@ artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
     artsSignalEdtValue(shutdownGuid, -1, 0);
 }
 
-artsGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void shutDownEdt(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     artsShutdown();
 }

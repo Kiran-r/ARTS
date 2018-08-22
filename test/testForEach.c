@@ -6,7 +6,7 @@
 unsigned int elemsPerNode = 4;
 artsArrayDb_t * array = NULL;
 
-artsGuid_t shutdown(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void shutdown(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     PRINTF("Depc: %u\n", depc);
     for(unsigned int i=0; i<depc; i++)
@@ -20,12 +20,12 @@ artsGuid_t shutdown(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
     artsShutdown();
 }
 
-artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void check(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     artsGatherArrayDb(array, shutdown, 0, 0, NULL, 0);
 }
 
-artsGuid_t edtFunc(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void edtFunc(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     unsigned int index = paramv[0];
     artsGuid_t checkGuid = paramv[1];

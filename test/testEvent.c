@@ -4,7 +4,7 @@
 
 artsGuid_t dbGuid = NULL_GUID;
 
-artsGuid_t edtFunc(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void edtFunc(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     PRINTF("HELLO\n");
 }

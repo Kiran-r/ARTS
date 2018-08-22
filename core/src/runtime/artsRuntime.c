@@ -47,10 +47,9 @@ __thread struct artsRuntimePrivate artsThreadInfo;
 typedef bool (*scheduler_t)();
 scheduler_t schedulerLoop[3] = {artsDefaultSchedulerLoop, artsNetworkBeforeStealSchedulerLoop, artsNetworkFirstSchedulerLoop};
 
-artsGuid_t artsMainEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void artsMainEdt(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     artsMain(mainArgc, mainArgv);
-    return NULL_GUID;
 }
 
 void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThreads, unsigned int senderThreads, unsigned int receiverThreads, unsigned int totalThreads, bool remoteStealingOn, struct artsConfig * config)
@@ -67,9 +66,9 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.localSpin = (volatile bool**) artsCalloc(sizeof(bool*)*totalThreads);
     artsNodeInfo.memoryMoves = (unsigned int**) artsCalloc(sizeof(unsigned int*)*totalThreads);
     artsNodeInfo.atomicWaits = (struct atomicCreateBarrierInfo **) artsCalloc(sizeof(struct atomicCreateBarrierInfo*)*totalThreads);
-    artsNodeInfo.workerThreadCount = workerThreads;
-    artsNodeInfo.senderThreadCount = senderThreads;
-    artsNodeInfo.receiverThreadCount = receiverThreads;
+    artsNodeInfo.workerThreadCount      = workerThreads;
+    artsNodeInfo.senderThreadCount      = senderThreads;
+    artsNodeInfo.receiverThreadCount    = receiverThreads;
     artsNodeInfo.totalThreadCount       = totalThreads;
     artsNodeInfo.readyToPush            = totalThreads;
     artsNodeInfo.readyToParallelStart   = totalThreads;
@@ -274,34 +273,27 @@ void artsHandleReadyEdt(struct artsEdt * edt)
 static inline void artsRunEdt(void *edtPacket)
 {
     struct artsEdt *edt = edtPacket;
-    u32 depc = edt->depc;
-    artsEdtDep_t * depv = (artsEdtDep_t *)(((u64 *)(edt + 1)) + edt->paramc);
+    uint32_t depc = edt->depc;
+    artsEdtDep_t * depv = (artsEdtDep_t *)(((uint64_t *)(edt + 1)) + edt->paramc);
 
     artsEdt_t func = edt->funcPtr;
-    u32 paramc = edt->paramc;
-    u64 *paramv = (u64 *)(edt + 1);
+    uint32_t paramc = edt->paramc;
+    uint64_t *paramv = (uint64_t *)(edt + 1);
 
     prepDbs(depc, depv);
 
     artsSetThreadLocalEdtInfo(edt);
     ARTSCOUNTERTIMERSTART(edtCounter);
 
-    artsGuid_t result = func(paramc, paramv, depc, depv);
+    func(paramc, paramv, depc, depv);
 
     ARTSCOUNTERTIMERENDINCREMENT(edtCounter);
     artsUpdatePerformanceMetric(artsEdtThroughput, artsThread, 1, false);
 
     artsUnsetThreadLocalEdtInfo();
 
-    if(edt->outputEvent != NULL_GUID)
-    {
-        if(artsGuidGetType(edt->outputEvent) == ARTS_EVENT)
-            artsEventSatisfySlot(edt->outputEvent, result, ARTS_EVENT_LATCH_DECR_SLOT);
-        else //This is for a synchronous path
-        {
-            artsSetBuffer(edt->outputEvent, artsCalloc(sizeof(unsigned int)), sizeof(unsigned int));
-        }
-    }
+    if(edt->outputBuffer != NULL_GUID) //This is for a synchronous path
+        artsSetBuffer(edt->outputBuffer, artsCalloc(sizeof(unsigned int)), sizeof(unsigned int));
     
     releaseDbs(depc, depv);
     artsEdtDelete(edtPacket);

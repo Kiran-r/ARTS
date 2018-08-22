@@ -12,9 +12,9 @@ struct circularArray
 
 struct artsDeque
 {
-    volatile u64  top;
+    volatile uint64_t  top;
     char pad1[56];
-    volatile u64 bottom;
+    volatile uint64_t bottom;
     char pad2[56];
     struct circularArray * volatile activeArray;
     char pad3[56];
@@ -58,7 +58,7 @@ artsDequeSize(struct artsDeque *deque)
 }
 
 static inline void * 
-getCircularArray(struct circularArray * array, u64 i)
+getCircularArray(struct circularArray * array, uint64_t i)
 {
     return array->segment[i%array->size];
 }
@@ -66,7 +66,7 @@ getCircularArray(struct circularArray * array, u64 i)
 __thread void * stealArray[STEALSIZE];
 
 static inline void 
-getMultipleCircularArray(struct circularArray * array, u64 i)
+getMultipleCircularArray(struct circularArray * array, uint64_t i)
 {
     if(i%array->size + STEALSIZE < array->size)
         memcpy(stealArray, &array->segment[i%array->size],  sizeof(void*) * STEALSIZE);
@@ -76,17 +76,17 @@ getMultipleCircularArray(struct circularArray * array, u64 i)
 }
 
 static inline void 
-putCircularArray(struct circularArray * array, u64 i, void * object)
+putCircularArray(struct circularArray * array, uint64_t i, void * object)
 {
     array->segment[i%array->size] = object;
 }
 
 static inline struct circularArray *
-growCircularArray(struct circularArray * array, u64 b, u64 t)
+growCircularArray(struct circularArray * array, uint64_t b, uint64_t t)
 {
     struct circularArray * a = newCircularArray(array->size*2);
     array->next = a;
-    u64 i;
+    uint64_t i;
     for(i=t; i<b; i++)
         putCircularArray(a, i, getCircularArray(array, i));
     return a;
@@ -129,8 +129,8 @@ bool
 artsDequePushFront(struct artsDeque *deque, void *item, unsigned int priority)
 {
     struct circularArray * a = deque->activeArray;
-    u64 b = deque->bottom;
-    u64 t = deque->top;
+    uint64_t b = deque->bottom;
+    uint64_t t = deque->top;
     if(b >= a->size - 1 + t)
     {
         a = growCircularArray(a, b, t);
@@ -145,9 +145,9 @@ artsDequePushFront(struct artsDeque *deque, void *item, unsigned int priority)
 void *
 artsDequePopFront(struct artsDeque *deque)
 {
-    u64 b = --deque->bottom;
+    uint64_t b = --deque->bottom;
     HW_MEMORY_FENCE();
-    u64 t = deque->top;
+    uint64_t t = deque->top;
     if(t > b)
     {
         deque->bottom = t;        
@@ -168,13 +168,13 @@ artsDequePopFront(struct artsDeque *deque)
 void *
 artsDequePopBack(struct artsDeque *deque)
 {
-    u64 t = deque->top;
+    uint64_t t = deque->top;
     HW_MEMORY_FENCE();
-    u64 b = deque->bottom;
+    uint64_t b = deque->bottom;
     if(t < b)
     {
         void * o = getCircularArray(deque->activeArray, t);
-        u64 temp = artsAtomicCswapU64(&deque->top, t, t+1);
+        uint64_t temp = artsAtomicCswapU64(&deque->top, t, t+1);
         if(temp==t)
         {        
             return o;
@@ -188,13 +188,13 @@ artsDequePopBack(struct artsDeque *deque)
 void **
 artsDequePopBackMult(struct artsDeque *deque)
 {
-    u64 t = deque->top;
+    uint64_t t = deque->top;
     HW_MEMORY_FENCE();
-    u64 b = deque->bottom;
+    uint64_t b = deque->bottom;
     if(t + STEALSIZE < b)
     {
         getMultipleCircularArray(deque->activeArray, t);
-        u64 temp = artsAtomicCswapU64(&deque->top, t, t+STEALSIZE);
+        uint64_t temp = artsAtomicCswapU64(&deque->top, t, t+STEALSIZE);
         if(temp==t)
         {        
             return stealArray;

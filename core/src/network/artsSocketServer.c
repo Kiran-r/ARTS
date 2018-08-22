@@ -680,7 +680,7 @@ static __thread bool * maxIncoming;
 static __thread bool maxOutWorking;
 
 static __thread unsigned int byteRecieveCount=0;
-static __thread u64 lastRecieve;
+static __thread uint64_t lastRecieve;
 static __thread double maxBandwidth=0;
 
 void artsRemotSetThreadInboundQueues(unsigned int start, unsigned int stop)

@@ -21,8 +21,8 @@ typedef struct {
     volatile unsigned int globalFinishedCount;
     volatile unsigned int lastActiveCount;
     volatile unsigned int lastFinishedCount;
-    volatile u64 queued;
-    volatile u64 outstanding;
+    volatile uint64_t queued;
+    volatile uint64_t outstanding;
     unsigned int terminationExitSlot;
     artsGuid_t terminationExitGuid;
     artsGuid_t guid;

@@ -60,11 +60,11 @@ struct __attribute__ ((__packed__)) artsRemotePacket
     unsigned int rank;
 #ifdef SEQUENCENUMBERS
     unsigned int seqRank;
-    u64 seqNum;
+    uint64_t seqNum;
 #endif
 #ifdef COUNT
-    u64 timeStamp;
-    u64 procTimeStamp;
+    uint64_t timeStamp;
+    uint64_t procTimeStamp;
 #endif
 };
 
@@ -137,7 +137,7 @@ struct __attribute__ ((__packed__)) artsRemoteAddDependencePacket
     struct artsRemotePacket header;
     artsGuid_t source;
     artsGuid_t destination;
-    u32 slot;
+    uint32_t slot;
     artsType_t mode;
 
     unsigned int destRoute;
@@ -148,7 +148,7 @@ struct __attribute__ ((__packed__)) artsRemoteEdtSignalPacket
     struct artsRemotePacket header;
     artsGuid_t edt;
     artsGuid_t db;
-    u32 slot;
+    uint32_t slot;
     artsType_t mode;
     //-------------------------Routing info
     unsigned int dbRoute;
@@ -168,7 +168,7 @@ struct __attribute__ ((__packed__)) artsRemoteEventSatisfySlotPacket
     struct artsRemotePacket header;
     artsGuid_t event;
     artsGuid_t db;
-    u32 slot;
+    uint32_t slot;
     //-------------------------Routing info
     unsigned int dbRoute;
 };
@@ -218,8 +218,8 @@ struct __attribute__ ((__packed__)) artsRemoteMetricUpdate
 {
     struct artsRemotePacket header;
     int type;
-    u64 timeStamp;
-    u64 toAdd;
+    uint64_t timeStamp;
+    uint64_t toAdd;
     bool sub;
 };
 

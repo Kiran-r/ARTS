@@ -5,9 +5,9 @@
 extern "C" {
 #endif
 
-artsGuid_t artsEdtCreateShad(artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv);
-artsGuid_t artsActiveMessageShad(artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, void * data, unsigned int size, artsGuid_t epochGuid);
-void artsSynchronousActiveMessageShad(artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, void * data, unsigned int size);
+artsGuid_t artsEdtCreateShad(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv);
+artsGuid_t artsActiveMessageShad(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, void * data, unsigned int size, artsGuid_t epochGuid);
+void artsSynchronousActiveMessageShad(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, void * data, unsigned int size);
 
 void artsIncLockShad();
 void artsDecLockShad();

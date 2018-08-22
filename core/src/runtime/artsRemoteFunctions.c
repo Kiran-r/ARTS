@@ -41,7 +41,7 @@ static inline void artsFillPacketHeader(struct artsRemotePacket * header, unsign
     header->rank = artsGlobalRankId;
 }
 
-void artsRemoteAddDependence(artsGuid_t source, artsGuid_t destination, u32 slot, artsType_t mode, unsigned int rank)
+void artsRemoteAddDependence(artsGuid_t source, artsGuid_t destination, uint32_t slot, artsType_t mode, unsigned int rank)
 {
     DPRINTF("Remote Add dependence sent %d\n", rank);
     struct artsRemoteAddDependencePacket packet;
@@ -312,7 +312,7 @@ void artsRemoteHandleEventMove(void * ptr)
     artsRouteTableFireOO(packet->guid, artsOutOfOrderHandler);
 }
 
-void artsRemoteSignalEdt(artsGuid_t edt, artsGuid_t db, u32 slot, artsType_t mode)
+void artsRemoteSignalEdt(artsGuid_t edt, artsGuid_t db, uint32_t slot, artsType_t mode)
 {
     DPRINTF("Remote Signal %ld %ld %d %d\n",edt,db,slot, artsGuidGetRank(edt));
     struct artsRemoteEdtSignalPacket packet;
@@ -354,7 +354,7 @@ void artsRemoteEventSatisfy(artsGuid_t eventGuid, artsGuid_t dataGuid )
     artsRemoteSendRequestAsync(artsGuidGetRank( eventGuid ), (char *)&packet, sizeof(packet) );
 }
 
-void artsRemoteEventSatisfySlot(artsGuid_t eventGuid, artsGuid_t dataGuid, u32 slot )
+void artsRemoteEventSatisfySlot(artsGuid_t eventGuid, artsGuid_t dataGuid, uint32_t slot )
 {  
     DPRINTF("Remote Satisfy Slot\n");
     struct artsRemoteEventSatisfySlotPacket packet;
@@ -368,7 +368,7 @@ void artsRemoteEventSatisfySlot(artsGuid_t eventGuid, artsGuid_t dataGuid, u32 s
 
 void artsDbRequestCallback(struct artsEdt *edt, unsigned int slot, struct artsDb * dbRes)
 { 
-    artsEdtDep_t * depv = (artsEdtDep_t *)(((u64 *)(edt + 1)) + edt->paramc);
+    artsEdtDep_t * depv = (artsEdtDep_t *)(((uint64_t *)(edt + 1)) + edt->paramc);
     depv[slot].ptr = dbRes + 1;
     unsigned int temp = artsAtomicSub(&edt->depcNeeded, 1U);
     if(temp == 0)
@@ -805,7 +805,7 @@ unsigned int packageEdtsAndDbs( void ** edtPackets, int edtCount, void ** packag
     struct artsEdt *edt;
     char * ptr;
     artsEdtDep_t *depv;
-    u32 depc;
+    uint32_t depc;
     bool res;
 
     DPRINTF("------------Packaging edts-----------\n");
@@ -815,7 +815,7 @@ unsigned int packageEdtsAndDbs( void ** edtPackets, int edtCount, void ** packag
 
         size+=header->size;
         edt = (struct artsEdt *)header;
-        depv = (artsEdtDep_t *)(((u64 *)(edt + 1)) + edt->paramc);        
+        depv = (artsEdtDep_t *)(((uint64_t *)(edt + 1)) + edt->paramc);        
         depc = edt->depc;
 
         for(j=0; j<depc; j++)
@@ -841,7 +841,7 @@ unsigned int packageEdtsAndDbs( void ** edtPackets, int edtCount, void ** packag
     {
         header = (struct artsHeader *)edtPackets[i];
         memcpy( ptr, header, header->size );
-        depv = (artsEdtDep_t *)(((u64 *)(((struct artsEdt*) ptr) + 1)) + edt->paramc);
+        depv = (artsEdtDep_t *)(((uint64_t *)(((struct artsEdt*) ptr) + 1)) + edt->paramc);
         ptr+=header->size;
         finalSize+=header->size;
 
@@ -858,7 +858,7 @@ unsigned int packageEdtsAndDbs( void ** edtPackets, int edtCount, void ** packag
             {
                 DPRINTF("Edt guid not found sent %ld\n", depv[j].guid);
                 DPRINTF("Sent depc %d %d\n",j, header->size);
-                depv[j].ptr = (void*)(u64)0x2;
+                depv[j].ptr = (void*)(uint64_t)0x2;
                 memcpy( ptr, header, header->size );
                 ptr+=header->size;
                 finalSize+=header->size;
@@ -866,7 +866,7 @@ unsigned int packageEdtsAndDbs( void ** edtPackets, int edtCount, void ** packag
             }
             else if(header != NULL && res)
             {
-                depv[j].ptr = (void*)(u64)0x1;
+                depv[j].ptr = (void*)(uint64_t)0x1;
                 DPRINTF("Edt guid found sent %ld %p\n", depv[j].guid, depv[j].ptr);
 
             }
@@ -892,7 +892,7 @@ unsigned int handleIncomingEdts( char* address, int edtSizes )
     int i, totalSize=0;
     void * newEdt;
     struct artsEdt * edt;
-    u32 depc;
+    uint32_t depc;
     artsEdtDep_t *depv;
     unsigned int totalEdtsRecieved = 0;
 
@@ -911,14 +911,14 @@ unsigned int handleIncomingEdts( char* address, int edtSizes )
         edt = newEdt;
         artsRouteTableAddItemRace( edt, (artsGuid_t) edt->currentEdt, artsGlobalRankId, false);
         depc = edt->depc;
-        depv = (artsEdtDep_t *)(((u64 *)(edt + 1)) + edt->paramc);
+        depv = (artsEdtDep_t *)(((uint64_t *)(edt + 1)) + edt->paramc);
 
         DPRINTF("Edt Stolen needs %d\n", depc);
 
         for(i=0; i< depc; i++)
            depv[i].ptr=NULL;
 
-        //if(((u64)edt->currentEdt) < 0x16)
+        //if(((uint64_t)edt->currentEdt) < 0x16)
         //    artsDebugGenerateSegFault();
         
 //        edt->ewSortList = 0x0;
@@ -930,7 +930,7 @@ unsigned int handleIncomingEdts( char* address, int edtSizes )
     return totalEdtsRecieved;
 }
 
-void artsRemoteMetricUpdate(int rank, int type, int level, u64 timeStamp, u64 toAdd, bool sub)
+void artsRemoteMetricUpdate(int rank, int type, int level, uint64_t timeStamp, uint64_t toAdd, bool sub)
 {
     DPRINTF("Remote Metric Update");
     struct artsRemoteMetricUpdate packet; 
@@ -955,7 +955,7 @@ void artsRemoteHandleActiveMessage(void * ptr)
 
     unsigned int size = packet->header.size - sizeof(struct artsRemoteMemoryMovePacket) - edtSize;
     struct artsDb * dbOrig = (struct artsDb *)(((char*)(edtOrig)) + edtSize);
-    artsEdtDep_t * edtDep = (artsEdtDep_t *)((u64 *)(edt + 1) + edt->paramc);
+    artsEdtDep_t * edtDep = (artsEdtDep_t *)((uint64_t *)(edt + 1) + edt->paramc);
     while(size > 0)
     {
 //        PRINTF("unpack size %u\n", size);

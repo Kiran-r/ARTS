@@ -12,20 +12,20 @@
 #define DPRINTF
 //#define DPRINTF(...) PRINTF(__VA_ARGS__)
 
-__thread u64 globalGuidThreadId = 0;
-__thread u64 * keys;
-u64 numTables = 0;
-u64 keysPerThread = 0;
-u64 globalGuidOn = 0;
-u64 minGlobalGuidThread = 0;
-u64 maxGlobalGuidThread = 0;
+__thread uint64_t globalGuidThreadId = 0;
+__thread uint64_t * keys;
+uint64_t numTables = 0;
+uint64_t keysPerThread = 0;
+uint64_t globalGuidOn = 0;
+uint64_t minGlobalGuidThread = 0;
+uint64_t maxGlobalGuidThread = 0;
 
 void setGlobalGuidOn()
 {
-    globalGuidOn = ((u64)1) << 40;
+    globalGuidOn = ((uint64_t)1) << 40;
 }
 
-u64 * artsGuidGeneratorGetKey(unsigned int route, unsigned int type )
+uint64_t * artsGuidGeneratorGetKey(unsigned int route, unsigned int type )
 {
     return &keys[route*ARTS_LAST_TYPE + type];
 }
@@ -50,8 +50,8 @@ artsGuid_t artsGuidCreateForRankInternal(unsigned int route, unsigned int type, 
     else
     {
         
-        u64 * key = artsGuidGeneratorGetKey(route, type);
-        u64 value = *key;
+        uint64_t * key = artsGuidGeneratorGetKey(route, type);
+        uint64_t value = *key;
         if(value + guidCount < keysPerThread)
         {
             guid.fields.key = value + keysPerThread * globalGuidThreadId;
@@ -86,13 +86,13 @@ void setGuidGeneratorAfterParallelStart()
 void artsGuidKeyGeneratorInit()
 {
     numTables           = (artsGlobalRankCount == 1) ? artsNodeInfo.workerThreadCount : artsNodeInfo.workerThreadCount + 1;
-    u64 localId         = (artsThreadInfo.worker) ? artsThreadInfo.threadId : artsNodeInfo.workerThreadCount;
+    uint64_t localId         = (artsThreadInfo.worker) ? artsThreadInfo.threadId : artsNodeInfo.workerThreadCount;
     minGlobalGuidThread = numTables * artsGlobalRankId;
     maxGlobalGuidThread = (artsGlobalRankCount == 1) ? minGlobalGuidThread + numTables : minGlobalGuidThread + numTables -1;
     globalGuidThreadId  = minGlobalGuidThread + localId;
     
 //    PRINTF("numTables: %lu localId: %lu minGlobalGuidThread: %lu maxGlobalGuidThread: %lu globalGuidThreadId: %lu\n", numTables, localId, minGlobalGuidThread, maxGlobalGuidThread, globalGuidThreadId);
-    keys = artsMalloc(sizeof(u64) * ARTS_LAST_TYPE * artsGlobalRankCount);
+    keys = artsMalloc(sizeof(uint64_t) * ARTS_LAST_TYPE * artsGlobalRankCount);
     for(unsigned int i=0; i<ARTS_LAST_TYPE * artsGlobalRankCount; i++)
         keys[i] = 1;
 }

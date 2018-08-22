@@ -47,8 +47,8 @@ struct artsRuntimeShared
     int packetSize;
     bool shutdownStarted;
     volatile unsigned int shutdownCount;
-    u64 shutdownTimeout;
-    u64 shutdownForceTimeout;
+    uint64_t shutdownTimeout;
+    uint64_t shutdownForceTimeout;
     unsigned int printNodeStats;
     artsGuid_t shutdownEpoch;
     unsigned int shadLoopStride;
@@ -88,11 +88,32 @@ extern unsigned int artsGlobalRankId;
 extern unsigned int artsGlobalRankCount;
 extern unsigned int artsGlobalMasterRankId;
 extern bool artsGlobalIWillPrint;
-extern u64 artsGuidMin;
-extern u64 artsGuidMax;
+extern uint64_t artsGuidMin;
+extern uint64_t artsGuidMax;
 
 #define MASTER_PRINTF(...) if (artsGlobalRankId==artsGlobalMasterRankId) PRINTF(__VA_ARGS__)
 #define ONCE_PRINTF(...) if(artsGlobalIWillPrint == true) PRINTF(__VA_ARGS__)
+
+#define artsTypeName const char * const _artsTypeName[] = { \
+"ARTS_NULL", \
+"ARTS_EDT", \
+"ARTS_EVENT", \
+"ARTS_EPOCH", \
+"ARTS_CALLBACK", \
+"ARTS_BUFFER", \
+"ARTS_DB_READ", \
+"ARTS_DB_WRITE", \
+"ARTS_DB_PIN", \
+"ARTS_DB_ONCE", \
+"ARTS_DB_ONCE_LOCAL", \
+"ARTS_LAST_TYPE", \
+"ARTS_SINGLE_VALUE", \
+"ARTS_PTR" }
+
+#define getTypeName(x) _artsTypeName[x]
+
+extern const char * const _artsTypeName[];
+
 #ifdef __cplusplus
 }
 #endif

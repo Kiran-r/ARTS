@@ -18,25 +18,25 @@ artsGuid_t finalReduceGuid = NULL_GUID;
 
 vertex distStart = 0;
 vertex distEnd   = 0;
-u64 blockSize    = 0;
-u64 overSub      = 16;
+uint64_t blockSize    = 0;
+uint64_t overSub      = 16;
 
-u64 otherCount = 0;
-u64 localTriangleCount = 0;
-u64 time = 0;
+uint64_t otherCount = 0;
+uint64_t localTriangleCount = 0;
+uint64_t time = 0;
 
-u64 local = 0;
-u64 remote = 0;
-u64 incoming = 0;
+uint64_t local = 0;
+uint64_t remote = 0;
+uint64_t incoming = 0;
 
-artsGuid_t finalReduce(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]);
-artsGuid_t localReduce(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]);
-artsGuid_t startReduce(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]);
-artsGuid_t visitVertex(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]);
+void finalReduce(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
+void localReduce(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
+void startReduce(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
+void visitVertex(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
 
 //Only support up to 64 nodes
-inline unsigned int checkAndSet(u64 * mask, unsigned int index) {
-    u64 bit = 1 << index;
+inline unsigned int checkAndSet(uint64_t * mask, unsigned int index) {
+    uint64_t bit = 1 << index;
     if(((*mask) & bit) == 0) {
         (*mask)|=bit;
         return 1;
@@ -44,41 +44,41 @@ inline unsigned int checkAndSet(u64 * mask, unsigned int index) {
     return 0;
 }
 
-artsGuid_t finalReduce(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
-    u64 count = 0;
+void finalReduce(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) {
+    uint64_t count = 0;
     for (unsigned int i = 0; i < depc; i++) {
-        count += (u64)depv[i].guid;
+        count += (uint64_t)depv[i].guid;
     }
     time = artsGetTimeStamp() - time;
     PRINTF("Triangle Count: %lu Time: %lu\n", count, time);
     artsShutdown();
 }
 
-artsGuid_t localReduce(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
+void localReduce(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) {
     PRINTF("Local: %lu Remote: %lu Incoming: %lu\n", local, remote, incoming);
     artsSignalEdtValue(finalReduceGuid, artsGetCurrentNode(), localTriangleCount+otherCount);
 }
 
-artsGuid_t startReduce(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
+void startReduce(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) {
     for(unsigned int i=0; i<artsGetTotalNodes(); i++) {
         artsEdtCreateDep(localReduce, i, 0, NULL, 0, false);
     }
 }
 
-inline uint64_t lowerBound(vertex value, u64 start, u64 end, vertex * edges) {
+inline uint64_t lowerBound(vertex value, uint64_t start, uint64_t end, vertex * edges) {
     while ((start < end) && (edges[start] < value))
         start++;
     return start;
 }
 
-inline uint64_t upperBound(vertex value, u64 start, u64 end, vertex * edges) {
+inline uint64_t upperBound(vertex value, uint64_t start, uint64_t end, vertex * edges) {
     while ((start < end) && (value < edges[end - 1]))
         end--;
     return end;
 }
 
-inline u64 countTriangles(vertex * a, u64 a_start, u64 a_end, vertex * b, u64 b_start, u64 b_end) {
-    u64 count = 0;
+inline uint64_t countTriangles(vertex * a, uint64_t a_start, uint64_t a_end, vertex * b, uint64_t b_start, uint64_t b_end) {
+    uint64_t count = 0;
     while ((a_start < a_end) && (b_start < b_end)) {
         if (a[a_start] < b[b_start])
             a_start++;
@@ -93,26 +93,26 @@ inline u64 countTriangles(vertex * a, u64 a_start, u64 a_end, vertex * b, u64 b_
     return count;
 }
 
-inline u64 processVertex(vertex i, vertex * neighbors, u64 neighborCount, u64 * visitMask, u64 * procLocal, u64 * procRemote) {
-    u64 localCount = 0;
+inline uint64_t processVertex(vertex i, vertex * neighbors, uint64_t neighborCount, uint64_t * visitMask, uint64_t * procLocal, uint64_t * procRemote) {
+    uint64_t localCount = 0;
     
-    u64 firstPred = lowerBound(i, 0, neighborCount, neighbors);
-    u64 lastPred = neighborCount;
+    uint64_t firstPred = lowerBound(i, 0, neighborCount, neighbors);
+    uint64_t lastPred = neighborCount;
     
-    for (u64 nextPred = firstPred + 1; nextPred < lastPred; nextPred++) {
+    for (uint64_t nextPred = firstPred + 1; nextPred < lastPred; nextPred++) {
         vertex j = neighbors[nextPred];
         unsigned int owner = getOwner(j, &distribution);
         if (getOwner(j, &distribution) == artsGetCurrentNode()) {
             vertex * jNeighbors = NULL;
-            u64 jNeighborCount = 0;
+            uint64_t jNeighborCount = 0;
             getNeighbors(&graph, j, &jNeighbors, &jNeighborCount);
-            u64 firstSucc = lowerBound(i, 0, jNeighborCount, jNeighbors);
-            u64 lastSucc = upperBound(j, 0, jNeighborCount, jNeighbors);
+            uint64_t firstSucc = lowerBound(i, 0, jNeighborCount, jNeighbors);
+            uint64_t lastSucc = upperBound(j, 0, jNeighborCount, jNeighbors);
             localCount += countTriangles(neighbors, firstPred, nextPred, jNeighbors, firstSucc, lastSucc);
             (*procLocal)++;
         }
         else if(checkAndSet(visitMask, owner)) {
-            u64 args[3];
+            uint64_t args[3];
             args[0] = i;
             args[1] = i;
             args[2] = neighborCount;
@@ -124,30 +124,30 @@ inline u64 processVertex(vertex i, vertex * neighbors, u64 neighborCount, u64 * 
     return localCount;
 }
 
-artsGuid_t visitVertex(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
-    u64 localCount = 0;
+void visitVertex(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) {
+    uint64_t localCount = 0;
     
     vertex start = paramv[0];
     vertex end   = paramv[1];
     
     vertex * neighbors = NULL;
-    u64 neighborCount = 0;
+    uint64_t neighborCount = 0;
     
-    u64 procLocal = 0;
-    u64 procRemote = 0;
-    u64 procIncoming = 0;
+    uint64_t procLocal = 0;
+    uint64_t procRemote = 0;
+    uint64_t procIncoming = 0;
     
     if(depc) {
         neighbors = depv[0].ptr;
         neighborCount = paramv[2];
-        u64 visitMask = (u64) -1; 
+        uint64_t visitMask = (uint64_t) -1; 
         localCount = processVertex(start, neighbors, neighborCount, &visitMask, &procIncoming, &procRemote);
         artsAtomicAddU64(&otherCount, localCount);
         artsAtomicAddU64(&incoming, procIncoming);
     }
     else {
         for(vertex i=start; i<end; i++) {
-            u64 visitMask = 0;
+            uint64_t visitMask = 0;
             getNeighbors(&graph, i, &neighbors, &neighborCount);
             localCount += processVertex(i, neighbors, neighborCount, &visitMask, &procLocal, &procRemote);
         }
@@ -183,8 +183,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     
     artsStartEpoch(epochGuid);
     
-    u64 args[2];
-    u64 workerIndex = 0;
+    uint64_t args[2];
+    uint64_t workerIndex = 0;
     for (vertex i = distStart; i < distEnd; i+=blockSize) {
         if(workerIndex % artsGetTotalWorkers() == workerId) {
             args[0] = i;

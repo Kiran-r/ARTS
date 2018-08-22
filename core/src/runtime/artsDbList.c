@@ -474,7 +474,7 @@ void artsSignalFrontierLocal(struct artsDbFrontier * frontier, struct artsDb * d
         if(frontier->exNode == artsGlobalRankId)
         {
             struct artsEdt * edt = frontier->exEdt;
-            artsEdtDep_t * depv = (artsEdtDep_t *)(((u64 *)(edt + 1)) + edt->paramc);
+            artsEdtDep_t * depv = (artsEdtDep_t *)(((uint64_t *)(edt + 1)) + edt->paramc);
             depv[frontier->exSlot].ptr = db+1;
             if(artsAtomicSub(&edt->depcNeeded,1U) == 0)
                 artsHandleRemoteStolenEdt(edt);
@@ -505,7 +505,7 @@ void artsSignalFrontierLocal(struct artsDbFrontier * frontier, struct artsDb * d
         {
             unsigned int pos = i % DBSPERELEMENT;
             struct artsEdt * edt = current->edt[pos];
-            artsEdtDep_t * depv = (artsEdtDep_t *)(((u64 *)(edt + 1)) + edt->paramc);
+            artsEdtDep_t * depv = (artsEdtDep_t *)(((uint64_t *)(edt + 1)) + edt->paramc);
             depv[current->slot[pos]].ptr = db+1;
 
             if(artsAtomicSub(&edt->depcNeeded,1U) == 0)

@@ -18,7 +18,9 @@
 #include <string.h>
 #define DPRINTF( ... )
 
-void artsDbCreateInternal(artsGuid_t guid, void *addr, u64 size, u64 packetSize, artsType_t mode)
+artsTypeName;
+
+void artsDbCreateInternal(artsGuid_t guid, void *addr, uint64_t size, uint64_t packetSize, artsType_t mode)
 {
     struct artsHeader *header = (struct artsHeader*)addr;
     header->type = mode;
@@ -32,7 +34,7 @@ void artsDbCreateInternal(artsGuid_t guid, void *addr, u64 size, u64 packetSize,
     }
 }
 
-artsGuid_t artsDbCreateRemote(unsigned int route, u64 size, artsType_t mode)
+artsGuid_t artsDbCreateRemote(unsigned int route, uint64_t size, artsType_t mode)
 {
     ARTSEDTCOUNTERTIMERSTART(dbCreateCounter);
     artsGuid_t guid = artsGuidCreateForRank(route, mode);
@@ -46,7 +48,7 @@ artsGuid_t artsDbCreateRemote(unsigned int route, u64 size, artsType_t mode)
 }
 
 //Creates a local DB only
-artsGuid_t artsDbCreate(void **addr, u64 size, artsType_t mode)
+artsGuid_t artsDbCreate(void **addr, uint64_t size, artsType_t mode)
 {
     ARTSEDTCOUNTERTIMERSTART(dbCreateCounter);
     artsGuid_t guid = NULL_GUID;
@@ -68,7 +70,7 @@ artsGuid_t artsDbCreate(void **addr, u64 size, artsType_t mode)
 }
 
 //Guid must be for a local DB only
-void * artsDbCreateWithGuid(artsGuid_t guid, u64 size)
+void * artsDbCreateWithGuid(artsGuid_t guid, uint64_t size)
 {
     ARTSEDTCOUNTERTIMERSTART(dbCreateCounter);
     artsType_t mode = artsGuidGetType(guid);
@@ -92,7 +94,7 @@ void * artsDbCreateWithGuid(artsGuid_t guid, u64 size)
     return ptr;
 }
 
-void * artsDbCreateWithGuidAndData(artsGuid_t guid, void * data, u64 size)
+void * artsDbCreateWithGuidAndData(artsGuid_t guid, void * data, uint64_t size)
 {
     ARTSEDTCOUNTERTIMERSTART(dbCreateCounter);
     artsType_t mode = artsGuidGetType(guid);
@@ -202,14 +204,12 @@ void artsDbDestroySafe(artsGuid_t guid, bool remote)
 
 /**********************DB MEMORY MODEL*************************************/
 
-artsTypeName;
-
 //Side Effects:/ edt depcNeeded will be incremented, ptr will be updated,
 //  and launches out of order handleReadyEdt
 //Returns false on out of order and true otherwise
 void acquireDbs(struct artsEdt * edt)
 {
-    artsEdtDep_t * depv = (artsEdtDep_t *)(((u64 *)(edt + 1)) + edt->paramc);
+    artsEdtDep_t * depv = (artsEdtDep_t *)(((uint64_t *)(edt + 1)) + edt->paramc);
     edt->depcNeeded = edt->depc + 1;
     for(int i=0; i<edt->depc; i++)
     {

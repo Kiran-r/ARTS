@@ -4,12 +4,12 @@
 extern "C" {
 #endif
     
-void artsDbCreateInternal(artsGuid_t guid, void *addr, u64 size, u64 packetSize, artsType_t mode);    
+void artsDbCreateInternal(artsGuid_t guid, void *addr, uint64_t size, uint64_t packetSize, artsType_t mode);    
     
-artsGuid_t artsDbCreate(void **addr, u64 size, artsType_t mode);
-void * artsDbCreateWithGuid(artsGuid_t guid, u64 size);
-void * artsDbCreateWithGuidAndData(artsGuid_t guid, void * data, u64 size);
-artsGuid_t artsDbCreateRemote(unsigned int route, u64 size, artsType_t mode);
+artsGuid_t artsDbCreate(void **addr, uint64_t size, artsType_t mode);
+void * artsDbCreateWithGuid(artsGuid_t guid, uint64_t size);
+void * artsDbCreateWithGuidAndData(artsGuid_t guid, void * data, uint64_t size);
+artsGuid_t artsDbCreateRemote(unsigned int route, uint64_t size, artsType_t mode);
 
 void * artsDbResize(artsGuid_t guid, unsigned int size, bool copy);
 void artsDbMove(artsGuid_t dbGuid, unsigned int rank);

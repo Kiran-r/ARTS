@@ -10,7 +10,7 @@ artsGuid_t dbGuid;
 artsGuid_t * readGuids;
 artsGuid_t * writeGuids;
 
-artsGuid_t shutdownEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void shutdownEdt(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     unsigned int * array = depv[0].ptr;
     for(unsigned int i=0; i<numWrites; i++)
@@ -18,11 +18,9 @@ artsGuid_t shutdownEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
         PRINTF("i: %u %u\n", i, array[i]);
     }
     artsShutdown();
-    // Need to fix the return value
-    return NULL_GUID;
 }
 
-artsGuid_t readTest(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void readTest(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
 //    PRINTF("READ\n");
     unsigned int * array = depv[0].ptr;
@@ -34,11 +32,9 @@ artsGuid_t readTest(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
         }
     }
     artsSignalEdtValue(shutdownGuid, -1, 0);
-    // Need to fix the return value
-    return NULL_GUID;
 }
 
-artsGuid_t writeTest(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void writeTest(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     unsigned int index = paramv[0];
     unsigned int * array = depv[0].ptr;
@@ -62,8 +58,6 @@ artsGuid_t writeTest(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
         artsSignalEdt(shutdownGuid, 0, artsGuidCast(dbGuid, ARTS_DB_WRITE));
     else
         artsSignalEdtValue(shutdownGuid, -1, 0);
-    // Need to fix the return value
-    return NULL_GUID;
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
@@ -101,7 +95,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
             artsEdtCreateWithGuid(shutdownEdt, shutdownGuid, 0, NULL, numDynamicReads*numWrites+numDynamicWrites*numWrites+numReads+numWrites);
         }
 
-        for(u64 i=0; i<numReads; i++)
+        for(uint64_t i=0; i<numReads; i++)
         {
             if(artsIsGuidLocal(readGuids[i]))
             {
@@ -110,7 +104,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
             }
         }
 
-        for(u64 i=0; i<numWrites; i++)
+        for(uint64_t i=0; i<numWrites; i++)
         {
             if(artsIsGuidLocal(writeGuids[i]))
             {

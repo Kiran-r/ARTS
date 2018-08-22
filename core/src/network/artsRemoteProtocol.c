@@ -41,7 +41,7 @@ __thread void ** outResendFree;
 
 #ifdef SEQUENCENUMBERS
 unsigned int * seqNumLock = NULL;
-u64 * seqNumber = NULL;
+uint64_t * seqNumber = NULL;
 #endif
 
 void partialSendStore(struct outList * out , unsigned int lengthRemaining)
@@ -91,7 +91,7 @@ void outInit( unsigned int size )
     nodeListSize = size;
     outHead = artsLinkListGroupNew(size);
 #ifdef SEQUENCENUMBERS
-    seqNumber = artsCalloc(sizeof(u64)*artsGlobalRankCount);
+    seqNumber = artsCalloc(sizeof(uint64_t)*artsGlobalRankCount);
     seqNumLock = artsCalloc(sizeof(unsigned int)*size);
 #endif
 }

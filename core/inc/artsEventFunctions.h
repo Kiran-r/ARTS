@@ -18,9 +18,9 @@ artsGuid_t artsEventCreateLatchWithGuid(artsGuid_t guid, unsigned int latchCount
 
 void artsEventDestroy(artsGuid_t guid);
 
-void artsEventSatisfySlot(artsGuid_t eventGuid, artsGuid_t dataGuid, u32 slot);
+void artsEventSatisfySlot(artsGuid_t eventGuid, artsGuid_t dataGuid, uint32_t slot);
 
-void artsAddDependence(artsGuid_t source, artsGuid_t destination, u32 slot);
+void artsAddDependence(artsGuid_t source, artsGuid_t destination, uint32_t slot);
 
 void artsAddLocalEventCallback(artsGuid_t source, eventCallback_t callback);
 

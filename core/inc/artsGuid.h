@@ -14,9 +14,9 @@ typedef union
     intptr_t bits: 64;
     struct __attribute__((packed))
     {
-        u8  type:    8;
-        u16 rank:   16; 
-        u64 key:    40;
+        uint8_t  type:    8;
+        uint16_t rank:   16; 
+        uint64_t key:    40;
     } fields;
 } artsGuid;
 

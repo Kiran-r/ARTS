@@ -20,7 +20,7 @@ void artsServerSendStealRequest();
 unsigned int artsRemoteSendRequest( int rank, unsigned int queue, char * message, unsigned int length );
 unsigned int artsRemoteSendPayloadRequest( int rank, unsigned int queue, char * message, unsigned int length, char * payload, int length2 );
 
-u8 artsEventSatisfyNoBlock(artsGuid_t eventGuid, artsGuid_t dataGuid);
+uint8_t artsEventSatisfyNoBlock(artsGuid_t eventGuid, artsGuid_t dataGuid);
 unsigned int artsRemoteDivision();
 void artsRemoteTryToBecomePrinter();
 void artsRemoteTryToClosePrinter();

@@ -149,7 +149,7 @@ void artsUnsetThreadLocalEdtInfo()
     currentEdt = NULL;
 }
 
-bool artsEdtCreateInternal(artsGuid_t * guid, unsigned int route, unsigned int cluster, unsigned int edtSpace, artsGuid_t eventGuid, artsEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, bool useEpoch, artsGuid_t epochGuid, bool hasDepv)
+bool artsEdtCreateInternal(artsGuid_t * guid, unsigned int route, unsigned int cluster, unsigned int edtSpace, artsGuid_t outputBuffer, artsEdt_t funcPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, bool useEpoch, artsGuid_t epochGuid, bool hasDepv)
 {
     struct artsEdt *edt;
     ARTSSETMEMSHOTTYPE(artsEdtMemorySize);
@@ -170,11 +170,10 @@ bool artsEdtCreateInternal(artsGuid_t * guid, unsigned int route, unsigned int c
         edt->depc = (hasDepv) ? depc : 0;
         edt->paramc = paramc;
         edt->currentEdt = *guid;
-        edt->outputEvent = NULL_GUID;
+        edt->outputBuffer = outputBuffer;
         edt->epochGuid = NULL_GUID;
         edt->cluster = cluster;
         edt->depcNeeded = depc;
-        edt->outputEvent = eventGuid;
 
         if(useEpoch)
         {
@@ -193,10 +192,7 @@ bool artsEdtCreateInternal(artsGuid_t * guid, unsigned int route, unsigned int c
         globalShutdownGuidIncActive();
         
         if(paramc)
-            memcpy((u64*) (edt+1), paramv, sizeof(u64) * paramc);
-
-        if(eventGuid != NULL_GUID && artsGuidGetType(eventGuid) == ARTS_EVENT)
-            artsAddDependence(*guid, eventGuid, ARTS_EVENT_LATCH_DECR_SLOT);
+            memcpy((uint64_t*) (edt+1), paramv, sizeof(uint64_t) * paramc);
 
         if(route != artsGlobalRankId)
             artsRemoteMemoryMove(route, *guid, (void*)edt, (unsigned int)edt->header.size, ARTS_REMOTE_EDT_MOVE_MSG, artsFree);
@@ -226,33 +222,33 @@ bool artsEdtCreateInternal(artsGuid_t * guid, unsigned int route, unsigned int c
 
 /*----------------------------------------------------------------------------*/
 
-artsGuid_t artsEdtCreateDep(artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u32 depc, bool hasDepv)
+artsGuid_t artsEdtCreateDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, bool hasDepv)
 {
     ARTSEDTCOUNTERTIMERSTART(edtCreateCounter);
     unsigned int depSpace = (hasDepv) ? depc * sizeof(artsEdtDep_t) : 0;
-    unsigned int edtSpace = sizeof(struct artsEdt) + paramc * sizeof(u64) + depSpace;
+    unsigned int edtSpace = sizeof(struct artsEdt) + paramc * sizeof(uint64_t) + depSpace;
     artsGuid_t guid = NULL_GUID;
     artsEdtCreateInternal(&guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
     ARTSEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return guid;
 }
 
-artsGuid_t artsEdtCreateWithGuidDep(artsEdt_t funcPtr, artsGuid_t guid, u32 paramc, u64 * paramv, u32 depc, bool hasDepv)
+artsGuid_t artsEdtCreateWithGuidDep(artsEdt_t funcPtr, artsGuid_t guid, uint32_t paramc, uint64_t * paramv, uint32_t depc, bool hasDepv)
 {
     ARTSEDTCOUNTERTIMERSTART(edtCreateCounter);
     unsigned int route = artsGuidGetRank(guid);
     unsigned int depSpace = (hasDepv) ? depc * sizeof(artsEdtDep_t) : 0;
-    unsigned int edtSpace = sizeof(struct artsEdt) + paramc * sizeof(u64) + depSpace;
+    unsigned int edtSpace = sizeof(struct artsEdt) + paramc * sizeof(uint64_t) + depSpace;
     bool ret = artsEdtCreateInternal(&guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
     ARTSEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return (ret) ? guid : NULL_GUID;
 }
 
-artsGuid_t artsEdtCreateWithEpochDep(artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u32 depc, artsGuid_t epochGuid, bool hasDepv)
+artsGuid_t artsEdtCreateWithEpochDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsGuid_t epochGuid, bool hasDepv)
 {
     ARTSEDTCOUNTERTIMERSTART(edtCreateCounter);
     unsigned int depSpace = (hasDepv) ? depc * sizeof(artsEdtDep_t) : 0;
-    unsigned int edtSpace = sizeof(struct artsEdt) + paramc * sizeof(u64) + depSpace;
+    unsigned int edtSpace = sizeof(struct artsEdt) + paramc * sizeof(uint64_t) + depSpace;
     artsGuid_t guid = NULL_GUID;
     artsEdtCreateInternal(&guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, epochGuid, hasDepv);
     ARTSEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
@@ -261,17 +257,17 @@ artsGuid_t artsEdtCreateWithEpochDep(artsEdt_t funcPtr, unsigned int route, u32 
 
 /*----------------------------------------------------------------------------*/
 
-artsGuid_t artsEdtCreate(artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u32 depc)
+artsGuid_t artsEdtCreate(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc)
 {
     return artsEdtCreateDep(funcPtr, route, paramc, paramv, depc, true);
 }
 
-artsGuid_t artsEdtCreateWithGuid(artsEdt_t funcPtr, artsGuid_t guid, u32 paramc, u64 * paramv, u32 depc)
+artsGuid_t artsEdtCreateWithGuid(artsEdt_t funcPtr, artsGuid_t guid, uint32_t paramc, uint64_t * paramv, uint32_t depc)
 {
     return artsEdtCreateWithGuidDep(funcPtr, guid, paramc, paramv, depc, true);
 }
 
-artsGuid_t artsEdtCreateWithEpoch(artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u32 depc, artsGuid_t epochGuid)
+artsGuid_t artsEdtCreateWithEpoch(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsGuid_t epochGuid)
 {
     return artsEdtCreateWithEpochDep(funcPtr, route, paramc, paramv, depc, epochGuid, true);
 }
@@ -298,9 +294,7 @@ void artsEdtDestroy(artsGuid_t guid)
     artsEdtFree(edt);
 }
 
-extern const char * const _artsTypeName[];
-
-void internalSignalEdt(artsGuid_t edtPacket, u32 slot, artsGuid_t dataGuid, artsType_t mode, void * ptr, unsigned int size)
+void internalSignalEdt(artsGuid_t edtPacket, uint32_t slot, artsGuid_t dataGuid, artsType_t mode, void * ptr, unsigned int size)
 {
     ARTSEDTCOUNTERTIMERSTART(signalEdtCounter);  
     //This is old CDAG code... 
@@ -319,7 +313,7 @@ void internalSignalEdt(artsGuid_t edtPacket, u32 slot, artsGuid_t dataGuid, arts
             struct artsEdt * edt = artsRouteTableLookupItem(edtPacket);
             if(edt)
             {
-                artsEdtDep_t *edtDep = (artsEdtDep_t *)((u64 *)(edt + 1) + edt->paramc);
+                artsEdtDep_t *edtDep = (artsEdtDep_t *)((uint64_t *)(edt + 1) + edt->paramc);
                 if(slot < edt->depc)
                 {
                     edtDep[slot].guid = dataGuid;
@@ -351,7 +345,7 @@ void internalSignalEdt(artsGuid_t edtPacket, u32 slot, artsGuid_t dataGuid, arts
     ARTSEDTCOUNTERTIMERENDINCREMENT(signalEdtCounter);
 }
 
-void artsSignalEdt(artsGuid_t edtGuid, u32 slot, artsGuid_t dataGuid)
+void artsSignalEdt(artsGuid_t edtGuid, uint32_t slot, artsGuid_t dataGuid)
 {
     artsGuid_t acqGuid = dataGuid;
     artsType_t mode = artsGuidGetType(dataGuid);
@@ -362,17 +356,17 @@ void artsSignalEdt(artsGuid_t edtGuid, u32 slot, artsGuid_t dataGuid)
     internalSignalEdt(edtGuid, slot, acqGuid, mode, NULL, 0);
 }
 
-void artsSignalEdtValue(artsGuid_t edtGuid, u32 slot, u64 value)
+void artsSignalEdtValue(artsGuid_t edtGuid, uint32_t slot, uint64_t value)
 {
     internalSignalEdt(edtGuid, slot, value, ARTS_SINGLE_VALUE, NULL, 0);
 }
 
-void artsSignalEdtPtr(artsGuid_t edtGuid,  u32 slot, void * ptr, unsigned int size)
+void artsSignalEdtPtr(artsGuid_t edtGuid,  uint32_t slot, void * ptr, unsigned int size)
 {
     internalSignalEdt(edtGuid, slot, NULL_GUID, ARTS_PTR, ptr, size);
 }
 
-artsGuid_t artsActiveMessageWithDb(artsEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, artsGuid_t dbGuid)
+artsGuid_t artsActiveMessageWithDb(artsEdt_t funcPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsGuid_t dbGuid)
 {
     unsigned int rank = artsGuidGetRank(dbGuid);
     artsGuid_t guid = artsEdtCreate(funcPtr, rank, paramc, paramv, depc+1);
@@ -381,7 +375,7 @@ artsGuid_t artsActiveMessageWithDb(artsEdt_t funcPtr, u32 paramc, u64 * paramv, 
     return guid;
 }
 
-artsGuid_t artsActiveMessageWithDbAt(artsEdt_t funcPtr, u32 paramc, u64 * paramv, u32 depc, artsGuid_t dbGuid, unsigned int rank)
+artsGuid_t artsActiveMessageWithDbAt(artsEdt_t funcPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsGuid_t dbGuid, unsigned int rank)
 {
     artsGuid_t guid = artsEdtCreate(funcPtr, rank, paramc, paramv, depc+1);
     PRINTF("AM -> %lu rank: %u depc: %u\n", guid, rank, depc+1);
@@ -389,7 +383,7 @@ artsGuid_t artsActiveMessageWithDbAt(artsEdt_t funcPtr, u32 paramc, u64 * paramv
     return guid;
 }
 
-artsGuid_t artsActiveMessageWithBuffer(artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u32 depc, void * data, unsigned int size)
+artsGuid_t artsActiveMessageWithBuffer(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, void * data, unsigned int size)
 {
     void * ptr = artsMalloc(size);
     memcpy(ptr, data, size);

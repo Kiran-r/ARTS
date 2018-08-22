@@ -8,7 +8,7 @@ unsigned int numElements = 0;
 unsigned int blockSize = 0;
 unsigned int stride = 0;
 
-artsGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void shutDownEdt(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     bool pass = true;
     if(artsIsGuidLocal(depv[0].guid))

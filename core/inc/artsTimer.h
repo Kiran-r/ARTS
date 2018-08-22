@@ -5,7 +5,7 @@ extern "C" {
 #endif
 #include "arts.h"
 
-u64 artsGetTimeStamp();
+uint64_t artsGetTimeStamp();
 #ifdef __cplusplus
 }
 #endif

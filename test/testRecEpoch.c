@@ -7,22 +7,22 @@ unsigned int counter = 0;
 uint64_t numDummy = 0;
 artsGuid_t exitGuid = NULL_GUID;
 
-artsGuid_t dummytask(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) 
+void dummytask(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) 
 {
 }
 
-artsGuid_t syncTask(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) 
+void syncTask(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) 
 { 
     PRINTF("Guid: %lu Sync %lu: %lu\n", artsGetCurrentGuid(), paramv[0], depv[0].guid);
 }
 
-artsGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) 
+void exitProgram(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) 
 {
     PRINTF("Exit: %lu\n", depv[0].guid);
     artsShutdown();
 }
 
-artsGuid_t rootTask(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) 
+void rootTask(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) 
 {
     uint64_t dep = paramv[0];
     if(dep)

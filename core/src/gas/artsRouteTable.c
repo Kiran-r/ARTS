@@ -39,7 +39,7 @@ struct artsRouteItem
 {
     artsGuid_t key;
     void * data;
-    volatile u64 lock;
+    volatile uint64_t lock;
     unsigned int rank;
     struct artsOutOfOrderList ooList;
 } __attribute__ ((aligned));
@@ -51,7 +51,7 @@ struct artsRouteTable
     unsigned int size;
     unsigned int currentSize;
     unsigned int shift;
-    u64 func;
+    uint64_t func;
     struct artsRouteTable * next;
     volatile unsigned readerLock;
     volatile unsigned writerLock;
@@ -70,7 +70,7 @@ bool markReserve(struct artsRouteItem * item, bool markUse)
 {
     if(markUse)
     {
-        u64 mask = reservedItem + 1;
+        uint64_t mask = reservedItem + 1;
         return !artsAtomicCswapU64(&item->lock, 0, mask);
     }
     else
@@ -79,7 +79,7 @@ bool markReserve(struct artsRouteItem * item, bool markUse)
 
 bool markRequested(struct artsRouteItem * item)
 {
-    u64 local, temp;
+    uint64_t local, temp;
     while(1)
     {
         local = item->lock;
@@ -96,7 +96,7 @@ bool markRequested(struct artsRouteItem * item)
 
 bool markWrite(struct artsRouteItem * item)
 {
-    u64 local, temp;
+    uint64_t local, temp;
     while(1)
     {
         local = item->lock;
@@ -113,7 +113,7 @@ bool markWrite(struct artsRouteItem * item)
 
 bool markDelete(struct artsRouteItem * item)
 {
-    u64 res = artsAtomicFetchOrU64(&item->lock, deleteItem);
+    uint64_t res = artsAtomicFetchOrU64(&item->lock, deleteItem);
     return (res & deleteItem) != 0;
 }
 
@@ -121,7 +121,7 @@ inline void printState(struct artsRouteItem * item)
 {
     if(item)
     {
-        u64 local = item->lock;
+        uint64_t local = item->lock;
         if(isReq(local))
             PRINTF("%lu: reserved-available %p\n", item->key, local);
         else if(isRes(local))
@@ -140,7 +140,7 @@ bool checkItemState(struct artsRouteItem * item, itemState state)
 {
     if(item)
     {
-        u64 local = item->lock;
+        uint64_t local = item->lock;
         switch(state)
         {
             case reservedKey:
@@ -172,7 +172,7 @@ inline bool checkMinItemState(struct artsRouteItem * item, itemState state)
 {
     if(item)
     {
-        u64 local = item->lock;
+        uint64_t local = item->lock;
         itemState actualState = noKey;
 
         if(isDel(local))
@@ -196,7 +196,7 @@ itemState getItemState(struct artsRouteItem * item)
 {
     if(item)
     {
-        u64 local = item->lock;
+        uint64_t local = item->lock;
 
         if(isRes(local))
             return reservedKey;
@@ -216,7 +216,7 @@ bool incItem(struct artsRouteItem * item)
 {
     while(1)
     {
-        u64 local = item->lock;
+        uint64_t local = item->lock;
         if(!(local & deleteItem) && checkMaxItem(local))
         {
             if(local == artsAtomicCswapU64(&item->lock, local, local + 1))
@@ -232,7 +232,7 @@ bool incItem(struct artsRouteItem * item)
 
 bool decItem(struct artsRouteItem * item)
 {
-    u64 local = artsAtomicSubU64(&item->lock, 1);
+    uint64_t local = artsAtomicSubU64(&item->lock, 1);
     if(shouldDelete(local))
     {
         freeItem(item);
@@ -289,11 +289,11 @@ uint64_t urand64()
     return res;
 }
 
-#define hash64(x, y)       ( (u64)(x) * y )
+#define hash64(x, y)       ( (uint64_t)(x) * y )
 
-static inline u64 getRouteTableKey(u64 x, unsigned int shift, u64 func)
+static inline uint64_t getRouteTableKey(uint64_t x, unsigned int shift, uint64_t func)
 {
-    u64 hash = func;
+    uint64_t hash = func;
     hash = 14695981039346656037U;
     switch (shift)
     {
@@ -341,17 +341,17 @@ static inline u64 getRouteTableKey(u64 x, unsigned int shift, u64 func)
 
     return (hash64(x, hash) >> (64-shift))*collisionResolves;
 }
-extern u64 numTables;
-extern u64 maxGuid;
-extern u64 keysPerThread;
-extern u64 minGlobalGuidThread;
-extern u64 maxGlobalGuidThread;
+extern uint64_t numTables;
+extern uint64_t maxGuid;
+extern uint64_t keysPerThread;
+extern uint64_t minGlobalGuidThread;
+extern uint64_t maxGlobalGuidThread;
 
 static inline struct artsRouteTable * artsGetRouteTable(artsGuid_t guid)
 {
     artsGuid raw = (artsGuid) guid;
-    u64 key = raw.fields.key;
-    u64 globalThread = (key / keysPerThread);
+    uint64_t key = raw.fields.key;
+    uint64_t globalThread = (key / keysPerThread);
     if(minGlobalGuidThread <= globalThread && globalThread < maxGlobalGuidThread)
         return artsNodeInfo.routeTable[globalThread - minGlobalGuidThread];
     return artsNodeInfo.remoteRouteTable;
@@ -360,8 +360,8 @@ static inline struct artsRouteTable * artsGetRouteTable(artsGuid_t guid)
 //static inline struct artsRouteTable * artsGetRouteTable(artsGuid_t guid)
 //{
 //    artsGuid raw = (artsGuid) guid;
-//    u64 key = raw.fields.key;
-//    u64 index = key % numTables;
+//    uint64_t key = raw.fields.key;
+//    uint64_t index = key % numTables;
 //    if(index < artsNodeInfo.workerThreadCount) 
 //        return artsNodeInfo.routeTable[index];        
 //    return artsNodeInfo.remoteRouteTable;
@@ -388,10 +388,10 @@ struct artsRouteItem * artsRouteTableSearchForKey(struct artsRouteTable *routeTa
 {
     struct artsRouteTable * current = routeTable;
     struct artsRouteTable * next;
-    u64 keyVal;
+    uint64_t keyVal;
     while(current)
     {
-        keyVal =  getRouteTableKey((u64)key, current->shift, current->func);
+        keyVal =  getRouteTableKey((uint64_t)key, current->shift, current->func);
         for(int i=0; i<collisionResolves; i++ )
         {
             if(checkItemState(&current->data[keyVal], state))
@@ -415,10 +415,10 @@ struct artsRouteItem * artsRouteTableSearchForEmpty(struct artsRouteTable * rout
 {
     struct artsRouteTable * current = routeTable;
     struct artsRouteTable * next;
-    u64 keyVal;
+    uint64_t keyVal;
     while(current != NULL)
     {
-        keyVal = getRouteTableKey((u64) key, current->shift, current->func);
+        keyVal = getRouteTableKey((uint64_t) key, current->shift, current->func);
         for(int i=0; i<collisionResolves; i++)
         {
             if(!current->data[keyVal].lock)
@@ -491,7 +491,7 @@ bool artsRouteTableRemoveItem(artsGuid_t key)
 bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, bool used)
 {
     struct artsRouteTable * routeTable = artsGetRouteTable(key);
-    unsigned int pos = (unsigned int)(((u64)key) % (u64)guidLockSize);
+    unsigned int pos = (unsigned int)(((uint64_t)key) % (uint64_t)guidLockSize);
 
     bool ret = false;
     struct artsRouteItem * found = NULL;
@@ -533,7 +533,7 @@ bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, b
 bool artsRouteTableReserveItemRace(artsGuid_t key, struct artsRouteItem ** item, bool used)
 {
     struct artsRouteTable * routeTable = artsGetRouteTable(key);
-    unsigned int pos = (unsigned int)(((u64)key) % (u64)guidLockSize);
+    unsigned int pos = (unsigned int)(((uint64_t)key) % (uint64_t)guidLockSize);
     bool ret = false;
     *item = NULL;
     while(!(*item))

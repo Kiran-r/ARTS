@@ -5,7 +5,7 @@
 unsigned int elements = 32;
 artsArrayDb_t * array = NULL;
 
-artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void check(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {    
     for(unsigned int i=0; i<depc; i++)
     {
@@ -16,7 +16,7 @@ artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
     artsShutdown();
 }
 
-artsGuid_t edtFunc(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void edtFunc(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     artsGuid_t edtGuid = artsEdtCreate(check, 0, 0, NULL, elements);
     for(unsigned int i=0; i<depc; i++)

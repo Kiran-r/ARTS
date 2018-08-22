@@ -4,12 +4,12 @@
 artsGuid_t shutdownGuid;
 artsGuid_t * guids;
 
-artsGuid_t shutdownEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void shutdownEdt(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     artsShutdown();
 }
 
-artsGuid_t acquireTest(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void acquireTest(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     for(unsigned int i=0; i<depc; i++)
     {

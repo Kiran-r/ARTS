@@ -6,7 +6,7 @@ artsGuid_t dbGuid = NULL_GUID;
 artsGuid_t aGuid = NULL_GUID;
 artsGuid_t bGuid = NULL_GUID;
 
-artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void check(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     unsigned int * ptr;
     artsGuid_t guid = artsDbCreate((void**)&ptr, sizeof(unsigned int), ARTS_DB_ONCE);
@@ -16,7 +16,7 @@ artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
     artsSignalEdt(bGuid, 0, guid);
 }
 
-artsGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void shutDownEdt(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     PRINTF("ShutdownEdt: %lu %u\n", depv[0].guid, *((unsigned int*)depv[0].ptr));
     artsShutdown();

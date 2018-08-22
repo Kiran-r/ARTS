@@ -14,7 +14,7 @@
 #include "artsAtomics.h"
 #include "artsDebug.h"
 
-artsGuid_t llldddd(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+artsGuid_t llldddd(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     PRINTF("LOOP POLICY!!!\n");
 //    artsEdt_t funcPtr = (artsEdt_t)paramv[0];

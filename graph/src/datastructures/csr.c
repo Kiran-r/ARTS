@@ -29,11 +29,11 @@ void initCSR(csr_graph* _csr,
   _csr->row_indices = (vertex*)_csr->data;
   _csr->columns = (vertex*)(_csr->data + (_localv+1)*sizeof(vertex));
 
-  for(u64 i=0; i <= _localv; ++i) {
+  for(uint64_t i=0; i <= _localv; ++i) {
     _csr->row_indices[i] = 0;
   }
 
-  for(u64 i=0; i < _locale; ++i) {
+  for(uint64_t i=0; i < _locale; ++i) {
     _csr->columns[i] = 0;
   }
 
@@ -62,13 +62,13 @@ void initCSR(csr_graph* _csr,
   //  PRINTF("Test=%" PRIu64 "\n",  _csr->columns[0]); 
 
   /*  PRINTF("\n");
-      for (u64 t=0; t <= _localv; ++t) {
+      for (uint64_t t=0; t <= _localv; ++t) {
       PRINTF("B%" PRIu64 ", ",  _csr->row_indices[t]); 
       }
       PRINTF("\n");*/
 
   // populate edges
-  for (u64 i=1; i < _edges->used; ++i) {
+  for (uint64_t i=1; i < _edges->used; ++i) {
     vertex s = _edges->edge_array[i].source;
     vertex t = _edges->edge_array[i].target;
     src_ind = getLocalIndex(s, _dist);
@@ -110,13 +110,13 @@ void initCSR(csr_graph* _csr,
   /*PRINTF("Test00=%" PRIu64 "\n",  _csr->columns[0]); 
 
     PRINTF("\n");
-    for (u64 t=0; t <= _localv; ++t) {
+    for (uint64_t t=0; t <= _localv; ++t) {
     PRINTF("%" PRIu64 ", ",  _csr->row_indices[t]); 
     }
     PRINTF("\n");
 
     PRINTF("\n");
-    for (u64 p=0; p < _locale; ++p) {
+    for (uint64_t p=0; p < _locale; ++p) {
     PRINTF("%" PRIu64 ", ",  _csr->columns[p]); 
     }
     PRINTF("\n");*/
@@ -131,8 +131,8 @@ void printLocalCSR(const csr_graph* _csr) {
   PRINTF("[INFO] Number of local edges : %" PRIu64 "\n", 
          _csr->num_local_edges);
 
-  u64 i, j;
-  u64 nedges = 0;
+  uint64_t i, j;
+  uint64_t nedges = 0;
   for (i=0; i < _csr->num_local_vertices; ++i) {
     if (nedges == _csr->num_local_edges)
       break;
@@ -325,8 +325,8 @@ int loadGraphNoWeightCsr(const char* _file,
         return -1;
     }
 
-    u64 numVerts = 0;
-    u64 numEdges = 0;
+    uint64_t numVerts = 0;
+    uint64_t numEdges = 0;
     
     artsEdgeVector vedges;
     initEdgeVector(&vedges, EDGE_VEC_SZ);
@@ -339,8 +339,8 @@ int loadGraphNoWeightCsr(const char* _file,
         numEdges = atoll(token);
     }
 
-    u64 localEdges = 0;
-    u64 edgeCount = 0;
+    uint64_t localEdges = 0;
+    uint64_t edgeCount = 0;
     graph_sz_t src = 0;
     while (fgets(str, MAXCHAR, file) != NULL) {
         if (str[0] == '%')

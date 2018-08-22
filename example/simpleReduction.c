@@ -5,9 +5,9 @@
 unsigned int numDbs = 0;
 artsGuid_t reductionGuid = NULL_GUID;
 
-artsGuid_t reduction(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void reduction(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    u64 total = 0;
+    uint64_t total = 0;
     for(unsigned int i=0; i<depc; i++)
     {
         int * dbPtr = depv[i].ptr;
@@ -16,7 +16,7 @@ artsGuid_t reduction(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
     artsSignalEdtValue(paramv[0], 0, total);
 }
 
-artsGuid_t shutDown(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void shutDown(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     PRINTF("Result %lu\n", depv[0].guid);
     artsShutdown();
@@ -41,7 +41,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         if(!nodeId)
         {
             artsGuid_t guid = artsEdtCreate(shutDown, 0, 0, NULL, 1);
-            artsEdtCreateWithGuid(reduction, reductionGuid, 1, (u64*)&guid, numDbs);
+            artsEdtCreateWithGuid(reduction, reductionGuid, 1, (uint64_t*)&guid, numDbs);
         }
     }
 }

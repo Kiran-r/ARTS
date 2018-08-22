@@ -18,8 +18,8 @@ char* _id_file = NULL;
 artsGuid_t vertexPropertyMapGuid = NULL_GUID;
 artsGuid_t vertexIDMapGuid = NULL_GUID;
 
-u64 startTime;
-u64 endTime;
+uint64_t startTime;
+uint64_t endTime;
 
 /*Default values as in python code*/
 int num_seeds = 25;
@@ -45,17 +45,17 @@ typedef struct {
     // vertex neighbors[];
 } sourceInfo;
 
-artsGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]);
+void visitSource(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
 
-artsGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
+void exitProgram(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) {
   endTime = artsGetTimeStamp();
   printf("Total execution time: %f s \n", (double)(endTime - startTime)/1000000000.0);
   artsStopIntroShad();
   artsShutdown();
 }
 
-artsGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
-				     u32 depc, artsEdtDep_t depv[]) {
+void GatherNeighborPropertyVal(uint32_t paramc, uint64_t * paramv,
+				     uint32_t depc, artsEdtDep_t depv[]) {
   sourceInfo * srcInfo = depv[depc - 1].ptr;
   vertexProperty * maxWeightedNeighbor = depv[0].ptr;
   for (unsigned int i = 0; i < srcInfo->numNeighbors; i++) {
@@ -76,18 +76,18 @@ artsGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
     vertex source = maxWeightedNeighbor->v;
     node_t rank = getOwner(source, &distribution);
     /*Spawn an edt at rank that is the owner of current seed vertex*/
-    u64 packed_values[3] = {source, srcInfo->step - 1, srcInfo->seed};
-    artsGuid_t visitSourceGuid = artsEdtCreate(visitSource, rank, 3, (u64*) & packed_values, 2);
+    uint64_t packed_values[3] = {source, srcInfo->step - 1, srcInfo->seed};
+    artsGuid_t visitSourceGuid = artsEdtCreate(visitSource, rank, 3, (uint64_t*) & packed_values, 2);
     //        PRINTF("New Edt: %lu Source is located on rank %d Guid: %lu\n", visitSourceGuid, rank, vertexPropertyMapGuid);
     artsSignalEdt(visitSourceGuid, 0, vertexPropertyMapGuid);     
     artsSignalEdt(visitSourceGuid, 1, vertexIDMapGuid);
   }
 }
 
-artsGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) { 
+void visitSource(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) { 
 //  artsStartIntroShad(introStart);
   vertex* neighbors = NULL;
-  u64 neighbor_cnt = 0;    
+  uint64_t neighbor_cnt = 0;    
   vertex source = (vertex) paramv[0];
   int nSteps = (int) paramv[1];
   vertex seed = (vertex) paramv[2];
@@ -130,7 +130,7 @@ artsGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) 
   }
 }
 
-artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
+void check(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) {
     for (unsigned int i = 0; i < depc; i++) {
         vertexProperty * data = depv[i].ptr;
 //        PRINTF("%d %f: %u\n", i, data->v, data->propertyVal);
@@ -139,12 +139,12 @@ artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
     artsShutdown();
 }
 
-artsGuid_t endVertexIDMapRead(u32 paramc, u64 * paramv,
-        u32 depc, artsEdtDep_t depv[]) {
+void endVertexIDMapRead(uint32_t paramc, uint64_t * paramv,
+        uint32_t depc, artsEdtDep_t depv[]) {
   artsGuid_t exitGuid = artsEdtCreate(exitProgram, 0, 0, NULL, 1);    
   artsInitializeAndStartEpoch(exitGuid, 0);
     
-  u64* seeds = (u64*) malloc(sizeof (u64) * num_seeds);
+  uint64_t* seeds = (uint64_t*) malloc(sizeof (uint64_t) * num_seeds);
 
   /*A sanity check that the data is put in properly*/
   /* artsGuid_t edtGuid = artsEdtCreate(check, 0, 0, NULL, distribution.num_vertices); */
@@ -171,8 +171,8 @@ artsGuid_t endVertexIDMapRead(u32 paramc, u64 * paramv,
     node_t rank = getOwner(source, &distribution);
     // PRINTF("Source is located on rank %d\n", rank);
     /*Spawn an edt at rank that is the owner of current seed vertex*/
-    u64 packed_values[3] = {source, num_steps, source};
-    artsGuid_t visitSourceGuid = artsEdtCreate(visitSource, rank, 3, (u64*) &packed_values, 2);
+    uint64_t packed_values[3] = {source, num_steps, source};
+    artsGuid_t visitSourceGuid = artsEdtCreate(visitSource, rank, 3, (uint64_t*) &packed_values, 2);
     // TODO: why pass vertexpropertguid as an argument?
     artsSignalEdt(visitSourceGuid, 0, vertexPropertyMapGuid);
 
@@ -180,8 +180,8 @@ artsGuid_t endVertexIDMapRead(u32 paramc, u64 * paramv,
   }
 }
 
-artsGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
-        u32 depc, artsEdtDep_t depv[]) {
+void endVertexPropertyRead(uint32_t paramc, uint64_t * paramv,
+        uint32_t depc, artsEdtDep_t depv[]) {
   
   /*Now read in the vertex ID map*/
   
@@ -213,7 +213,7 @@ artsGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
   PRINTF("Started reading the vertex ids file..\n");
 
   char str[MAXCHAR];
-  u64 index = 0;
+  uint64_t index = 0;
   while (fgets(str, MAXCHAR, file) != NULL) {
     graph_sz_t vertex;
     graph_sz_t id;
@@ -320,7 +320,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId,
 
     PRINTF("Started reading the vertex property file..\n");
     char str[MAXCHAR];
-    u64 index = 0;
+    uint64_t index = 0;
     while (fgets(str, MAXCHAR, file) != NULL) {
       graph_sz_t vertex;
       double vPropertyVal;

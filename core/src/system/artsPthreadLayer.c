@@ -18,7 +18,7 @@ unsigned int artsGlobalRankCount;
 unsigned int artsGlobalMasterRankId;
 struct artsConfig * gConfig;
 
-artsGuid_t mainEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]);
+artsGuid_t mainEdt(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
 
 struct artsThreadArgs
 {
@@ -100,7 +100,7 @@ artsShutdown()
 }
 
 void
-artsAbort(u8 errorCode)
+artsAbort(uint8_t errorCode)
 {
     artsRemoteShutdown();
 
@@ -110,15 +110,15 @@ artsAbort(u8 errorCode)
     PRINTF("Abort: %d\n", errorCode);
 }
 
-u64
+uint64_t
 getArgc(void *dbPtr)
 {
     int *val = dbPtr;
-    return (u64) * val;
+    return (uint64_t) * val;
 }
 
 char *
-getArgv(void *dbPtr, u64 count)
+getArgv(void *dbPtr, uint64_t count)
 {
     int *argcAddress = dbPtr;
     char ***argvAddress = (char ***) (argcAddress + 1);

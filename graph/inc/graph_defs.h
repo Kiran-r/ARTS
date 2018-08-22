@@ -7,11 +7,11 @@ extern "C" {
 #include "artsRT.h"
 #include "artsGlobals.h"
 
-typedef u64 vertex;
-typedef u64 graph_sz_t;
+typedef uint64_t vertex;
+typedef uint64_t graph_sz_t;
 typedef unsigned int node_t;
-typedef u32 edge_data_t;
-typedef u64 local_index_t;
+typedef uint32_t edge_data_t;
+typedef uint64_t local_index_t;
 
 typedef struct {
   vertex source;

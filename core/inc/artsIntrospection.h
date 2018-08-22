@@ -167,33 +167,33 @@ typedef struct
     char pad3[60];
     volatile unsigned int intervalWriter;
     char pad4[60];
-    volatile u64 totalBytes;
-    volatile u64 totalPackets;
-    volatile u64 minPacket;
-    volatile u64 maxPacket;
-    volatile u64 intervalBytes;
-    volatile u64 intervalPackets;
-    volatile u64 intervalMin;
-    volatile u64 intervalMax;
+    volatile uint64_t totalBytes;
+    volatile uint64_t totalPackets;
+    volatile uint64_t minPacket;
+    volatile uint64_t maxPacket;
+    volatile uint64_t intervalBytes;
+    volatile uint64_t intervalPackets;
+    volatile uint64_t intervalMin;
+    volatile uint64_t intervalMax;
 } artsPacketInspector;
 
 struct artsPerformanceUnit
 {
-    volatile u64 totalCount;
+    volatile uint64_t totalCount;
     char pad1[56];
-    volatile u64 maxTotal;
+    volatile uint64_t maxTotal;
     char pad2[56];
-    u64 firstTimeStamp;
+    uint64_t firstTimeStamp;
     char pad3[56];
     volatile unsigned int lock;
     char pad4[60];
-    volatile u64 windowCountStamp;
-    volatile u64 windowTimeStamp;
-    volatile u64 windowMaxTotal;
-    volatile u64 lastWindowCountStamp;
-    volatile u64 lastWindowTimeStamp;
-    volatile u64 lastWindowMaxTotal;
-    u64 (*timeMethod)(void);
+    volatile uint64_t windowCountStamp;
+    volatile uint64_t windowTimeStamp;
+    volatile uint64_t windowMaxTotal;
+    volatile uint64_t lastWindowCountStamp;
+    volatile uint64_t lastWindowTimeStamp;
+    volatile uint64_t lastWindowMaxTotal;
+    uint64_t (*timeMethod)(void);
 }  __attribute__ ((aligned(64)));
 
 typedef struct artsPerformanceUnit artsPerformanceUnit;
@@ -201,8 +201,8 @@ typedef struct artsPerformanceUnit artsPerformanceUnit;
 typedef struct
 {
     unsigned int startPoint;
-    u64 startTimeStamp;
-    u64 endTimeStamp;
+    uint64_t startTimeStamp;
+    uint64_t endTimeStamp;
     artsPerformanceUnit * coreMetric;
     artsPerformanceUnit * nodeMetric;
     artsPerformanceUnit * systemMetric;
@@ -210,25 +210,25 @@ typedef struct
 
 typedef struct
 {
-    u64 nodeUpdates;
-    u64 systemUpdates;
-    u64 systemMessages;
-    u64 remoteUpdates;
+    uint64_t nodeUpdates;
+    uint64_t systemUpdates;
+    uint64_t systemMessages;
+    uint64_t remoteUpdates;
 } artsInspectorStats;
 
 typedef struct 
 {
-    u64 windowCountStamp;
-    u64 windowTimeStamp;
-    u64 currentCountStamp;
-    u64 currentTimeStamp;
-    u64 maxTotal;
+    uint64_t windowCountStamp;
+    uint64_t windowTimeStamp;
+    uint64_t currentCountStamp;
+    uint64_t currentTimeStamp;
+    uint64_t maxTotal;
 } artsMetricShot;
 
 typedef struct
 {
     artsMetricLevel traceLevel;
-    u64 initialStart;
+    uint64_t initialStart;
     artsArrayList ** coreMetric;
     artsArrayList ** nodeMetric;
     artsArrayList ** systemMetric;
@@ -242,27 +242,27 @@ void artsInternalStartInspector(unsigned int startPoint);
 void artsInternalStopInspector(void);
 bool artsInternalInspecting(void);
 void artsInternalInitIntrospector(struct artsConfig * config);
-u64 artsInternalGetPerformanceMetricTotal(artsMetricType type, artsMetricLevel level);
-u64 artsInternalGetPerformanceMetricRateU64(artsMetricType type, artsMetricLevel level, bool last);
-u64 artsInternalGetPerformanceMetricRateU64Diff(artsMetricType type, artsMetricLevel level, u64 * diff);
-u64 artsInternalGetTotalMetricRateU64(artsMetricType type, artsMetricLevel level, u64 * total, u64 * timeStamp);
+uint64_t artsInternalGetPerformanceMetricTotal(artsMetricType type, artsMetricLevel level);
+uint64_t artsInternalGetPerformanceMetricRateU64(artsMetricType type, artsMetricLevel level, bool last);
+uint64_t artsInternalGetPerformanceMetricRateU64Diff(artsMetricType type, artsMetricLevel level, uint64_t * diff);
+uint64_t artsInternalGetTotalMetricRateU64(artsMetricType type, artsMetricLevel level, uint64_t * total, uint64_t * timeStamp);
 double artsInternalGetPerformanceMetricRate(artsMetricType type, artsMetricLevel level, bool last);
-bool artsInternalSingleMetricUpdate(artsMetricType type, artsMetricLevel level, u64 *toAdd, bool *sub, artsPerformanceUnit * metric);
-void artsInternalHandleRemoteMetricUpdate(artsMetricType type, artsMetricLevel level, u64 toAdd, bool sub);
-artsMetricLevel artsInternalUpdatePerformanceMetric(artsMetricType type, artsMetricLevel level, u64 toAdd, bool sub);
-artsMetricLevel artsInternalUpdatePerformanceCoreMetric(unsigned int core, artsMetricType type, artsMetricLevel level, u64 toAdd, bool sub);
+bool artsInternalSingleMetricUpdate(artsMetricType type, artsMetricLevel level, uint64_t *toAdd, bool *sub, artsPerformanceUnit * metric);
+void artsInternalHandleRemoteMetricUpdate(artsMetricType type, artsMetricLevel level, uint64_t toAdd, bool sub);
+artsMetricLevel artsInternalUpdatePerformanceMetric(artsMetricType type, artsMetricLevel level, uint64_t toAdd, bool sub);
+artsMetricLevel artsInternalUpdatePerformanceCoreMetric(unsigned int core, artsMetricType type, artsMetricLevel level, uint64_t toAdd, bool sub);
 void artsInternalWriteMetricShotFile(unsigned int threadId, unsigned int nodeId);
 void internalPrintTotals(unsigned int nodeId);
 void printModelTotalMetrics(artsMetricLevel level);
-void artsInternalUpdatePacketInfo(u64 bytes);
-void artsInternalPacketStats(u64 * totalBytes, u64 * totalPackets, u64 * minPacket, u64 * maxPacket);
-void artsInternalIntervalPacketStats(u64 * totalBytes, u64 * totalPackets, u64 * minPacket, u64 * maxPacket);
+void artsInternalUpdatePacketInfo(uint64_t bytes);
+void artsInternalPacketStats(uint64_t * totalBytes, uint64_t * totalPackets, uint64_t * minPacket, uint64_t * maxPacket);
+void artsInternalIntervalPacketStats(uint64_t * totalBytes, uint64_t * totalPackets, uint64_t * minPacket, uint64_t * maxPacket);
 void printInspectorStats(void);
 void printInspectorTime(void);
-void artsInternalSetThreadPerformanceMetric(artsMetricType type, u64 value);
-u64 artsGetInspectorTime(void);
+void artsInternalSetThreadPerformanceMetric(artsMetricType type, uint64_t value);
+uint64_t artsGetInspectorTime(void);
 double artsInternalGetPerformanceMetricTotalRate(artsMetricType type, artsMetricLevel level);
-double artsMetricTest(artsMetricType type, artsMetricLevel level, u64 num);
+double artsMetricTest(artsMetricType type, artsMetricLevel level, uint64_t num);
 
 #ifdef INSPECTOR
 

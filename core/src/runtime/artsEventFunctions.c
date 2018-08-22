@@ -84,7 +84,7 @@ void artsEventDestroy(artsGuid_t guid) {
     }
 }
 
-void artsEventSatisfySlot(artsGuid_t eventGuid, artsGuid_t dataGuid, u32 slot) {
+void artsEventSatisfySlot(artsGuid_t eventGuid, artsGuid_t dataGuid, uint32_t slot) {
     ARTSEDTCOUNTERTIMERSTART(signalEventCounter);
     if (currentEdt && currentEdt->invalidateCount > 0) {
         artsOutOfOrderEventSatisfySlot(currentEdt->currentEdt, eventGuid, dataGuid, slot);
@@ -203,7 +203,7 @@ struct artsDependent * artsDependentGet(struct artsDependentList * head, int pos
     return list->dependents + position;
 }
 
-void artsAddDependence(artsGuid_t source, artsGuid_t destination, u32 slot) {
+void artsAddDependence(artsGuid_t source, artsGuid_t destination, uint32_t slot) {
     artsType_t mode = artsGuidGetType(destination);
     struct artsHeader *sourceHeader = artsRouteTableLookupItem(source);
     if (sourceHeader == NULL) {

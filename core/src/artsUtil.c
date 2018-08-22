@@ -78,10 +78,10 @@ void artsStopLocalNode()
     artsRuntimeStop();
 }
 
-u64 threadSafeRandom()
+uint64_t threadSafeRandom()
 {
     long int temp = jrand48(artsThreadInfo.drand_buf);
-    return (u64) temp;
+    return (uint64_t) temp;
 }
 
 //char * artsParallelCreateMMAP( char * pathToFile)

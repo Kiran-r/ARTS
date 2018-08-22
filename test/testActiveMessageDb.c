@@ -8,7 +8,7 @@ artsGuid_t shutdownGuid = NULL_GUID;
 unsigned int numElements = 0;
 unsigned int blockSize = 0;
 
-artsGuid_t setter(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void setter(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     
     unsigned int id = paramv[0];
@@ -21,7 +21,7 @@ artsGuid_t setter(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
     artsSignalEdt(shutdownGuid, id, dbDestGuid);
 }
 
-artsGuid_t getter(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void getter(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     unsigned int * buffer;
     artsGuid_t cpyDb = artsDbCreate((void **) &buffer, sizeof(unsigned int)*blockSize, ARTS_DB_READ);
@@ -37,7 +37,7 @@ artsGuid_t getter(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 }
 
 
-artsGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void shutDownEdt(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     bool pass = true;
     unsigned int * data = depv[0].ptr;
@@ -68,7 +68,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 {
     if(!workerId)
     {   
-        u64 id = nodeId;
+        uint64_t id = nodeId;
         artsActiveMessageWithDb(getter, 1, &id, 0, dbSourceGuid);
         
         if(!nodeId)

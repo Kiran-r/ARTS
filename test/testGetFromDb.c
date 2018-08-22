@@ -9,7 +9,7 @@ unsigned int numElements = 0;
 unsigned int blockSize = 0;
 unsigned int stride = 0;
 
-artsGuid_t getter(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void getter(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     unsigned int sum = 0;
     for(unsigned int i=0; i<depc; i++)
@@ -23,7 +23,7 @@ artsGuid_t getter(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
     artsSignalEdtValue(shutdownGuid, artsGetCurrentNode(), sum);
 }
 
-artsGuid_t creater(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void creater(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     unsigned int * data = artsMalloc(sizeof(unsigned int)*numElements);
     for(unsigned int i=0; i<numElements; i++)
@@ -34,7 +34,7 @@ artsGuid_t creater(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
     artsEdtCreateWithGuid(getter, edtGuidFixed, 0, NULL, blockSize/stride);
 }
 
-artsGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void shutDownEdt(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     unsigned int sum = 0;
     for(unsigned int i=0; i<artsGetTotalNodes(); i++)

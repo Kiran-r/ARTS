@@ -123,10 +123,10 @@ void artsPutInArrayDb(void * ptr, artsGuid_t edtGuid, unsigned int slot, artsArr
     artsPutInDbAt(ptr, edtGuid, guid, slot, offset, array->elementSize, rank);
 }
 
-void artsForEachInArrayDb(artsArrayDb_t * array, artsEdt_t funcPtr, u32 paramc, u64 * paramv)
+void artsForEachInArrayDb(artsArrayDb_t * array, artsEdt_t funcPtr, uint32_t paramc, uint64_t * paramv)
 {
-    u64 * args = artsMalloc(sizeof(u64) * (paramc+1));
-    memcpy(&args[1], paramv, sizeof(u64) * paramc);
+    uint64_t * args = artsMalloc(sizeof(uint64_t) * (paramc+1));
+    memcpy(&args[1], paramv, sizeof(uint64_t) * paramc);
     
     unsigned int size = artsGetSizeArrayDb(array);
     for(unsigned int i=0; i<size; i++)
@@ -138,7 +138,7 @@ void artsForEachInArrayDb(artsArrayDb_t * array, artsEdt_t funcPtr, u32 paramc, 
     }
 }
 
-artsGuid_t artsGatherArrayDb(artsArrayDb_t * array, artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, u64 depc)
+void artsGatherArrayDb(artsArrayDb_t * array, artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint64_t depc)
 {
     unsigned int offset = getOffsetFromIndex(array, 0);
     unsigned int size = array->elementSize * array->elementsPerBlock;
@@ -151,7 +151,7 @@ artsGuid_t artsGatherArrayDb(artsArrayDb_t * array, artsEdt_t funcPtr, unsigned 
     }
 }
 
-artsGuid_t loopPolicy(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
+void loopPolicy(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     artsEdt_t funcPtr = (artsEdt_t)paramv[0];
     unsigned int stride = paramv[1];
@@ -172,7 +172,7 @@ artsGuid_t loopPolicy(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
     depv[0].ptr = (void*)raw;
 }
 
-void artsForEachInArrayDbAtData(artsArrayDb_t * array, unsigned int stride, artsEdt_t funcPtr, u32 paramc, u64 * paramv)
+void artsForEachInArrayDbAtData(artsArrayDb_t * array, unsigned int stride, artsEdt_t funcPtr, uint32_t paramc, uint64_t * paramv)
 {
     unsigned int blockSize = array->elementsPerBlock;
     unsigned int size = artsGetSizeArrayDb(array);
@@ -181,10 +181,10 @@ void artsForEachInArrayDbAtData(artsArrayDb_t * array, unsigned int stride, arts
         PRINTF("WARNING: Size is not divisible by stride!");
     }
     artsGuid_t guid = getArrayDbGuid(array);
-    u64 * args = artsMalloc(sizeof(u64) * (paramc+4));
+    uint64_t * args = artsMalloc(sizeof(uint64_t) * (paramc+4));
     if(paramc)
-        memcpy(&args[4], paramv, sizeof(u64) * paramc);
-    args[0] = (u64)funcPtr;
+        memcpy(&args[4], paramv, sizeof(uint64_t) * paramc);
+    args[0] = (uint64_t)funcPtr;
     args[1] = stride;
     for(unsigned int i=0; i<size; i+=blockSize)
     {

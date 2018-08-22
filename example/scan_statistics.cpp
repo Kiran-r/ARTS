@@ -21,8 +21,8 @@ csr_graph graph;
 char* _file = NULL;
 artsGuid_t maxReducerGuid = NULL_GUID;
 
-u64 startTime;
-u64 endTime;
+uint64_t startTime;
+uint64_t endTime;
 
 typedef struct {
   artsGuid_t findIntersectionGuid;
@@ -33,27 +33,27 @@ typedef struct {
 
 typedef struct {
   vertex source;
-  u64 scanStat;
+  uint64_t scanStat;
 } perVertexScanStat;
 
 // int compare(const void * a, const void * b)
 // {
-//   return ( *(u64*)a - *(u64*)b );
+//   return ( *(uint64_t*)a - *(uint64_t*)b );
 // }
 
-// artsGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]);
+// artsGuid_t visitSource(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
 
-// artsGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
+// artsGuid_t exitProgram(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) {
 //   printf("Called exit\n");
 //   artsShutdown();
 // }
 
-artsGuid_t maxReducer(u32 paramc, u64 * paramv,
-				     u32 depc, artsEdtDep_t depv[]) {
+void maxReducer(uint32_t paramc, uint64_t * paramv,
+				     uint32_t depc, artsEdtDep_t depv[]) {
   // std::cout << "In max reducer" << std::endl;
-  u32 maxScanStat = 0;
+  uint32_t maxScanStat = 0;
   vertex maxVertex = 0;
-  for (u32 v = 0; v < depc; v++) {
+  for (uint32_t v = 0; v < depc; v++) {
     perVertexScanStat * vertexScanStat = (perVertexScanStat *) depv[v].ptr;
     // std::cout << "Vertex: " << vertexScanStat->source << " scan_stat: " << vertexScanStat->scanStat << std::endl;
     if (vertexScanStat->scanStat > maxScanStat) {
@@ -68,13 +68,13 @@ artsGuid_t maxReducer(u32 paramc, u64 * paramv,
   artsShutdown();
 }
 
-artsGuid_t findIntersection(u32 paramc, u64 * paramv,
-				     u32 depc, artsEdtDep_t depv[]) {
-  u64 sum = 0;
+void findIntersection(uint32_t paramc, uint64_t * paramv,
+				     uint32_t depc, artsEdtDep_t depv[]) {
+  uint64_t sum = 0;
   perVertexScanStat * localIntersection = (perVertexScanStat *) depv[0].ptr;
   vertex source = (vertex) localIntersection->source;
 
-  for (u64 rank = 0; rank < depc; rank++) {
+  for (uint64_t rank = 0; rank < depc; rank++) {
 
     perVertexScanStat * localIntersection = (perVertexScanStat *) depv[rank].ptr;
     // std::cout << "Source: " << source << " Rank: " << rank << "Scanstat: " << localIntersection->scanStat << std::endl;
@@ -82,7 +82,7 @@ artsGuid_t findIntersection(u32 paramc, u64 * paramv,
   }
 
   vertex* neighbors = NULL;
-  u64 neighbor_cnt = 0;    
+  uint64_t neighbor_cnt = 0;    
   getNeighbors(&graph, source, &neighbors, &neighbor_cnt);
   
   sum += neighbor_cnt;
@@ -97,8 +97,8 @@ artsGuid_t findIntersection(u32 paramc, u64 * paramv,
   artsSignalEdt(maxReducerGuid, source, dbGuid);
 }
 
-artsGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
-				     u32 depc, artsEdtDep_t depv[]) {
+void visitOneHopNeighborOnRank(uint32_t paramc, uint64_t * paramv,
+				     uint32_t depc, artsEdtDep_t depv[]) {
   sourceInfo * srcInfo = (sourceInfo *) depv[0].ptr;
   vertex* oneHopNeighbor;
   vertex* immediateNeighbors = srcInfo->neighbors;
@@ -108,7 +108,7 @@ artsGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
     if (getOwner(current_neighbor, &distribution) == artsGetCurrentNode()) {
       // std::cout << "Source " << srcInfo->source << " Current_neighbor: " << current_neighbor << std::endl;
       vertex* oneHopNeighbors = NULL;
-      u64 neighbor_cnt = 0;
+      uint64_t neighbor_cnt = 0;
       getNeighbors(&graph, current_neighbor, &oneHopNeighbors, &neighbor_cnt);
       for (unsigned int j = 0; j < neighbor_cnt; j++) {
 	// std::cout << "One-hop neighbor for " <<  srcInfo->source << " is: " << oneHopNeighbors[j] << std::endl;
@@ -130,9 +130,9 @@ artsGuid_t visitOneHopNeighborOnRank(u32 paramc, u64 * paramv,
   artsSignalEdt(srcInfo->findIntersectionGuid, artsGetCurrentNode(), dbGuid);
 }
 
-artsGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) { 
+void visitSource(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]) { 
   vertex* neighbors = NULL;
-  u64 neighbor_cnt = 0;    
+  uint64_t neighbor_cnt = 0;    
   vertex source = (vertex) paramv[0];
   // std::cout << "Visiting source: " << source <<std::endl;
   getNeighbors(&graph, source, &neighbors, &neighbor_cnt);
@@ -195,8 +195,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId,
     for (uint64_t i = 0; i < distribution.num_vertices; ++i) {
       uint64_t source = i;  
       node_t rank = getOwner(source, &distribution);
-      u64 packed_values[1] = {source};
-      artsGuid_t visitSourceGuid = artsEdtCreate(visitSource, rank, 1, (u64*) &packed_values, 1);
+      uint64_t packed_values[1] = {source};
+      artsGuid_t visitSourceGuid = artsEdtCreate(visitSource, rank, 1, (uint64_t*) &packed_values, 1);
       artsSignalEdtValue(visitSourceGuid, -1, 0);
     }
     // artsShutdown();

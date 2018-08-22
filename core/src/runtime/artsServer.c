@@ -23,7 +23,7 @@ FILE * lockPrintFile;
 extern bool serverEnd;
 
 #ifdef SEQUENCENUMBERS
-u64 * recSeqNumbers;
+uint64_t * recSeqNumbers;
 #endif
 
 void artsRemoteTryToBecomePrinter()
@@ -129,7 +129,7 @@ void artsServerSetup( struct artsConfig * config)
     artsLLServerSetRank(config);
     outInit(artsGlobalRankCount*config->ports);
     #ifdef SEQUENCENUMBERS
-    recSeqNumbers = artsCalloc(sizeof(u64)*artsGlobalRankCount);
+    recSeqNumbers = artsCalloc(sizeof(uint64_t)*artsGlobalRankCount);
     #endif
 }
 
@@ -143,7 +143,7 @@ void artsServerProcessPacket(struct artsRemotePacket * packet)
         artsUpdatePacketInfo(packet->size);
     }
 #ifdef SEQUENCENUMBERS
-    u64 expSeqNumber = __sync_fetch_and_add(&recSeqNumbers[packet->seqRank], 1U);
+    uint64_t expSeqNumber = __sync_fetch_and_add(&recSeqNumbers[packet->seqRank], 1U);
     if(expSeqNumber != packet->seqNum)
     {
         PRINTF("MESSAGE RECIEVED OUT OF ORDER exp: %lu rec: %lu source: %u type: %d\n", expSeqNumber, packet->seqNum, packet->rank, packet->messageType);
@@ -273,7 +273,7 @@ void artsServerProcessPacket(struct artsRemotePacket * packet)
         {
             DPRINTF("Remote Handle EDT\n");
             unsigned int remoteStolenEdtCount = handleIncomingEdts( (char *)(packet+1), packet->size- sizeof(*packet) );
-            artsUpdatePerformanceMetric(artsNetworkRecieveBW, artsThread, (u64) remoteStolenEdtCount, false);
+            artsUpdatePerformanceMetric(artsNetworkRecieveBW, artsThread, (uint64_t) remoteStolenEdtCount, false);
             artsNodeInfo.stealRequestLock=0U;
             break;
         }

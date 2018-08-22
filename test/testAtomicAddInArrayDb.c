@@ -1,25 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "hiveRT.h"
+#include "artsRT.h"
 
 unsigned int elementsPerBlock = 0;
 unsigned int blocks = 0;
 unsigned int numAdd = 0;
-hiveArrayDb_t * array = NULL;
-hiveGuid_t arrayGuid = NULL_GUID;
+artsArrayDb_t * array = NULL;
+artsGuid_t arrayGuid = NULL_GUID;
 
-hiveGuid_t end(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t end(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     for(unsigned int i=0; i<depc-1; i++)
     {
         unsigned int data = depv[i].guid;
         PRINTF("updates: %u\n", data);
     }
-    hiveShutdown();
+    artsShutdown();
 }
 
 //Created by the epochEnd via gather will signal end
-hiveGuid_t check(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     for(unsigned int i=0; i<blocks; i++)
     {
@@ -29,23 +29,23 @@ hiveGuid_t check(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
             PRINTF("i: %u j: %u %u\n", i, j, data[j]);
         }
     }
-    hiveSignalEdtValue(paramv[0], numAdd*elementsPerBlock*blocks, 0);
+    artsSignalEdtValue(paramv[0], numAdd*elementsPerBlock*blocks, 0);
 }
 
 //This is run at the end of the epoch
-hiveGuid_t epochEnd(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t epochEnd(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {    
     unsigned int numInEpoch = depv[0].guid;
     PRINTF("%u in Epoch\n", numInEpoch);
-    hiveGatherArrayDb(array, check, 0, 1, paramv, 0);
+    artsGatherArrayDb(array, check, 0, 1, paramv, 0);
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
     elementsPerBlock = atoi(argv[1]);
-    blocks = hiveGetTotalNodes();
+    blocks = artsGetTotalNodes();
     numAdd = atoi(argv[2]);
-    arrayGuid = hiveReserveGuidRoute(HIVE_DB_PIN, 0);
+    arrayGuid = artsReserveGuidRoute(ARTS_DB_PIN, 0);
     if(!nodeId)
         PRINTF("ElementsPerBlock: %u Blocks: %u\n", elementsPerBlock, blocks);
 }
@@ -56,19 +56,19 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     if(!workerId && !nodeId)
     {
         //The end will get all the updates and a signal from the gather
-        hiveGuid_t endGuid = hiveEdtCreate(end, 0, 0, NULL, numAdd*elementsPerBlock*blocks + 1);
+        artsGuid_t endGuid = artsEdtCreate(end, 0, 0, NULL, numAdd*elementsPerBlock*blocks + 1);
 
-        hiveGuid_t endEpochGuid = hiveEdtCreate(epochEnd, 0, 1, &endGuid, 1);
-        hiveInitializeAndStartEpoch(endEpochGuid, 0);
+        artsGuid_t endEpochGuid = artsEdtCreate(epochEnd, 0, 1, &endGuid, 1);
+        artsInitializeAndStartEpoch(endEpochGuid, 0);
 
-        array = hiveNewArrayDbWithGuid(arrayGuid, sizeof(unsigned int), elementsPerBlock * blocks);
+        array = artsNewArrayDbWithGuid(arrayGuid, sizeof(unsigned int), elementsPerBlock * blocks);
 
         for(unsigned int j=0; j<numAdd; j++)
         {
             for(unsigned int i=0; i<elementsPerBlock*blocks; i++)
             {
                 PRINTF("i: %u Slot: %u edt: %lu\n", i, j*elementsPerBlock*blocks + i, endGuid);
-                hiveAtomicAddInArrayDb(array, i, 1, endGuid, j*elementsPerBlock*blocks + i);
+                artsAtomicAddInArrayDb(array, i, 1, endGuid, j*elementsPerBlock*blocks + i);
             }
         }
     }
@@ -76,6 +76,6 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 
 int main(int argc, char** argv)
 {
-    hiveRT(argc, argv);
+    artsRT(argc, argv);
     return 0;
 }

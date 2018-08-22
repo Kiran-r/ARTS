@@ -1,11 +1,11 @@
 set(introspection_inc
-    ${CORE_INCLUDE_DIR}/hiveCounter.h
-    ${CORE_INCLUDE_DIR}/hiveIntrospection.h
+    ${CORE_INCLUDE_DIR}/artsCounter.h
+    ${CORE_INCLUDE_DIR}/artsIntrospection.h
 )
 
 set(introspection_src
-    hiveCounter.c
-    hiveIntrospection.c
+    artsCounter.c
+    artsIntrospection.c
 )
 
 add_library(introspection OBJECT ${introspection_inc} ${introspection_src})

@@ -3,16 +3,16 @@
 #include <assert.h>
 #include <inttypes.h>
 
-graph_sz_t getBlockSize(const hive_block_dist_t* _dist) {
-  graph_sz_t rem = _dist->num_vertices % hiveGetTotalNodes();
+graph_sz_t getBlockSize(const arts_block_dist_t* _dist) {
+  graph_sz_t rem = _dist->num_vertices % artsGetTotalNodes();
   if (!rem)
-    return (_dist->num_vertices /  hiveGetTotalNodes());
+    return (_dist->num_vertices /  artsGetTotalNodes());
   else
-    return ((graph_sz_t)(_dist->num_vertices /  hiveGetTotalNodes()) + 1);
+    return ((graph_sz_t)(_dist->num_vertices /  artsGetTotalNodes()) + 1);
 }
 
 
-void initBlockDistribution(hive_block_dist_t* _dist,
+void initBlockDistribution(arts_block_dist_t* _dist,
                            graph_sz_t _n,
                            graph_sz_t _m) {
   _dist->num_vertices = _n;
@@ -20,13 +20,13 @@ void initBlockDistribution(hive_block_dist_t* _dist,
   _dist->block_sz = getBlockSize(_dist);
 
   // copied from ssspStart.c
-  _dist->graphGuid = hiveMalloc(sizeof(hiveGuid_t)*hiveGetTotalNodes());
-  for(unsigned int i=0; i<hiveGetTotalNodes(); i++) {
-    _dist->graphGuid[i] = hiveReserveGuidRoute(HIVE_DB_PIN, i % hiveGetTotalNodes());
+  _dist->graphGuid = artsMalloc(sizeof(artsGuid_t)*artsGetTotalNodes());
+  for(unsigned int i=0; i<artsGetTotalNodes(); i++) {
+    _dist->graphGuid[i] = artsReserveGuidRoute(ARTS_DB_PIN, i % artsGetTotalNodes());
   }
 }
 
-void initBlockDistributionWithCmdLineArgs(hive_block_dist_t* _dist,
+void initBlockDistributionWithCmdLineArgs(arts_block_dist_t* _dist,
                                           int argc, 
                                           char** argv) {
   uint64_t n;
@@ -51,14 +51,14 @@ void initBlockDistributionWithCmdLineArgs(hive_block_dist_t* _dist,
   _dist->block_sz = getBlockSize(_dist);
 
   // copied from ssspStart.c
-  _dist->graphGuid = hiveMalloc(sizeof(hiveGuid_t)*hiveGetTotalNodes());
-  for(unsigned int i=0; i<hiveGetTotalNodes(); i++) {
-    _dist->graphGuid[i] = hiveReserveGuidRoute(HIVE_DB_PIN, i % hiveGetTotalNodes());
+  _dist->graphGuid = artsMalloc(sizeof(artsGuid_t)*artsGetTotalNodes());
+  for(unsigned int i=0; i<artsGetTotalNodes(); i++) {
+    _dist->graphGuid[i] = artsReserveGuidRoute(ARTS_DB_PIN, i % artsGetTotalNodes());
   }
 }
 
-void freeDistribution(hive_block_dist_t* _dist) {
-  hiveFree(_dist->graphGuid);
+void freeDistribution(arts_block_dist_t* _dist) {
+  artsFree(_dist->graphGuid);
   _dist->graphGuid = NULL;
 
   _dist->num_vertices = 0;
@@ -66,44 +66,44 @@ void freeDistribution(hive_block_dist_t* _dist) {
   _dist->block_sz = 0;
 }
 
-hiveGuid_t* getGuidForVertex(vertex v,
-                             const hive_block_dist_t* const _dist) {
+artsGuid_t* getGuidForVertex(vertex v,
+                             const arts_block_dist_t* const _dist) {
   node_t owner = getOwner(v, _dist);
-  assert(owner < hiveGetTotalNodes());
+  assert(owner < artsGetTotalNodes());
   return &(_dist->graphGuid[owner]);
 }
 
-hiveGuid_t* getGuidForCurrentNode(const hive_block_dist_t* const _dist) {
-  return &(_dist->graphGuid[hiveGetCurrentNode()]);
+artsGuid_t* getGuidForCurrentNode(const arts_block_dist_t* const _dist) {
+  return &(_dist->graphGuid[artsGetCurrentNode()]);
 }
 
-node_t getOwner(vertex v, const hive_block_dist_t* const _dist) {
+node_t getOwner(vertex v, const arts_block_dist_t* const _dist) {
   return (node_t)(v / _dist->block_sz);
 }
 
-vertex nodeStart(node_t n, const hive_block_dist_t* const _dist) {
+vertex nodeStart(node_t n, const arts_block_dist_t* const _dist) {
   return (vertex)((_dist->block_sz) * n);
 }
 
-vertex nodeEnd(node_t n, const hive_block_dist_t* const _dist) {
+vertex nodeEnd(node_t n, const arts_block_dist_t* const _dist) {
   // is this the last node ?
-  if (n == (hiveGetTotalNodes()-1)) {
+  if (n == (artsGetTotalNodes()-1)) {
     return (vertex)(_dist->num_vertices - 1);
   } else {
     return (nodeStart(n, _dist) + (_dist->block_sz-1));
   }
 }
 
-graph_sz_t getNodeBlockSize(node_t n, const hive_block_dist_t* const _dist) {
+graph_sz_t getNodeBlockSize(node_t n, const arts_block_dist_t* const _dist) {
   // is this the last node
-  if (n == (hiveGetTotalNodes()-1)) {
-    return (_dist->num_vertices - ((hiveGetTotalNodes()-1)*_dist->block_sz));
+  if (n == (artsGetTotalNodes()-1)) {
+    return (_dist->num_vertices - ((artsGetTotalNodes()-1)*_dist->block_sz));
   } else
     return _dist->block_sz;
 }
 
 local_index_t getLocalIndex(vertex v, 
-                            const hive_block_dist_t* const _dist) {
+                            const arts_block_dist_t* const _dist) {
   node_t n = getOwner(v, _dist);
   vertex base = nodeStart(n, _dist);
   assert(base <= v);
@@ -111,7 +111,7 @@ local_index_t getLocalIndex(vertex v,
 }
 
 vertex getVertexId(node_t local_rank,
-                   local_index_t u, const hive_block_dist_t* const _dist) {
+                   local_index_t u, const arts_block_dist_t* const _dist) {
   vertex v = nodeStart(local_rank, _dist);
   return (v+u);
 }

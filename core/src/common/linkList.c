@@ -1,78 +1,78 @@
-#include "hive.h"
-#include "hiveMalloc.h"
-#include "hiveAtomics.h"
-#include "hiveLinkList.h"
+#include "arts.h"
+#include "artsMalloc.h"
+#include "artsAtomics.h"
+#include "artsLinkList.h"
 #include <string.h>
 
 #define DPRINTF( ... )
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
-struct hiveLinkListItem
+struct artsLinkListItem
 {
     //char pad[48];
-    struct hiveLinkListItem * volatile next;
+    struct artsLinkListItem * volatile next;
     void * volatile  data;
     //volatile unsigned int readers;
     //char data[];
 } __attribute__ ((aligned));
 
-struct hiveLinkList
+struct artsLinkList
 {
-    struct hiveLinkListItem * volatile headPtr;
-    struct hiveLinkListItem * volatile tailPtr;
+    struct artsLinkListItem * volatile headPtr;
+    struct artsLinkListItem * volatile tailPtr;
     volatile unsigned int lock;
 } __attribute__ ((aligned));
 
 
 void
-hiveLinkListNew(struct hiveLinkList *list)
+artsLinkListNew(struct artsLinkList *list)
 {
-    struct hiveLinkListItem * newItem = hiveMalloc( sizeof(struct hiveLinkListItem) );
+    struct artsLinkListItem * newItem = artsMalloc( sizeof(struct artsLinkListItem) );
     newItem->next=NULL;
     list->headPtr = list->tailPtr = newItem;
 }
 
 
-struct hiveLinkList *
-hiveLinkListGroupNew(unsigned int listSize)
+struct artsLinkList *
+artsLinkListGroupNew(unsigned int listSize)
 {
-    DPRINTF("%d\n", sizeof( struct hiveLinkListItem ));
+    DPRINTF("%d\n", sizeof( struct artsLinkListItem ));
     int i;
-    struct hiveLinkList *linkList =
-        (struct hiveLinkList *) hiveCalloc(  sizeof (struct hiveLinkList) * listSize );
+    struct artsLinkList *linkList =
+        (struct artsLinkList *) artsCalloc(  sizeof (struct artsLinkList) * listSize );
 
     for (i = 0; i < listSize; i++)
-        hiveLinkListNew( linkList+i);
+        artsLinkListNew( linkList+i);
 
     return linkList;
 }
 
 
-inline struct hiveLinkList *
-hiveLinkListGet(struct hiveLinkList *linkList, unsigned int position)
+inline struct artsLinkList *
+artsLinkListGet(struct artsLinkList *linkList, unsigned int position)
 {
     //PRINTF("%d\n",dequeList->size);
-    return (struct hiveLinkList *)( linkList + position  );
+    return (struct artsLinkList *)( linkList + position  );
 }
 
 
 void
-hiveLinkListDelete(void *linkList)
+artsLinkListDelete(void *linkList)
 {
-    struct hiveLinkList * list = linkList;
-    struct hiveLinkListItem * last;
+    struct artsLinkList * list = linkList;
+    struct artsLinkListItem * last;
     while(list->headPtr != NULL)
     {
-        last = (struct hiveLinkListItem *)list->headPtr;
+        last = (struct artsLinkListItem *)list->headPtr;
         list->headPtr = list->headPtr->next;
-        hiveFree(last);
+        artsFree(last);
     }
-    hiveFree(linkList);
+    artsFree(linkList);
 }
 volatile unsigned int push=0,pop=0;
 //Only 1 Pusher
-void * hiveLinkListNewItem(unsigned int size)
+void * artsLinkListNewItem(unsigned int size)
 {
-    struct hiveLinkListItem * newItem = hiveMalloc( sizeof(struct hiveLinkListItem) + size );
+    struct artsLinkListItem * newItem = artsMalloc( sizeof(struct artsLinkListItem) + size );
     newItem->next=NULL;
     newItem->data = newItem+1;
 
@@ -80,14 +80,14 @@ void * hiveLinkListNewItem(unsigned int size)
 }
 
 void 
-hiveLinkListPushBack(struct hiveLinkList *list, void *item, unsigned int size)
+artsLinkListPushBack(struct artsLinkList *list, void *item, unsigned int size)
 {
-    //struct hiveLinkListItem * newItem = hiveMalloc( sizeof(struct hiveLinkListItem) );
-    struct hiveLinkListItem * newItem = item;
+    //struct artsLinkListItem * newItem = artsMalloc( sizeof(struct artsLinkListItem) );
+    struct artsLinkListItem * newItem = item;
     newItem-=1;
     //newItem->next=NULL;
     //newItem->readers=0;
-    //unsigned int res = hiveAtomicAdd(&push, 1U);
+    //unsigned int res = artsAtomicAdd(&push, 1U);
     //DPRINTF("PUSH %p %p %d %d\n", newItem, list->headPtr, res, pop);
 
     //newItem->data = item;
@@ -95,15 +95,15 @@ hiveLinkListPushBack(struct hiveLinkList *list, void *item, unsigned int size)
     //memcpy(newItem->data, item, size );
 
     void * ptr;
-    volatile struct hiveLinkListItem * volatile tail;
-    volatile struct hiveLinkListItem * volatile next;
+    volatile struct artsLinkListItem * volatile tail;
+    volatile struct artsLinkListItem * volatile next;
 
 
     while(1)
     {
         if(list->lock == 0U)
         {
-            if(hiveAtomicCswap( &list->lock, 0U, 1U ) == 0U)
+            if(artsAtomicCswap( &list->lock, 0U, 1U ) == 0U)
                 break;
         }
     }
@@ -120,7 +120,7 @@ hiveLinkListPushBack(struct hiveLinkList *list, void *item, unsigned int size)
         /*if(list->headPtr==NULL)
         {
             
-            ptr = hiveAtomicCswapPtr( &list->headPtr, NULL, newItem );
+            ptr = artsAtomicCswapPtr( &list->headPtr, NULL, newItem );
             if(ptr == NULL)
             {
                 list->tailPtr = newItem;
@@ -135,34 +135,34 @@ hiveLinkListPushBack(struct hiveLinkList *list, void *item, unsigned int size)
             
             //if(tail != NULL)
             //{
-                //hiveAtomicAdd(&tail->readers, 1U);
+                //artsAtomicAdd(&tail->readers, 1U);
             
             /*if(list->tailPtr == tail)
             {
                 if(next != NULL)
-                    hiveAtomicCswapPtr( (volatile void** volatile  )&list->tailPtr, tail, next ); 
+                    artsAtomicCswapPtr( (volatile void** volatile  )&list->tailPtr, tail, next ); 
                 else
                 {
-                    ptr = (void *)hiveAtomicCswapPtr( (volatile void** volatile  )&list->tailPtr->next, NULL, newItem ); 
+                    ptr = (void *)artsAtomicCswapPtr( (volatile void** volatile  )&list->tailPtr->next, NULL, newItem ); 
                
                     if(ptr == NULL)
                     {
-                        //hiveAtomicSub(&tail->readers, 1U);
+                        //artsAtomicSub(&tail->readers, 1U);
                         break;
                     }
                 }
             }*/
-                //hiveAtomicSub(&tail->readers, 1U);
+                //artsAtomicSub(&tail->readers, 1U);
            // }
         //}
     }
 }
 
 //Only 1 popper
-void * hiveLinkListPopFront( struct hiveLinkList * list, void ** freePos )
+void * artsLinkListPopFront( struct artsLinkList * list, void ** freePos )
 {
-    volatile struct hiveLinkListItem * volatile head = list->headPtr;
-    volatile struct hiveLinkListItem * volatile tail = list->tailPtr;
+    volatile struct artsLinkListItem * volatile head = list->headPtr;
+    volatile struct artsLinkListItem * volatile tail = list->tailPtr;
     volatile void * volatile data;
 
     void * ptr;
@@ -175,9 +175,9 @@ void * hiveLinkListPopFront( struct hiveLinkList * list, void ** freePos )
         list->headPtr=head->next;
 
         *freePos= (void *)head;
-        //unsigned int res = hiveAtomicAdd(&pop, 1U);
+        //unsigned int res = artsAtomicAdd(&pop, 1U);
         //DPRINTF("POP %p %d %d\n", head, push, res);
-        //hiveFree(head);
+        //artsFree(head);
         return (void *)data;
         //
         //return NULL;
@@ -186,10 +186,10 @@ void * hiveLinkListPopFront( struct hiveLinkList * list, void ** freePos )
         return NULL;
 }
 
-void hiveLinkListDeleteItem( void * item  )
+void artsLinkListDeleteItem( void * item  )
 {
    /*char * addr = item;
-   addr -= sizeof(struct hiveLinkListItem);
+   addr -= sizeof(struct artsLinkListItem);
 
-   hiveFree(addr);*/
+   artsFree(addr);*/
 }

@@ -1,51 +1,51 @@
-#include "hive.h"
-#include "hiveMalloc.h"
-#include "hiveAtomics.h"
-#include "hiveHash.h"
+#include "arts.h"
+#include "artsMalloc.h"
+#include "artsAtomics.h"
+#include "artsHash.h"
 
-struct hiveHashItem
+struct artsHashItem
 {
     void *data;
-    hiveGuid_t key;
+    artsGuid_t key;
     volatile unsigned int lock;
 } __attribute__ ((aligned));
 
-struct hiveHash
+struct artsHash
 {
-    struct hiveHashItem * data;
+    struct artsHashItem * data;
     unsigned int size;
     //unsigned int use;
     //unsigned int col;
     unsigned int shift;
-    struct hiveHash * next;
+    struct artsHash * next;
     unsigned int lock;
 } __attribute__ ((aligned));
 
-struct hiveHash *
-hiveHashListNew(unsigned int listSize, unsigned int hashSize, unsigned int shift)
+struct artsHash *
+artsHashListNew(unsigned int listSize, unsigned int hashSize, unsigned int shift)
 {
     int i;
-    struct hiveHash *hashList =
-        (struct hiveHash *) hiveCalloc(sizeof (struct hiveHash) * listSize);
+    struct artsHash *hashList =
+        (struct artsHash *) artsCalloc(sizeof (struct artsHash) * listSize);
 
     for (i = 0; i < listSize; i++)
-        hiveHashNew(hashList + i, hashSize, shift);
+        artsHashNew(hashList + i, hashSize, shift);
 
     return hashList;
 }
 
-struct hiveHash *
-hiveHashListGetHash(struct hiveHash *hashList, unsigned int position)
+struct artsHash *
+artsHashListGetHash(struct artsHash *hashList, unsigned int position)
 {
     return hashList + position;
 }
 
 void
-hiveHashNew(struct hiveHash *hash, unsigned int size, unsigned int shift)
+artsHashNew(struct artsHash *hash, unsigned int size, unsigned int shift)
 {
     hash->data =
-        (struct hiveHashItem *) hiveCalloc(size *
-                                         sizeof (struct hiveHashItem));
+        (struct artsHashItem *) artsCalloc(size *
+                                         sizeof (struct artsHashItem));
     hash->size = size;
     hash->shift = shift;
     //hash->use =0;
@@ -55,10 +55,10 @@ hiveHashNew(struct hiveHash *hash, unsigned int size, unsigned int shift)
 }
 
 void
-hiveHashDelete(struct hiveHash *hash)
+artsHashDelete(struct artsHash *hash)
 {
-    struct hiveHash * next;
-    struct hiveHash * last;
+    struct artsHash * next;
+    struct artsHash * last;
 
     next = hash->next;
 
@@ -66,18 +66,18 @@ hiveHashDelete(struct hiveHash *hash)
     {
         last = next;
         next = next->next;
-        hiveFree( last->data );
-        hiveFree( last );
+        artsFree( last->data );
+        artsFree( last );
     }
 
-    hiveFree(hash->data);
+    artsFree(hash->data);
 }
 
 void
-hiveHashListDelete(struct hiveHash *hash)
+artsHashListDelete(struct artsHash *hash)
 {
-    /*struct hiveHash * next;
-    struct hiveHash * last;
+    /*struct artsHash * next;
+    struct artsHash * last;
 
     next = hash->next;
 
@@ -85,11 +85,11 @@ hiveHashListDelete(struct hiveHash *hash)
     {
         last = next;
         next = next->next;
-        hiveFree( last->data );
-        hiveFree( last );
+        artsFree( last->data );
+        artsFree( last );
     }*/
 
-    hiveFree(hash->data);
+    artsFree(hash->data);
 }
 
 #define hash64(x)       ( (u64)(x) * 14695981039346656037U )
@@ -102,20 +102,20 @@ static inline u64 getHashKey( u64 x, unsigned int shift )
     return hash64(x) >> (64-shift);
 }
 
-static inline void hiveHashKeySet(struct hiveHash *current, hiveGuid_t key, u64 keyVal)
+static inline void artsHashKeySet(struct artsHash *current, artsGuid_t key, u64 keyVal)
 {
     current->data[ keyVal ].key = key;
 }
-static inline void hiveHashLock(struct hiveHash *current, hiveGuid_t keyVal)
+static inline void artsHashLock(struct artsHash *current, artsGuid_t keyVal)
 {
     current->data[ keyVal ].lock = 1U;
 }
 
 void *
-hiveHashAddItem(struct hiveHash *hash, void *item, hiveGuid_t key)
+artsHashAddItem(struct artsHash *hash, void *item, artsGuid_t key)
 {
-    volatile struct hiveHash * volatile current = hash;
-    volatile struct hiveHash * volatile next;
+    volatile struct artsHash * volatile current = hash;
+    volatile struct artsHash * volatile next;
     u64 keyVal;
     while( 1 )
     {
@@ -123,7 +123,7 @@ hiveHashAddItem(struct hiveHash *hash, void *item, hiveGuid_t key)
         //PRINTF("Hash %d/%d %d %ld\n", current->use, current->size, current->col, keyVal);
         if( current->data[ keyVal ].lock == 0U  )
         {
-            unsigned int old = hiveAtomicSwap( &current->data[keyVal].lock, 2U  );
+            unsigned int old = artsAtomicSwap( &current->data[keyVal].lock, 2U  );
             if(old == 0U)
             {
                 current->data[ keyVal ].data = item;
@@ -139,15 +139,15 @@ hiveHashAddItem(struct hiveHash *hash, void *item, hiveGuid_t key)
 
                 if( current->next == NULL )
                 {
-                    unsigned int old = hiveAtomicSwap( &current->lock, 1U  );
+                    unsigned int old = artsAtomicSwap( &current->lock, 1U  );
                     if( old == 0U)
                     {
                         //PRINTF("Resize %d %d\n", keyVal, 2*current->size);
-                        next = hiveMalloc( sizeof( struct hiveHash  ) );
+                        next = artsMalloc( sizeof( struct artsHash  ) );
 
-                        hiveHashNew( (struct hiveHash *)next, 2*current->size, current->shift+1 );
+                        artsHashNew( (struct artsHash *)next, 2*current->size, current->shift+1 );
 
-                        current->next = (struct hiveHash *)next;
+                        current->next = (struct artsHash *)next;
                     }
                     else
                         while( current->next==NULL  ) {}
@@ -157,8 +157,8 @@ hiveHashAddItem(struct hiveHash *hash, void *item, hiveGuid_t key)
             }
             //current->use++;
             //PRINTF("Added %ld\n", key);
-            //hiveHashKeySet(current, key, keyVal);
-            // hiveHashLock(current, keyVal);
+            //artsHashKeySet(current, key, keyVal);
+            // artsHashLock(current, keyVal);
 
             //detectError(hash);
 
@@ -176,16 +176,16 @@ hiveHashAddItem(struct hiveHash *hash, void *item, hiveGuid_t key)
                 break;
             if( current->next == NULL )
             {
-                unsigned int old = hiveAtomicSwap( &current->lock, 1U  );
+                unsigned int old = artsAtomicSwap( &current->lock, 1U  );
                 if( old == 0U)
                 {
                     //break;
                     //PRINTF("Resize %d %d %p %p\n", keyVal, 2*current->size, current, hash);
-                    next = hiveMalloc( sizeof( struct hiveHash  ) );
+                    next = artsMalloc( sizeof( struct artsHash  ) );
 
-                    hiveHashNew( (struct hiveHash *)next, 2*current->size, current->shift+1 );
+                    artsHashNew( (struct artsHash *)next, 2*current->size, current->shift+1 );
 
-                    current->next = (struct hiveHash *)next;
+                    current->next = (struct artsHash *)next;
                 }
                 else
                     while( current->next==NULL  ) {}
@@ -199,9 +199,9 @@ hiveHashAddItem(struct hiveHash *hash, void *item, hiveGuid_t key)
 }
 
 bool
-hiveHashDeleteItem(struct hiveHash *hash, hiveGuid_t key)
+artsHashDeleteItem(struct artsHash *hash, artsGuid_t key)
 {
-    volatile struct hiveHash * volatile current = hash;
+    volatile struct artsHash * volatile current = hash;
     u64 keyVal;
     while( current != NULL  )
     {
@@ -221,9 +221,9 @@ hiveHashDeleteItem(struct hiveHash *hash, hiveGuid_t key)
 }
 
 void*
-hiveHashLookupItem(struct hiveHash *hash, hiveGuid_t key)
+artsHashLookupItem(struct artsHash *hash, artsGuid_t key)
 {
-    volatile struct hiveHash * volatile current = hash;
+    volatile struct artsHash * volatile current = hash;
     u64 keyVal;
     while( current != NULL  )
     {
@@ -232,7 +232,7 @@ hiveHashLookupItem(struct hiveHash *hash, hiveGuid_t key)
         {
             if( current->data[ keyVal ].key == key  )
             {
-                //hiveDebugGenerateSegFault();
+                //artsDebugGenerateSegFault();
                 //PRINTF("Found %ld\n", key);
                 return (void *)current->data[ keyVal ].data;
             }

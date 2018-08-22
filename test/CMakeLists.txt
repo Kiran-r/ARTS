@@ -1,4 +1,4 @@
-set(LIBS hive ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC_LIB})
+set(LIBS arts ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC_LIB})
 
 add_executable(testMain testMain.c)
 target_link_libraries(testMain ${LIBS})
@@ -24,8 +24,8 @@ target_link_libraries(testGetFromDb ${LIBS})
 add_executable(testPutInDb testPutInDb.c)
 target_link_libraries(testPutInDb ${LIBS})
 
-add_executable(testHiveSend testHiveSend.c)
-target_link_libraries(testHiveSend ${LIBS})
+add_executable(testArtsSend testArtsSend.c)
+target_link_libraries(testArtsSend ${LIBS})
 
 add_executable(testActiveMessageDb testActiveMessageDb.c)
 target_link_libraries(testActiveMessageDb ${LIBS})
@@ -34,7 +34,7 @@ add_executable(testActiveMessageBuffer testActiveMessageBuffer.c)
 target_link_libraries(testActiveMessageBuffer ${LIBS})
 
 add_executable(testCSR testCSR.c)
-target_link_libraries(testCSR hive-graph ${LIBS})
+target_link_libraries(testCSR arts-graph ${LIBS})
 
 #add_executable(testDistribution testDistribution.c)
 #target_link_libraries(testDistribution ${LIBS})

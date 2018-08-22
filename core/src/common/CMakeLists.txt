@@ -7,12 +7,12 @@ else()
 endif()
 
 set(common_inc
-    ${CORE_INCLUDE_DIR}/hiveDeque.h
-    ${CORE_INCLUDE_DIR}/hiveQueue.h
-    ${CORE_INCLUDE_DIR}/hiveHash.h
-    ${CORE_INCLUDE_DIR}/hiveArrayList.h
-    ${CORE_INCLUDE_DIR}/hiveTable.h
-    ${CORE_INCLUDE_DIR}/hiveLinkList.h
+    ${CORE_INCLUDE_DIR}/artsDeque.h
+    ${CORE_INCLUDE_DIR}/artsQueue.h
+    ${CORE_INCLUDE_DIR}/artsHash.h
+    ${CORE_INCLUDE_DIR}/artsArrayList.h
+    ${CORE_INCLUDE_DIR}/artsTable.h
+    ${CORE_INCLUDE_DIR}/artsLinkList.h
 )
 
 set(common_src
@@ -20,8 +20,8 @@ set(common_src
     hashLock.c
     table.c
     linkList.c
-    hiveArrayList.c
-    hiveQueue.c
+    artsArrayList.c
+    artsQueue.c
 )
 
 add_library(common OBJECT ${common_inc} ${common_src})

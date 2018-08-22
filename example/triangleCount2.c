@@ -4,17 +4,17 @@
 #include <inttypes.h>
 #include <string.h>
 #include <assert.h>
-#include "hiveRT.h"
-#include "hiveGraph.h"
-#include "hiveTerminationDetection.h"
-#include "hiveAtomics.h"
+#include "artsRT.h"
+#include "artsGraph.h"
+#include "artsTerminationDetection.h"
+#include "artsAtomics.h"
 
-hive_block_dist_t distribution;
+arts_block_dist_t distribution;
 csr_graph graph;
 
-hiveGuid_t epochGuid    = NULL_GUID;
-hiveGuid_t startReduceGuid = NULL_GUID;
-hiveGuid_t finalReduceGuid = NULL_GUID;
+artsGuid_t epochGuid    = NULL_GUID;
+artsGuid_t startReduceGuid = NULL_GUID;
+artsGuid_t finalReduceGuid = NULL_GUID;
 
 u64 localTriangleCount = 0;
 u64 time = 0;
@@ -32,25 +32,25 @@ unsigned int checkAndSet(u64 * mask, unsigned int index) {
     return 0;
 }
 
-hiveGuid_t finalReduce(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+artsGuid_t finalReduce(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
     u64 count = 0;
     for (unsigned int i = 0; i < depc; i++) {
         count += (u64)depv[i].guid;
     }
-    time = hiveGetTimeStamp() - time;
+    time = artsGetTimeStamp() - time;
     PRINTF("Triangle Count: %lu Time: %lu\n", count, time);
-    hiveShutdown();
+    artsShutdown();
 }
 
-hiveGuid_t localReduce(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+artsGuid_t localReduce(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
 //    PRINTF("Local Count: %lu Signal: %lu\n", localTriangleCount, finalEdtGuid);
-    hiveSignalEdtValue(finalReduceGuid, hiveGetCurrentNode(), localTriangleCount);
+    artsSignalEdtValue(finalReduceGuid, artsGetCurrentNode(), localTriangleCount);
 }
 
-hiveGuid_t startReduce(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+artsGuid_t startReduce(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
 //    PRINTF("Local Count: %lu Signal: %lu\n", localTriangleCount, finalEdtGuid);
-    for(unsigned int i=0; i<hiveGetTotalNodes(); i++) {
-        hiveEdtCreateDep(localReduce, i, 0, NULL, 0, false);
+    for(unsigned int i=0; i<artsGetTotalNodes(); i++) {
+        artsEdtCreateDep(localReduce, i, 0, NULL, 0, false);
     }
 }
 
@@ -88,7 +88,7 @@ u64 processBlock(u64 index) {
     u64 localCount = 0;
     
     u64 iStart = index*blockSize;
-    u64 iEnd   = (index+1 == numBlocks) ? nodeEnd(hiveGetCurrentNode(), &distribution) : iStart + blockSize;
+    u64 iEnd   = (index+1 == numBlocks) ? nodeEnd(artsGetCurrentNode(), &distribution) : iStart + blockSize;
     
     for (vertex i=iStart; i<iEnd; i++) {
         
@@ -100,7 +100,7 @@ u64 processBlock(u64 index) {
         for (u64 nextPred = firstPred + 1; nextPred < lastPred; nextPred++) {
             vertex j = neighbors[nextPred];
             unsigned int owner = getOwner(j, &distribution);
-            if (getOwner(j, &distribution) == hiveGetCurrentNode()) {
+            if (getOwner(j, &distribution) == artsGetCurrentNode()) {
                 vertex * jNeighbors = NULL;
                 u64 jNeighborCount = 0;
                 getNeighbors(&graph, j, &jNeighbors, &jNeighborCount);
@@ -113,7 +113,7 @@ u64 processBlock(u64 index) {
     return localCount;
 }
 
-hiveGuid_t visitNode(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+artsGuid_t visitNode(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
     u64 localCount = 0;
     u64 index = paramv[0];
     
@@ -122,31 +122,31 @@ hiveGuid_t visitNode(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
     if(nextIndex != index) {
         localCount += processBlock(nextIndex);
     }
-    hiveAtomicAddU64(&localTriangleCount, localCount);
+    artsAtomicAddU64(&localTriangleCount, localCount);
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv) {
     initBlockDistributionWithCmdLineArgs(&distribution, argc, argv);
     loadGraphUsingCmdLineArgs(&graph, &distribution, argc, argv);
 
-    startReduceGuid = hiveReserveGuidRoute(HIVE_EDT,   0);
-    finalReduceGuid = hiveReserveGuidRoute(HIVE_EDT,   0);
-    epochGuid       = hiveInitializeEpoch(0, startReduceGuid, 0);
+    startReduceGuid = artsReserveGuidRoute(ARTS_EDT,   0);
+    finalReduceGuid = artsReserveGuidRoute(ARTS_EDT,   0);
+    epochGuid       = artsInitializeEpoch(0, startReduceGuid, 0);
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv) {
     if(!nodeId && !workerId) {
-        time = hiveGetTimeStamp();
-        hiveEdtCreateWithGuid(startReduce, startReduceGuid, 0, NULL, 1);
-        hiveEdtCreateWithGuid(finalReduce, finalReduceGuid, 0, NULL, hiveGetTotalNodes());
+        time = artsGetTimeStamp();
+        artsEdtCreateWithGuid(startReduce, startReduceGuid, 0, NULL, 1);
+        artsEdtCreateWithGuid(finalReduce, finalReduceGuid, 0, NULL, artsGetTotalNodes());
     }
     
-    hiveStartEpoch(epochGuid);
+    artsStartEpoch(epochGuid);
     vertex start = nodeStart(nodeId, &distribution);
     vertex end   = nodeEnd(nodeId, &distribution);
     
     u64 size = end - start;
-    blockSize = size / (hiveGetTotalWorkers() * 32 * 2);
+    blockSize = size / (artsGetTotalWorkers() * 32 * 2);
     numBlocks = size / blockSize;
     if(size % blockSize)
         numBlocks++;
@@ -156,13 +156,13 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         half++;
     
     for (u64 index = 0; index < half; index++) {
-        if(index % hiveGetTotalWorkers() == workerId) {
-            hiveEdtCreate(visitNode, nodeId, 1, &index, 0);
+        if(index % artsGetTotalWorkers() == workerId) {
+            artsEdtCreate(visitNode, nodeId, 1, &index, 0);
         }
     }
 }
 
 int main(int argc, char** argv) {
-    hiveRT(argc, argv);
+    artsRT(argc, argv);
     return 0;
 }

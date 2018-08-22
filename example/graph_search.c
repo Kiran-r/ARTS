@@ -4,19 +4,19 @@
 #include <inttypes.h>
 #include <string.h>
 #include <assert.h>
-#include "hiveRT.h"
-#include "hiveGraph.h"
-#include "hiveTerminationDetection.h"
+#include "artsRT.h"
+#include "artsGraph.h"
+#include "artsTerminationDetection.h"
 #include "shadAdapter.h"
 
 unsigned int introStart = 5;
 
-hive_block_dist_t distribution;
+arts_block_dist_t distribution;
 csr_graph graph;
 char* _file = NULL;
 char* _id_file = NULL;
-hiveGuid_t vertexPropertyMapGuid = NULL_GUID;
-hiveGuid_t vertexIDMapGuid = NULL_GUID;
+artsGuid_t vertexPropertyMapGuid = NULL_GUID;
+artsGuid_t vertexIDMapGuid = NULL_GUID;
 
 u64 startTime;
 u64 endTime;
@@ -45,17 +45,17 @@ typedef struct {
     // vertex neighbors[];
 } sourceInfo;
 
-hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]);
+artsGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]);
 
-hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
-  endTime = hiveGetTimeStamp();
+artsGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
+  endTime = artsGetTimeStamp();
   printf("Total execution time: %f s \n", (double)(endTime - startTime)/1000000000.0);
-  hiveStopIntroShad();
-  hiveShutdown();
+  artsStopIntroShad();
+  artsShutdown();
 }
 
-hiveGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
-				     u32 depc, hiveEdtDep_t depv[]) {
+artsGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
+				     u32 depc, artsEdtDep_t depv[]) {
   sourceInfo * srcInfo = depv[depc - 1].ptr;
   vertexProperty * maxWeightedNeighbor = depv[0].ptr;
   for (unsigned int i = 0; i < srcInfo->numNeighbors; i++) {
@@ -77,15 +77,15 @@ hiveGuid_t GatherNeighborPropertyVal(u32 paramc, u64 * paramv,
     node_t rank = getOwner(source, &distribution);
     /*Spawn an edt at rank that is the owner of current seed vertex*/
     u64 packed_values[3] = {source, srcInfo->step - 1, srcInfo->seed};
-    hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 3, (u64*) & packed_values, 2);
+    artsGuid_t visitSourceGuid = artsEdtCreate(visitSource, rank, 3, (u64*) & packed_values, 2);
     //        PRINTF("New Edt: %lu Source is located on rank %d Guid: %lu\n", visitSourceGuid, rank, vertexPropertyMapGuid);
-    hiveSignalEdt(visitSourceGuid, 0, vertexPropertyMapGuid);     
-    hiveSignalEdt(visitSourceGuid, 1, vertexIDMapGuid);
+    artsSignalEdt(visitSourceGuid, 0, vertexPropertyMapGuid);     
+    artsSignalEdt(visitSourceGuid, 1, vertexIDMapGuid);
   }
 }
 
-hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) { 
-//  hiveStartIntroShad(introStart);
+artsGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) { 
+//  artsStartIntroShad(introStart);
   vertex* neighbors = NULL;
   u64 neighbor_cnt = 0;    
   vertex source = (vertex) paramv[0];
@@ -97,7 +97,7 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
   if (neighbor_cnt) {
     unsigned int dbSize = sizeof (sourceInfo); // + neighbor_cnt * sizeof(vertex);
     void * ptr = NULL;
-    hiveGuid_t dbGuid = hiveDbCreate(&ptr, dbSize, HIVE_DB_ONCE_LOCAL);
+    artsGuid_t dbGuid = artsDbCreate(&ptr, dbSize, ARTS_DB_ONCE_LOCAL);
     sourceInfo * srcInfo = ptr;
     srcInfo->source = source;
     srcInfo->step = nSteps;
@@ -106,50 +106,50 @@ hiveGuid_t visitSource(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
     // PRINTF("Exploring from Source  %" PRIu64 " steps: %d with neighbors %d\n", source, num_steps + 1 - nSteps, neighbor_cnt);
     // memcpy(&(srcInfo->neighbors), &neighbors, neighbor_cnt * sizeof(vertex));
     /* //... keep filling in */
-    hiveGuid_t GatherNeighborPropertyValGuid = hiveEdtCreate(
+    artsGuid_t GatherNeighborPropertyValGuid = artsEdtCreate(
 						      GatherNeighborPropertyVal,
-						      hiveGetCurrentNode(), 0,
+						      artsGetCurrentNode(), 0,
 						      NULL, 2 * neighbor_cnt + 1);
         
-    hiveSignalEdt(GatherNeighborPropertyValGuid, 2 * neighbor_cnt, dbGuid);
+    artsSignalEdt(GatherNeighborPropertyValGuid, 2 * neighbor_cnt, dbGuid);
         
-    hiveArrayDb_t * vertexPropertyMap = depv[0].ptr;
+    artsArrayDb_t * vertexPropertyMap = depv[0].ptr;
     for (unsigned int i = 0; i < neighbor_cnt; i++) {
       vertex neib = neighbors[i];
-      hiveGetFromArrayDb(GatherNeighborPropertyValGuid, i, vertexPropertyMap,
+      artsGetFromArrayDb(GatherNeighborPropertyValGuid, i, vertexPropertyMap,
 			 neib);
     }
 
-    hiveArrayDb_t * vertexIDMap = depv[1].ptr;
+    artsArrayDb_t * vertexIDMap = depv[1].ptr;
     for (unsigned int i = 0; i < neighbor_cnt; i++) {
       vertex neib = neighbors[i];
       // PRINTF("Vertex=%llu indexing at %u \n", neib, neighbor_cnt + i);
-      hiveGetFromArrayDb(GatherNeighborPropertyValGuid, neighbor_cnt + i,
+      artsGetFromArrayDb(GatherNeighborPropertyValGuid, neighbor_cnt + i,
     			 vertexIDMap, neib);
     }
   }
 }
 
-hiveGuid_t check(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
     for (unsigned int i = 0; i < depc; i++) {
         vertexProperty * data = depv[i].ptr;
 //        PRINTF("%d %f: %u\n", i, data->v, data->propertyVal);
     }
 
-    hiveShutdown();
+    artsShutdown();
 }
 
-hiveGuid_t endVertexIDMapRead(u32 paramc, u64 * paramv,
-        u32 depc, hiveEdtDep_t depv[]) {
-  hiveGuid_t exitGuid = hiveEdtCreate(exitProgram, 0, 0, NULL, 1);    
-  hiveInitializeAndStartEpoch(exitGuid, 0);
+artsGuid_t endVertexIDMapRead(u32 paramc, u64 * paramv,
+        u32 depc, artsEdtDep_t depv[]) {
+  artsGuid_t exitGuid = artsEdtCreate(exitProgram, 0, 0, NULL, 1);    
+  artsInitializeAndStartEpoch(exitGuid, 0);
     
   u64* seeds = (u64*) malloc(sizeof (u64) * num_seeds);
 
   /*A sanity check that the data is put in properly*/
-  /* hiveGuid_t edtGuid = hiveEdtCreate(check, 0, 0, NULL, distribution.num_vertices); */
+  /* artsGuid_t edtGuid = artsEdtCreate(check, 0, 0, NULL, distribution.num_vertices); */
   /* for(unsigned int i = 0; i < distribution.num_vertices; i++) */
-  /*   hiveGetFromArrayDb(edtGuid, i, vertexPropertymap, i); */
+  /*   artsGetFromArrayDb(edtGuid, i, vertexPropertymap, i); */
 
   /*Sample seeds*/
   if(fixedSeed > -1)
@@ -163,8 +163,8 @@ hiveGuid_t endVertexIDMapRead(u32 paramc, u64 * paramv,
 //	PRINTF("Seed chosen %d,\n", seeds[i]);
       }
     }
-  hiveStartIntroShad(introStart);
-  startTime = hiveGetTimeStamp();
+  artsStartIntroShad(introStart);
+  startTime = artsGetTimeStamp();
   /*Start walk from each seed in parallel*/
   for (int i = 0; i < num_seeds; i++) {
     vertex source = seeds[i];
@@ -172,32 +172,32 @@ hiveGuid_t endVertexIDMapRead(u32 paramc, u64 * paramv,
     // PRINTF("Source is located on rank %d\n", rank);
     /*Spawn an edt at rank that is the owner of current seed vertex*/
     u64 packed_values[3] = {source, num_steps, source};
-    hiveGuid_t visitSourceGuid = hiveEdtCreate(visitSource, rank, 3, (u64*) &packed_values, 2);
+    artsGuid_t visitSourceGuid = artsEdtCreate(visitSource, rank, 3, (u64*) &packed_values, 2);
     // TODO: why pass vertexpropertguid as an argument?
-    hiveSignalEdt(visitSourceGuid, 0, vertexPropertyMapGuid);
+    artsSignalEdt(visitSourceGuid, 0, vertexPropertyMapGuid);
 
-    hiveSignalEdt(visitSourceGuid, 1, vertexIDMapGuid);
+    artsSignalEdt(visitSourceGuid, 1, vertexIDMapGuid);
   }
 }
 
-hiveGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
-        u32 depc, hiveEdtDep_t depv[]) {
+artsGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
+        u32 depc, artsEdtDep_t depv[]) {
   
   /*Now read in the vertex ID map*/
   
   //Start an epoch to read in the ID value
-  hiveGuid_t endVertexIDMapReadEpochGuid
-    = hiveEdtCreate(endVertexIDMapRead, 0, 0, NULL, 2);
+  artsGuid_t endVertexIDMapReadEpochGuid
+    = artsEdtCreate(endVertexIDMapRead, 0, 0, NULL, 2);
   
   // TODO: Is the following line necessary ?
   //Signal the ID map guid
-  hiveSignalEdt(endVertexIDMapReadEpochGuid, 1, vertexIDMapGuid);
+  artsSignalEdt(endVertexIDMapReadEpochGuid, 1, vertexIDMapGuid);
 
   //Start the epoch
-  hiveInitializeAndStartEpoch(endVertexIDMapReadEpochGuid, 0);
+  artsInitializeAndStartEpoch(endVertexIDMapReadEpochGuid, 0);
 
   // Allocate vertex ID map and populate it from node 0
-  hiveArrayDb_t * vertexIDMap = hiveNewArrayDbWithGuid(vertexIDMapGuid,
+  artsArrayDb_t * vertexIDMap = artsNewArrayDbWithGuid(vertexIDMapGuid,
 						       sizeof (vertexID), 
 						       distribution.num_vertices);
 
@@ -207,7 +207,7 @@ hiveGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
   PRINTF("File to be opened %s\n", _id_file);
   if (file == NULL) {
     PRINTF("[ERROR] File containing vertex ids  can't be open -- %s", _file);
-    hiveShutdown();
+    artsShutdown();
   }
 
   PRINTF("Started reading the vertex ids file..\n");
@@ -233,7 +233,7 @@ hiveGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
     }
     vertexID vIDInfo = {.v = vertex, .id = id};
 
-    hivePutInArrayDb(&vIDInfo, NULL_GUID, 0, vertexIDMap, index);
+    artsPutInArrayDb(&vIDInfo, NULL_GUID, 0, vertexIDMap, index);
     index++;
   }
   fclose(file);
@@ -242,8 +242,8 @@ hiveGuid_t endVertexPropertyRead(u32 paramc, u64 * paramv,
 void initPerNode(unsigned int nodeId, int argc, char** argv) {
 
   //This is the dbGuid we will need to aquire to do gets and puts to the score property arrayDb
-  vertexPropertyMapGuid = hiveReserveGuidRoute(HIVE_DB_PIN, 0);
-  vertexIDMapGuid = hiveReserveGuidRoute(HIVE_DB_PIN, 0);
+  vertexPropertyMapGuid = artsReserveGuidRoute(ARTS_DB_PIN, 0);
+  vertexIDMapGuid = artsReserveGuidRoute(ARTS_DB_PIN, 0);
 
   // distribution must be initialized in initPerNode
   initBlockDistributionWithCmdLineArgs(&distribution,
@@ -294,17 +294,17 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId,
     /* } */
         
     //Start an epoch to read in the property value
-    hiveGuid_t endVertexPropertyReadEpochGuid
-      = hiveEdtCreate(endVertexPropertyRead, 0, 0, NULL, 2);
+    artsGuid_t endVertexPropertyReadEpochGuid
+      = artsEdtCreate(endVertexPropertyRead, 0, 0, NULL, 2);
         
     //Signal the property map guid
-    hiveSignalEdt(endVertexPropertyReadEpochGuid, 1, vertexPropertyMapGuid);
+    artsSignalEdt(endVertexPropertyReadEpochGuid, 1, vertexPropertyMapGuid);
 
     //Start the epoch
-    hiveInitializeAndStartEpoch(endVertexPropertyReadEpochGuid, 0);
+    artsInitializeAndStartEpoch(endVertexPropertyReadEpochGuid, 0);
 
     // Allocate vertex property map and populate it from node 0
-    hiveArrayDb_t * vertexPropertyMap = hiveNewArrayDbWithGuid(
+    artsArrayDb_t * vertexPropertyMap = artsNewArrayDbWithGuid(
 					       vertexPropertyMapGuid,
 					       sizeof (vertexProperty), 
 					       distribution.num_vertices);
@@ -315,7 +315,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId,
     PRINTF("File to be opened %s\n", _file);
     if (file == NULL) {
       PRINTF("[ERROR] File containing property value can't be open -- %s", _file);
-      hiveShutdown();
+      artsShutdown();
     }
 
     PRINTF("Started reading the vertex property file..\n");
@@ -340,7 +340,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId,
       }
       vertexProperty vPropVal = {.v = vertex, .propertyVal = vPropertyVal};
 
-      hivePutInArrayDb(&vPropVal, NULL_GUID, 0, vertexPropertyMap, index);
+      artsPutInArrayDb(&vPropVal, NULL_GUID, 0, vertexPropertyMap, index);
       index++;
     }
     fclose(file);
@@ -348,7 +348,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId,
 }
 
 int main(int argc, char** argv) {
-    hiveRT(argc, argv);
+    artsRT(argc, argv);
     return 0;
 }
 

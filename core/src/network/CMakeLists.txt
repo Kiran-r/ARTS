@@ -1,16 +1,16 @@
 set(network_inc
-    ${CORE_INCLUDE_DIR}/hiveConnection.h
-    ${CORE_INCLUDE_DIR}/hiveRemote.h
-    ${CORE_INCLUDE_DIR}/hiveRemoteLauncher.h
-    ${CORE_INCLUDE_DIR}/hiveRemoteProtocol.h
-    ${CORE_INCLUDE_DIR}/hiveSocketServer.h
+    ${CORE_INCLUDE_DIR}/artsConnection.h
+    ${CORE_INCLUDE_DIR}/artsRemote.h
+    ${CORE_INCLUDE_DIR}/artsRemoteLauncher.h
+    ${CORE_INCLUDE_DIR}/artsRemoteProtocol.h
+    ${CORE_INCLUDE_DIR}/artsSocketServer.h
 )
 
 set(network_src
-    hiveRemoteLauncherSSH.c
-    hiveSocket.c
-    hiveRemoteProtocol.c
-    hiveSocketServer.c
+    artsRemoteLauncherSSH.c
+    artsSocket.c
+    artsRemoteProtocol.c
+    artsSocketServer.c
 )
 
 add_library(network OBJECT ${network_inc} ${network_src})

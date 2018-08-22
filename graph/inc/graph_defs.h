@@ -1,11 +1,11 @@
-#ifndef HIVE_GRAPH_DEFS
-#define HIVE_GRAPH_DEFS
+#ifndef ARTS_GRAPH_DEFS
+#define ARTS_GRAPH_DEFS
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "hiveRT.h"
-#include "hiveGlobals.h"
+#include "artsRT.h"
+#include "artsGlobals.h"
 
 typedef u64 vertex;
 typedef u64 graph_sz_t;

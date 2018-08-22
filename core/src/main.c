@@ -1,59 +1,59 @@
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
-#include "hive.h"
-#include "hiveThreads.h"
-#include "hiveConfig.h"
-#include "hiveGlobals.h"
-#include "hiveRemote.h"
-#include "hiveGuid.h"
-#include "hiveRuntime.h"
-#include "hiveMalloc.h"
-#include "hiveRemoteLauncher.h"
-#include "hiveIntrospection.h"
-#include "hiveDebug.h"
+#include "arts.h"
+#include "artsThreads.h"
+#include "artsConfig.h"
+#include "artsGlobals.h"
+#include "artsRemote.h"
+#include "artsGuid.h"
+#include "artsRuntime.h"
+#include "artsMalloc.h"
+#include "artsRemoteLauncher.h"
+#include "artsIntrospection.h"
+#include "artsDebug.h"
 #include <string.h>
 
-extern struct hiveConfig * config;
+extern struct artsConfig * config;
 
 int mainArgc = 0;
 char ** mainArgv = NULL;
 
-int hiveRT(int argc, char **argv)
+int artsRT(int argc, char **argv)
 {
     mainArgc = argc;
     mainArgv = argv;
-    hiveRemoteTryToBecomePrinter();
-    config = hiveConfigLoad(0, NULL, NULL);
+    artsRemoteTryToBecomePrinter();
+    config = artsConfigLoad(0, NULL, NULL);
 
     if(config->coreDump)
-        hiveTurnOnCoreDumps();
+        artsTurnOnCoreDumps();
 
-    hiveGlobalRankId = 0;
-    hiveGlobalRankCount = config->tableLength;
+    artsGlobalRankId = 0;
+    artsGlobalRankCount = config->tableLength;
     if(strncmp(config->launcher, "local", 5) != 0)
-        hiveServerSetup(config);
-    hiveGlobalMasterRankId= config->masterRank;
-    if(hiveGlobalRankId == config->masterRank && config->masterBoot)
+        artsServerSetup(config);
+    artsGlobalMasterRankId= config->masterRank;
+    if(artsGlobalRankId == config->masterRank && config->masterBoot)
         config->launcherData->launchProcesses(config->launcherData);
 
-    if(hiveGlobalRankCount>1)
+    if(artsGlobalRankCount>1)
     {
-        hiveRemoteSetupOutgoing();
-        if(!hiveRemoteSetupIncoming())
+        artsRemoteSetupOutgoing();
+        if(!artsRemoteSetupIncoming())
             return -1;
     }
 
-    hiveThreadInit(config);
-    hiveThreadZeroNodeStart();
+    artsThreadInit(config);
+    artsThreadZeroNodeStart();
        
-    hiveThreadMainJoin();
-    hiveRemoteCleanup();
+    artsThreadMainJoin();
+    artsRemoteCleanup();
 
-    if(hiveGlobalRankId == config->masterRank && config->masterBoot)
+    if(artsGlobalRankId == config->masterRank && config->masterBoot)
     {
         config->launcherData->cleanupProcesses(config->launcherData);
     }
-    hiveConfigDestroy(config);
-    hiveRemoteTryToClosePrinter();
+    artsConfigDestroy(config);
+    artsRemoteTryToClosePrinter();
     return 0;
 }

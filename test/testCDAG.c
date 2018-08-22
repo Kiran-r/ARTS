@@ -1,28 +1,28 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "hiveRT.h"
+#include "artsRT.h"
 unsigned int numReads = 0;
 unsigned int numWrites = 0;
 unsigned int numDynamicReads = 0;
 unsigned int numDynamicWrites = 0;
-hiveGuid_t shutdownGuid;
-hiveGuid_t dbGuid;
-hiveGuid_t * readGuids;
-hiveGuid_t * writeGuids;
+artsGuid_t shutdownGuid;
+artsGuid_t dbGuid;
+artsGuid_t * readGuids;
+artsGuid_t * writeGuids;
 
-hiveGuid_t shutdownEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t shutdownEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     unsigned int * array = depv[0].ptr;
     for(unsigned int i=0; i<numWrites; i++)
     {
         PRINTF("i: %u %u\n", i, array[i]);
     }
-    hiveShutdown();
+    artsShutdown();
     // Need to fix the return value
     return NULL_GUID;
 }
 
-hiveGuid_t readTest(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t readTest(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
 //    PRINTF("READ\n");
     unsigned int * array = depv[0].ptr;
@@ -33,12 +33,12 @@ hiveGuid_t readTest(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
             PRINTF("BAD VALUE i: %u %u\n", i, array[i]);
         }
     }
-    hiveSignalEdtValue(shutdownGuid, -1, 0);
+    artsSignalEdtValue(shutdownGuid, -1, 0);
     // Need to fix the return value
     return NULL_GUID;
 }
 
-hiveGuid_t writeTest(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t writeTest(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     unsigned int index = paramv[0];
     unsigned int * array = depv[0].ptr;
@@ -47,21 +47,21 @@ hiveGuid_t writeTest(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 
     for(unsigned int i=0; i<numDynamicReads; i++)
     {
-        hiveGuid_t guid = hiveEdtCreate(readTest, hiveGetCurrentNode(), 0, NULL, 1);
-        hiveSignalEdt(guid, 0, dbGuid);
+        artsGuid_t guid = artsEdtCreate(readTest, artsGetCurrentNode(), 0, NULL, 1);
+        artsSignalEdt(guid, 0, dbGuid);
     }
 
     for(unsigned int i=0; i<numDynamicWrites; i++)
     {
         paramv[0] = (paramv[0]+1) % numWrites;
-        hiveGuid_t guid = hiveEdtCreate(readTest, hiveGetCurrentNode(), 0, NULL, 1);
-        hiveSignalEdt(guid, 0, dbGuid);
+        artsGuid_t guid = artsEdtCreate(readTest, artsGetCurrentNode(), 0, NULL, 1);
+        artsSignalEdt(guid, 0, dbGuid);
     }
 
     if(!index)
-        hiveSignalEdt(shutdownGuid, 0, hiveGuidCast(dbGuid, HIVE_DB_WRITE));
+        artsSignalEdt(shutdownGuid, 0, artsGuidCast(dbGuid, ARTS_DB_WRITE));
     else
-        hiveSignalEdtValue(shutdownGuid, -1, 0);
+        artsSignalEdtValue(shutdownGuid, -1, 0);
     // Need to fix the return value
     return NULL_GUID;
 }
@@ -75,17 +75,17 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     if(!nodeId)
         PRINTF("Reads: %u Writes: %u Dynamic Reads: %u Dynamic Writes: %u Final Deps: %u\n", numReads, numWrites, numDynamicReads, numDynamicWrites, numDynamicReads*numWrites+numDynamicWrites*numWrites+numReads+numWrites);
 
-    readGuids = hiveMalloc(sizeof(hiveGuid_t)*numReads);
-    writeGuids = hiveMalloc(sizeof(hiveGuid_t)*numWrites);
+    readGuids = artsMalloc(sizeof(artsGuid_t)*numReads);
+    writeGuids = artsMalloc(sizeof(artsGuid_t)*numWrites);
 
-    dbGuid = hiveReserveGuidRoute(HIVE_DB_READ, 0);
+    dbGuid = artsReserveGuidRoute(ARTS_DB_READ, 0);
 
     for(unsigned int i=0; i<numReads; i++)
-        readGuids[i] = hiveReserveGuidRoute(HIVE_EDT, i % hiveGetTotalNodes());
+        readGuids[i] = artsReserveGuidRoute(ARTS_EDT, i % artsGetTotalNodes());
     for(unsigned int i=0; i<numWrites; i++)
-        writeGuids[i] = hiveReserveGuidRoute(HIVE_EDT, i % hiveGetTotalNodes());
+        writeGuids[i] = artsReserveGuidRoute(ARTS_EDT, i % artsGetTotalNodes());
 
-    shutdownGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
+    shutdownGuid = artsReserveGuidRoute(ARTS_EDT, 0);
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
@@ -94,28 +94,28 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     {
         if(!nodeId)
         {
-            unsigned int * ptr = hiveDbCreateWithGuid(dbGuid, sizeof(unsigned int) * numWrites);
+            unsigned int * ptr = artsDbCreateWithGuid(dbGuid, sizeof(unsigned int) * numWrites);
             for(unsigned int i=0; i<numWrites; i++)
                 ptr[i] = 0;
 
-            hiveEdtCreateWithGuid(shutdownEdt, shutdownGuid, 0, NULL, numDynamicReads*numWrites+numDynamicWrites*numWrites+numReads+numWrites);
+            artsEdtCreateWithGuid(shutdownEdt, shutdownGuid, 0, NULL, numDynamicReads*numWrites+numDynamicWrites*numWrites+numReads+numWrites);
         }
 
         for(u64 i=0; i<numReads; i++)
         {
-            if(hiveIsGuidLocal(readGuids[i]))
+            if(artsIsGuidLocal(readGuids[i]))
             {
-                hiveEdtCreateWithGuid(readTest, readGuids[i], 0, NULL, 1);
-                hiveSignalEdt(readGuids[i], 0, dbGuid);
+                artsEdtCreateWithGuid(readTest, readGuids[i], 0, NULL, 1);
+                artsSignalEdt(readGuids[i], 0, dbGuid);
             }
         }
 
         for(u64 i=0; i<numWrites; i++)
         {
-            if(hiveIsGuidLocal(writeGuids[i]))
+            if(artsIsGuidLocal(writeGuids[i]))
             {
-                hiveEdtCreateWithGuid(writeTest, writeGuids[i], 1, &i, 1);
-                hiveSignalEdt(writeGuids[i], 0, hiveGuidCast(dbGuid, HIVE_DB_WRITE));
+                artsEdtCreateWithGuid(writeTest, writeGuids[i], 1, &i, 1);
+                artsSignalEdt(writeGuids[i], 0, artsGuidCast(dbGuid, ARTS_DB_WRITE));
             }
         }
 
@@ -125,6 +125,6 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 
 int main(int argc, char** argv)
 {
-    hiveRT(argc, argv);
+    artsRT(argc, argv);
     return 0;
 }

@@ -1,69 +1,69 @@
-#include "hive.h"
-#include "hiveMalloc.h"
-#include "hiveGuid.h"
-#include "hiveRemote.h"
-#include "hiveRemoteFunctions.h"
-#include "hiveGlobals.h"
-#include "hiveAtomics.h"
-#include "hiveCounter.h"
-#include "hiveIntrospection.h"
-#include "hiveRuntime.h"
-#include "hiveEdtFunctions.h"
-#include "hiveOutOfOrder.h"
-#include "hiveRouteTable.h"
-#include "hiveDebug.h"
-#include "hiveTerminationDetection.h"
-#include "hiveArrayList.h"
-#include "hiveQueue.h"
+#include "arts.h"
+#include "artsMalloc.h"
+#include "artsGuid.h"
+#include "artsRemote.h"
+#include "artsRemoteFunctions.h"
+#include "artsGlobals.h"
+#include "artsAtomics.h"
+#include "artsCounter.h"
+#include "artsIntrospection.h"
+#include "artsRuntime.h"
+#include "artsEdtFunctions.h"
+#include "artsOutOfOrder.h"
+#include "artsRouteTable.h"
+#include "artsDebug.h"
+#include "artsTerminationDetection.h"
+#include "artsArrayList.h"
+#include "artsQueue.h"
 #include <stdarg.h>
 #include <string.h>
 
-hiveGuid_t hiveEdtCreateShad(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv)
+artsGuid_t artsEdtCreateShad(artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv)
 {
-    HIVEEDTCOUNTERTIMERSTART(edtCreateCounter);
-    unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64) + sizeof(hiveGuid_t);
-    hiveGuid_t guid = NULL_GUID;
-    hiveEdtCreateInternal(&guid, route, hiveThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, 0, false, NULL_GUID, true);
-    HIVEEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
+    ARTSEDTCOUNTERTIMERSTART(edtCreateCounter);
+    unsigned int edtSpace = sizeof(struct artsEdt) + paramc * sizeof(u64) + sizeof(artsGuid_t);
+    artsGuid_t guid = NULL_GUID;
+    artsEdtCreateInternal(&guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, 0, false, NULL_GUID, true);
+    ARTSEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return guid;
 }
 
-hiveGuid_t hiveActiveMessageShad(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, void * data, unsigned int size, hiveGuid_t epochGuid)
+artsGuid_t artsActiveMessageShad(artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, void * data, unsigned int size, artsGuid_t epochGuid)
 {
     unsigned int rank = route; //route / numNumaDomains;
     unsigned int cluster = 0; //route % numNumaDomains;
-    hiveGuid_t guid = NULL_GUID;
+    artsGuid_t guid = NULL_GUID;
     bool useEpoch = (epochGuid != NULL_GUID);
     
-//    if(route == hiveGlobalRankId && hiveInspecting())
+//    if(route == artsGlobalRankId && artsInspecting())
 //    {
-//        uint64_t edts = hiveGetPerformanceMetricTotal(hiveEdtThroughput, hiveNode);
-//        uint64_t queued = hiveGetPerformanceMetricTotal(hiveEdtQueue, hiveNode);
+//        uint64_t edts = artsGetPerformanceMetricTotal(artsEdtThroughput, artsNode);
+//        uint64_t queued = artsGetPerformanceMetricTotal(artsEdtQueue, artsNode);
 //        uint64_t totalQueued = (queued > edts) ? queued - edts : 0;
-//        double queueRate = hiveMetricTest(hiveEdtThroughput, hiveNode, totalQueued);
-//        double doneRate = hiveMetricTest(hiveEdtThroughput, hiveNode, 1);
+//        double queueRate = artsMetricTest(artsEdtThroughput, artsNode, totalQueued);
+//        double doneRate = artsMetricTest(artsEdtThroughput, artsNode, 1);
 //        
 //        
 ////        PRINTF("doneRate: %lf queueRate: %lf edts: %lu queued: %lu\n", doneRate, queueRate, edts, queued);
 ////        if(queueRate != 0 && doneRate != 0)
 //        {
-//            if( hiveNodeInfo.workerThreadCount==1 ||
-//                ( !edts && hiveNodeInfo.workerThreadCount * 2 > queued) ||
+//            if( artsNodeInfo.workerThreadCount==1 ||
+//                ( !edts && artsNodeInfo.workerThreadCount * 2 > queued) ||
 //                ( totalQueued && (queueRate > doneRate) )
 //              )
 //            {
 ////                PRINTF("%lf * 1.5 = %lf < %lf Queued: %lu\n", doneRate, doneRate*1.5, queueRate, totalQueued);
-//                hiveEdtDep_t dep;
+//                artsEdtDep_t dep;
 //                dep.ptr = data;
 //                dep.mode = DB_MODE_PTR;
 //                dep.guid = NULL_GUID;
 //                
-//                HIVECOUNTERTIMERSTART(edtCounter);
+//                ARTSCOUNTERTIMERSTART(edtCounter);
 //                
-//                hiveGuid_t result = funcPtr(paramc, paramv, 1, &dep);
+//                artsGuid_t result = funcPtr(paramc, paramv, 1, &dep);
 //                
-//                HIVECOUNTERTIMERENDINCREMENT(edtCounter);
-//                hiveUpdatePerformanceMetric(hiveEdtThroughput, hiveThread, 1, false);
+//                ARTSCOUNTERTIMERENDINCREMENT(edtCounter);
+//                artsUpdatePerformanceMetric(artsEdtThroughput, artsThread, 1, false);
 //                
 //                return NULL_GUID;
 //            }
@@ -71,103 +71,103 @@ hiveGuid_t hiveActiveMessageShad(hiveEdt_t funcPtr, unsigned int route, u32 para
 //    }
     
     if(size) {
-        unsigned int depSpace = sizeof(hiveEdtDep_t);
-        unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64) + depSpace;
-        hiveEdtCreateInternal(&guid, rank, cluster, edtSpace, NULL_GUID, funcPtr, paramc, paramv, 1, useEpoch, epochGuid, true);
+        unsigned int depSpace = sizeof(artsEdtDep_t);
+        unsigned int edtSpace = sizeof(struct artsEdt) + paramc * sizeof(u64) + depSpace;
+        artsEdtCreateInternal(&guid, rank, cluster, edtSpace, NULL_GUID, funcPtr, paramc, paramv, 1, useEpoch, epochGuid, true);
         
 //        PRINTF("MEMCPY: %u\n", size);
-        void * ptr = hiveMalloc(size);
+        void * ptr = artsMalloc(size);
         memcpy(ptr, data, size);
-        hiveSignalEdtPtr(guid, 0, ptr, size);
+        artsSignalEdtPtr(guid, 0, ptr, size);
     }
     else
     {
-        unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64);
-        hiveEdtCreateInternal(&guid, rank, cluster, edtSpace, NULL_GUID, funcPtr, paramc, paramv, 0, useEpoch, epochGuid, false);
+        unsigned int edtSpace = sizeof(struct artsEdt) + paramc * sizeof(u64);
+        artsEdtCreateInternal(&guid, rank, cluster, edtSpace, NULL_GUID, funcPtr, paramc, paramv, 0, useEpoch, epochGuid, false);
     }
     return guid;
 }
 
-void hiveSynchronousActiveMessageShad(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, void * data, unsigned int size)
+void artsSynchronousActiveMessageShad(artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, void * data, unsigned int size)
 {
     unsigned int rank = route; //route / numNumaDomains;
     unsigned int cluster = 0; //route % numNumaDomains;
     unsigned int waitFlag = 1;
     void * waitPtr = &waitFlag;
-    hiveGuid_t waitGuid = hiveAllocateLocalBuffer((void **)&waitPtr, sizeof(unsigned int), 1, NULL_GUID);
+    artsGuid_t waitGuid = artsAllocateLocalBuffer((void **)&waitPtr, sizeof(unsigned int), 1, NULL_GUID);
     
-    hiveGuid_t guid = NULL_GUID;
+    artsGuid_t guid = NULL_GUID;
     if(size) {
-        unsigned int depSpace = sizeof(hiveEdtDep_t);
-        unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64) + depSpace;
-        hiveEdtCreateInternal(&guid, rank, cluster, edtSpace, waitGuid, funcPtr, paramc, paramv, 1, false, NULL_GUID, true);
+        unsigned int depSpace = sizeof(artsEdtDep_t);
+        unsigned int edtSpace = sizeof(struct artsEdt) + paramc * sizeof(u64) + depSpace;
+        artsEdtCreateInternal(&guid, rank, cluster, edtSpace, waitGuid, funcPtr, paramc, paramv, 1, false, NULL_GUID, true);
 
-        void * ptr = hiveMalloc(size);
+        void * ptr = artsMalloc(size);
         memcpy(ptr, data, size);
-        hiveSignalEdtPtr(guid, 0, ptr, size);
+        artsSignalEdtPtr(guid, 0, ptr, size);
     }
     else
     {
-        unsigned int edtSpace = sizeof(struct hiveEdt) + paramc * sizeof(u64);
-        hiveEdtCreateInternal(&guid, rank, cluster, edtSpace, waitGuid, funcPtr, paramc, paramv, 0, false, NULL_GUID, false);
+        unsigned int edtSpace = sizeof(struct artsEdt) + paramc * sizeof(u64);
+        artsEdtCreateInternal(&guid, rank, cluster, edtSpace, waitGuid, funcPtr, paramc, paramv, 0, false, NULL_GUID, false);
     }
     
     while(waitFlag) {
-        hiveYield();
+        artsYield();
     }
 }
 
-void hiveIncLockShad()
+void artsIncLockShad()
 {
-    hiveThreadInfo.shadLock++;
+    artsThreadInfo.shadLock++;
 }
 
-void hiveDecLockShad()
+void artsDecLockShad()
 {
-    hiveThreadInfo.shadLock--;
+    artsThreadInfo.shadLock--;
 }
 
-void hiveCheckLockShad()
+void artsCheckLockShad()
 {
-    if(hiveThreadInfo.shadLock)
+    if(artsThreadInfo.shadLock)
     {
-        PRINTF("ARTS: Cannot perform synchronous call under lock Worker: %u ShadLock: %u\n", hiveThreadInfo.groupId, hiveThreadInfo.shadLock);
-        hiveDebugGenerateSegFault();
+        PRINTF("ARTS: Cannot perform synchronous call under lock Worker: %u ShadLock: %u\n", artsThreadInfo.groupId, artsThreadInfo.shadLock);
+        artsDebugGenerateSegFault();
     }
 }
 
-void hiveStartIntroShad(unsigned int start)
+void artsStartIntroShad(unsigned int start)
 {
-    hiveStartInspector(start);
-    HIVESTARTCOUNTING(start);
+    artsStartInspector(start);
+    ARTSSTARTCOUNTING(start);
 }
 
-void hiveStopIntroShad()
+void artsStopIntroShad()
 {
-    hiveStopInspector();
-    HIVECOUNTERSOFF();
+    artsStopInspector();
+    ARTSCOUNTERSOFF();
 }
 
-unsigned int hiveGetShadLoopStride()
+unsigned int artsGetShadLoopStride()
 {
-    return hiveNodeInfo.shadLoopStride;
+    return artsNodeInfo.shadLoopStride;
 }
 
-hiveGuid_t hiveAllocateLocalBufferShad(void ** buffer, uint32_t * sizeToWrite, hiveGuid_t epochGuid)
+artsGuid_t artsAllocateLocalBufferShad(void ** buffer, uint32_t * sizeToWrite, artsGuid_t epochGuid)
 {
     if(epochGuid)
         incrementActiveEpoch(epochGuid);
     globalShutdownGuidIncActive();
     
-    hiveBuffer_t * stub = hiveMalloc(sizeof(hiveBuffer_t));
+    artsBuffer_t * stub = artsMalloc(sizeof(artsBuffer_t));
     stub->buffer = *buffer;
     stub->sizeToWrite = sizeToWrite;
     stub->size = 0;
     stub->uses = 1;
     stub->epochGuid = epochGuid;
     
-    hiveGuid_t guid = hiveGuidCreateForRank(hiveGlobalRankId, HIVE_BUFFER);
-    hiveRouteTableAddItem(stub, guid, hiveGlobalRankId, false);
+    artsGuid_t guid = artsGuidCreateForRank(artsGlobalRankId, ARTS_BUFFER);
+    artsRouteTableAddItem(stub, guid, artsGlobalRankId, false);
     return guid;
 }
 

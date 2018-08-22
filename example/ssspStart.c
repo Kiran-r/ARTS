@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "hiveRT.h"
+#include "artsRT.h"
 
 #define NUMVERT 100
 #define NUMEDGE 10
 
-hiveGuid_t * graphGuid;
+artsGuid_t * graphGuid;
 
 typedef struct
 {
@@ -20,7 +20,7 @@ typedef struct
     edge edgeList[NUMEDGE];
 } vertex;
 
-hiveGuid_t indexToGuid(unsigned int index)
+artsGuid_t indexToGuid(unsigned int index)
 {
     return graphGuid[index/NUMVERT];
 }
@@ -30,7 +30,7 @@ unsigned int globalIndexToOffset(unsigned int index)
     return index % NUMVERT;
 }
 
-hiveGuid_t visit(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t visit(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     unsigned int index = paramv[0];
     u64 * neighbors = &paramv[1];
@@ -47,7 +47,7 @@ hiveGuid_t visit(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     
 }
 
-hiveGuid_t getDistances(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t getDistances(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     vertex * v = depv[0].ptr;
     for(unsigned int i=0; i<NUMVERT; i++)
@@ -57,17 +57,17 @@ hiveGuid_t getDistances(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
         for(unsigned int j=0; j<NUMEDGE; j++)
             edges[j+1] = v[i].edgeList[j].target;
         
-        hiveGuid_t guid = hiveEdtCreate(visit, 0, NUMEDGE+1, edges, NUMEDGE+1, NULL);
+        artsGuid_t guid = artsEdtCreate(visit, 0, NUMEDGE+1, edges, NUMEDGE+1, NULL);
         
         for(unsigned int j=0; j<NUMEDGE; j++)
-            hiveSignalEdt(guid, indexToGuid(v[i].edgeList[j].target), j+1, DB_MODE_NON_COHERENT_READ);
+            artsSignalEdt(guid, indexToGuid(v[i].edgeList[j].target), j+1, DB_MODE_NON_COHERENT_READ);
         
-        hiveSignalEdt(guid, indexToGuid(v[i].index), 0, DB_MODE_NON_COHERENT_READ);
+        artsSignalEdt(guid, indexToGuid(v[i].index), 0, DB_MODE_NON_COHERENT_READ);
     }
-    hiveShutdown();
+    artsShutdown();
 }
 
-hiveGuid_t shutDown(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t shutDown(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     for(unsigned int i=0; i<depc; i++)
     {
@@ -80,16 +80,16 @@ hiveGuid_t shutDown(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
             }
         }
     }
-    hiveShutdown();
+    artsShutdown();
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
     srand(42);
-    graphGuid = hiveMalloc(sizeof(hiveGuid_t)*hiveGetTotalNodes());
-    for(unsigned int i=0; i<hiveGetTotalNodes(); i++)
+    graphGuid = artsMalloc(sizeof(artsGuid_t)*artsGetTotalNodes());
+    for(unsigned int i=0; i<artsGetTotalNodes(); i++)
     {
-        graphGuid[i] = hiveReserveGuidRoute(HIVE_DB_READ, i % hiveGetTotalNodes());
+        graphGuid[i] = artsReserveGuidRoute(ARTS_DB_READ, i % artsGetTotalNodes());
     }
 }
 
@@ -97,12 +97,12 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 {   
     if(!workerId)
     {
-        for(unsigned int i=0; i<hiveGetTotalNodes(); i++)
+        for(unsigned int i=0; i<artsGetTotalNodes(); i++)
         {
-            if(hiveIsGuidLocal(graphGuid[i]))
+            if(artsIsGuidLocal(graphGuid[i]))
             {
                 PRINTF("SIZE ALLOC: %u vert %u edge %u\n", sizeof(vertex) * NUMVERT, sizeof(vertex), sizeof(edge));
-                vertex * v = hiveDbCreateWithGuid(graphGuid[i], sizeof(vertex) * NUMVERT);
+                vertex * v = artsDbCreateWithGuid(graphGuid[i], sizeof(vertex) * NUMVERT);
                 for(unsigned int j=0; j<NUMVERT; j++)
                 {
                     
@@ -110,7 +110,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
                     v[j].distance = 0;
                     for(unsigned int k=0; k<NUMEDGE; k++)
                     {
-                        v[j].edgeList[k].target = rand() % (NUMVERT*hiveGetTotalNodes());
+                        v[j].edgeList[k].target = rand() % (NUMVERT*artsGetTotalNodes());
                         v[j].edgeList[k].weight = (rand() % 25) + 1;
                         
                     }
@@ -121,10 +121,10 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     
     if(!nodeId && !workerId)
     {
-        hiveGuid_t guid = hiveEdtCreate(shutDown, 0, 0, NULL, hiveGetTotalNodes(), NULL);
-        for(unsigned int i=0; i<hiveGetTotalNodes(); i++)
+        artsGuid_t guid = artsEdtCreate(shutDown, 0, 0, NULL, artsGetTotalNodes(), NULL);
+        for(unsigned int i=0; i<artsGetTotalNodes(); i++)
         {
-            hiveSignalEdt(guid, graphGuid[i], i);
+            artsSignalEdt(guid, graphGuid[i], i);
         }
     }
     
@@ -132,6 +132,6 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 
 int main(int argc, char** argv)
 {
-    hiveRT(argc, argv);
+    artsRT(argc, argv);
     return 0;
 }

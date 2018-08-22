@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include <assert.h>
-#include "hiveRT.h"
-#include "hiveGraph.h"
+#include "artsRT.h"
+#include "artsGraph.h"
 
 void initPerNode(unsigned int nodeId, int argc, char** argv) {
   // Simple Graph, vertices = 8, edges = 11
@@ -41,14 +41,14 @@ void initPerNode(unsigned int nodeId, int argc, char** argv) {
 
 
   // Create a block distribution
-  hive_block_dist_t dist;
+  arts_block_dist_t dist;
   initBlockDistribution(&dist, 
                         8, /*global vertices*/ 
                         11); /*global edges*/
 
 
-  // Create a list of edges, use hiveEdgeVector
-  hiveEdgeVector vec;
+  // Create a list of edges, use artsEdgeVector
+  artsEdgeVector vec;
   initEdgeVector(&vec, 100);
   for(int i=0; i < 11; ++i) {
     pushBackEdge(&vec, edge_arr[i*2], edge_arr[(i*2)+1], 0);
@@ -86,7 +86,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv) {
   // Testing -- reading from commandline
   // e.g., mpirun -np 1 ./testCSR --file /Users/kane972/Downloads/ca-HepTh.tsv --num-vertices 9877 --num-edges 51946 --keep-self-loops
 
-  hive_block_dist_t distCmd;
+  arts_block_dist_t distCmd;
   initBlockDistributionWithCmdLineArgs(&distCmd, 
                                        argc, argv);
 
@@ -113,6 +113,6 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 
 int main(int argc, char** argv)
 {
-  hiveRT(argc, argv);
+  artsRT(argc, argv);
   return 0;
 }

@@ -1,4 +1,4 @@
-Instructions for installing and running the HIVE RTS on the PUMA cluster
+Instructions for installing and running the ARTS RTS on the PUMA cluster
 ========================================================================
 
 INSTALLATION
@@ -33,9 +33,9 @@ If everything goes well, you should have the binaries under the build folder.
 TESTING
 +++++++
 
-Copy from the sampleConfigs the hive_puma.cfg to the build/test folder:
+Copy from the sampleConfigs the arts_puma.cfg to the build/test folder:
 
-$ cp arts/sampleConfigs/hive_puma.cfg arts/build/test/hive.cfg
+$ cp arts/sampleConfigs/arts_puma.cfg arts/build/test/arts.cfg
 
 Afterwards, you can run the test files by using srun:
 

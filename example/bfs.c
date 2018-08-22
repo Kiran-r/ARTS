@@ -4,14 +4,14 @@
 #include <inttypes.h>
 #include <string.h>
 #include <assert.h>
-#include "hiveRT.h"
-#include "hiveGraph.h"
-#include "hiveTerminationDetection.h"
+#include "artsRT.h"
+#include "artsGraph.h"
+#include "artsTerminationDetection.h"
 
 #define DPRINTF(...)
 //#define DPRINTF(...) PRINTF(__VA_ARGS__)
 
-hive_block_dist_t distribution;
+arts_block_dist_t distribution;
 csr_graph graph;
 u64* level;
 
@@ -23,14 +23,14 @@ void bfs_output() {
     }
 }
 
-hiveGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+artsGuid_t exitProgram(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
     bfs_output();
-    hiveShutdown();
+    artsShutdown();
 }
 
 void bfs_send(vertex u, u64 ulevel);
 
-hiveGuid_t relax(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+artsGuid_t relax(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
     DPRINTF("calling relax\n");
     assert(paramc == 2);
     vertex v = (vertex) paramv[0];
@@ -74,18 +74,18 @@ hiveGuid_t relax(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
 }
 
 void bfs_send(vertex u, u64 ulevel) {
-    hiveGuid_t* neighbDbguid = getGuidForVertex(u, &distribution);
+    artsGuid_t* neighbDbguid = getGuidForVertex(u, &distribution);
     u64 send[2];
     send[0] = u;
     send[1] = ulevel;
-    hiveGuid_t relaxGuid = hiveActiveMessageWithDb(relax, // function 
+    artsGuid_t relaxGuid = artsActiveMessageWithDb(relax, // function 
             2, // number of parameters
             send, // parameters
             0, // additional deps
             (*neighbDbguid)); // this is the guid to co-locate task with
 }
 
-hiveGuid_t kickoffTermination(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) {
+artsGuid_t kickoffTermination(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) {
     PRINTF("Kick off\n");
     vertex source = (vertex) paramv[0];
     bfs_send(source, 0);
@@ -111,8 +111,8 @@ void initPerNode(unsigned int nodeId, int argc, char** argv) {
 //                        8, /*global vertices*/ 
 //                        11); /*global edges*/
 //    
-//  // Create a list of edges, use hiveEdgeVector
-//  hiveEdgeVector vec;
+//  // Create a list of edges, use artsEdgeVector
+//  artsEdgeVector vec;
 //  initEdgeVector(&vec, 100);
 //  for(int i=0; i < 11; ++i) {
 //    pushBackEdge(&vec, edge_arr[i*2], edge_arr[(i*2)+1], 0);
@@ -140,7 +140,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv) {
 			    argv);
 
     // should probably encapsulate into something
-    level = (u64 *) hiveMalloc(graph.num_local_vertices * sizeof (u64));
+    level = (u64 *) artsMalloc(graph.num_local_vertices * sizeof (u64));
     // initialize the level array
     for (u64 i = 0; i < graph.num_local_vertices; ++i) {
         level[i] = UINT64_MAX;
@@ -161,14 +161,14 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         assert(source < distribution.num_vertices);
 
         if (!nodeId) {
-            hiveGuid_t exitGuid = hiveEdtCreate(exitProgram, 0, 0, NULL, 1);
-            hiveInitializeAndStartEpoch(exitGuid, 0);
-            hiveGuid_t startGuid = hiveEdtCreate(kickoffTermination, 0, 1, (u64*) &source, 0);
+            artsGuid_t exitGuid = artsEdtCreate(exitProgram, 0, 0, NULL, 1);
+            artsInitializeAndStartEpoch(exitGuid, 0);
+            artsGuid_t startGuid = artsEdtCreate(kickoffTermination, 0, 1, (u64*) &source, 0);
         }
     }
 }
 
 int main(int argc, char** argv) {
-    hiveRT(argc, argv);
+    artsRT(argc, argv);
     return 0;
 }

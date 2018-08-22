@@ -1,25 +1,25 @@
 set(system_inc
-    ${CORE_INCLUDE_DIR}/hiveAbstractMachineModel.h
-    ${CORE_INCLUDE_DIR}/hiveAtomics.h
-    ${CORE_INCLUDE_DIR}/hiveMalloc.h
-    ${CORE_INCLUDE_DIR}/hiveDebug.h
-    ${CORE_INCLUDE_DIR}/hiveTimer.h
-    ${CORE_INCLUDE_DIR}/hiveThreads.h
+    ${CORE_INCLUDE_DIR}/artsAbstractMachineModel.h
+    ${CORE_INCLUDE_DIR}/artsAtomics.h
+    ${CORE_INCLUDE_DIR}/artsMalloc.h
+    ${CORE_INCLUDE_DIR}/artsDebug.h
+    ${CORE_INCLUDE_DIR}/artsTimer.h
+    ${CORE_INCLUDE_DIR}/artsThreads.h
 )
 
 set(system_src
-    hiveAbstractMachineModel.c
-    hiveAtomics.c
-    hiveMallocStandard.c
-    hiveDebugFunctions.c
-    hivePrintf.c
-    hiveTimer.c
-    hivePthreadLayer.c
+    artsAbstractMachineModel.c
+    artsAtomics.c
+    artsMallocStandard.c
+    artsDebugFunctions.c
+    artsPrintf.c
+    artsTimer.c
+    artsPthreadLayer.c
 )
 
 add_library(system OBJECT ${system_src} )
 if(HWLOC)
-set(LIBS hive ${Hwloc_LIBRARIES})
+set(LIBS arts ${Hwloc_LIBRARIES})
 target_link_libraries(system ${LIBS})
 endif()
 install(FILES ${system_inc} DESTINATION include)

@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "hiveRT.h"
+#include "artsRT.h"
 
 unsigned int elemsPerNode = 4;
-hiveArrayDb_t * array = NULL;
+artsArrayDb_t * array = NULL;
 
-hiveGuid_t shutdown(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t shutdown(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     PRINTF("Depc: %u\n", depc);
     for(unsigned int i=0; i<depc; i++)
@@ -17,22 +17,22 @@ hiveGuid_t shutdown(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
             PRINTF("%u: %u\n", i*elemsPerNode+j, data[j]);
         }
     }
-    hiveShutdown();
+    artsShutdown();
 }
 
-hiveGuid_t check(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t check(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
-    hiveGatherArrayDb(array, shutdown, 0, 0, NULL, 0);
+    artsGatherArrayDb(array, shutdown, 0, 0, NULL, 0);
 }
 
-hiveGuid_t edtFunc(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t edtFunc(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     unsigned int index = paramv[0];
-    hiveGuid_t checkGuid = paramv[1];
+    artsGuid_t checkGuid = paramv[1];
     unsigned int * value = depv[0].ptr;
     *value = index;
     PRINTF("%u:  %u %p\n", index, *value, value);
-    hiveSignalEdtValue(checkGuid, 0, 0);
+    artsSignalEdtValue(checkGuid, 0, 0);
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
@@ -44,15 +44,15 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 {   
     if(!nodeId && !workerId)
     {
-        hiveGuid_t checkGuid = hiveEdtCreate(check, 0, 0, NULL, elemsPerNode * hiveGetTotalNodes());
-        hiveGuid_t guid = hiveNewArrayDb(&array, sizeof(unsigned int), elemsPerNode * hiveGetTotalNodes());
-        hiveForEachInArrayDbAtData(array, 1, edtFunc, 1, &checkGuid);
-//        hiveForEachInArrayDb(array, edtFunc, 1, &checkGuid);
+        artsGuid_t checkGuid = artsEdtCreate(check, 0, 0, NULL, elemsPerNode * artsGetTotalNodes());
+        artsGuid_t guid = artsNewArrayDb(&array, sizeof(unsigned int), elemsPerNode * artsGetTotalNodes());
+        artsForEachInArrayDbAtData(array, 1, edtFunc, 1, &checkGuid);
+//        artsForEachInArrayDb(array, edtFunc, 1, &checkGuid);
     }
 }
 
 int main(int argc, char** argv)
 {
-    hiveRT(argc, argv);
+    artsRT(argc, argv);
     return 0;
 }

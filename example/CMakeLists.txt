@@ -1,7 +1,7 @@
 include (CheckIncludeFiles)
 include (CheckSymbolExists)
 
-set(LIBS hive ${M_LIB} ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC_LIB})
+set(LIBS arts ${M_LIB} ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC_LIB})
 
 CHECK_INCLUDE_FILES (alloca.h HAVE_ALLOCA_H)
 check_symbol_exists (alloca alloca.h HAVE_ALLOCA)
@@ -17,18 +17,18 @@ add_executable(simpleReduction simpleReduction.c)
 target_link_libraries(simpleReduction ${LIBS})
 
 add_executable(bfs bfs.c)
-target_link_libraries(bfs hive-graph ${LIBS})
+target_link_libraries(bfs arts-graph ${LIBS})
 
 add_executable(graph_search graph_search.c)
-target_link_libraries(graph_search hive-graph ${LIBS})
+target_link_libraries(graph_search arts-graph ${LIBS})
 
 #SET(CMAKE_C_COMPILER ${CMAKE_CXX_COMPILER})
 
 add_executable(scan_statistics scan_statistics.cpp)
-target_link_libraries(scan_statistics hive-graph ${LIBS})
+target_link_libraries(scan_statistics arts-graph ${LIBS})
 
 add_executable(triangleCount triangleCount.c)
-target_link_libraries(triangleCount hive-graph ${LIBS})
+target_link_libraries(triangleCount arts-graph ${LIBS})
 
 add_executable(triangleCount2 triangleCount2.c)
-target_link_libraries(triangleCount2 hive-graph ${LIBS})
+target_link_libraries(triangleCount2 arts-graph ${LIBS})

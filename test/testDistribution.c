@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "hiveRT.h"
-#include "hiveGraph.h"
-#include "hiveGlobals.h"
+#include "artsRT.h"
+#include "artsGraph.h"
+#include "artsGlobals.h"
 #include <assert.h>
 
 int main(int argc, char** argv) {
@@ -11,7 +11,7 @@ int main(int argc, char** argv) {
   PRINTF("[WARN] asserts are disabled. Verification will not run.\n");
 #endif
 
-  hive_block_dist_t dist;
+  arts_block_dist_t dist;
   initBlockDistribution(&dist, 64, 32, 2);
   assert(dist.num_vertices == 64);
   assert(dist.num_ranks == 2);

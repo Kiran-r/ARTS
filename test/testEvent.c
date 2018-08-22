@@ -1,35 +1,35 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "hiveRT.h"
+#include "artsRT.h"
 
-hiveGuid_t dbGuid = NULL_GUID;
+artsGuid_t dbGuid = NULL_GUID;
 
-hiveGuid_t edtFunc(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t edtFunc(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     PRINTF("HELLO\n");
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    dbGuid = hiveReserveGuidRoute(HIVE_DB_READ, hiveGetTotalNodes() - 1);
+    dbGuid = artsReserveGuidRoute(ARTS_DB_READ, artsGetTotalNodes() - 1);
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
 {
-    if(hiveGetTotalNodes() - 1 == nodeId)
+    if(artsGetTotalNodes() - 1 == nodeId)
     {
-        hiveDbCreateWithGuid(dbGuid, sizeof(unsigned int));
+        artsDbCreateWithGuid(dbGuid, sizeof(unsigned int));
     }
     
-    if(nodeId != hiveGetTotalNodes() - 1 && !workerId)
+    if(nodeId != artsGetTotalNodes() - 1 && !workerId)
     {
-        hiveActiveMessageWithDbAt(edtFunc, 0, NULL, 0, dbGuid, hiveGetTotalNodes() - 1);
+        artsActiveMessageWithDbAt(edtFunc, 0, NULL, 0, dbGuid, artsGetTotalNodes() - 1);
     }
 }
 
 int main(int argc, char** argv)
 {
-    hiveRT(argc, argv);
+    artsRT(argc, argv);
     return 0;
 }
 

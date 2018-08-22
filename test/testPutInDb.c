@@ -1,17 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "hiveRT.h"
+#include "artsRT.h"
 
-hiveGuid_t dbGuid = NULL_GUID;
-hiveGuid_t shutdownGuid = NULL_GUID;
+artsGuid_t dbGuid = NULL_GUID;
+artsGuid_t shutdownGuid = NULL_GUID;
 unsigned int numElements = 0;
 unsigned int blockSize = 0;
 unsigned int stride = 0;
 
-hiveGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     bool pass = true;
-    if(hiveIsGuidLocal(depv[0].guid))
+    if(artsIsGuidLocal(depv[0].guid))
     {
         unsigned int * data = depv[0].ptr;
         for(unsigned int i=0; i<numElements; i++)
@@ -25,15 +25,15 @@ hiveGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
     }
     if(pass)
         PRINTF("CHECK\n");
-    hiveShutdown();
+    artsShutdown();
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    dbGuid = hiveReserveGuidRoute(HIVE_DB_PIN, 0);
-    shutdownGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
+    dbGuid = artsReserveGuidRoute(ARTS_DB_PIN, 0);
+    shutdownGuid = artsReserveGuidRoute(ARTS_EDT, 0);
     numElements = atoi(argv[1]);
-    blockSize = numElements / hiveGetTotalNodes();
+    blockSize = numElements / artsGetTotalNodes();
     stride = atoi(argv[2]);
     if(!nodeId)
         PRINTF("numElements: %u blockSize: %u stride: %u\n", numElements, blockSize, stride);
@@ -45,7 +45,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     {
         if(!nodeId && !workerId)
         {
-            hiveShutdown();
+            artsShutdown();
         }
         return;
     }
@@ -55,24 +55,24 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         unsigned int deps = blockSize/stride;
         for(unsigned int j=0; j<deps; j++)
         {
-            unsigned int * data = hiveMalloc(sizeof(unsigned int) * stride);
+            unsigned int * data = artsMalloc(sizeof(unsigned int) * stride);
             for(unsigned int i=0; i<stride; i++)
                 data[i] = nodeId*blockSize + j*stride + i;
 //            PRINTF("PUT: index: %u slot: %u\n", nodeId*blockSize + j*stride, nodeId*deps + j);
-            hivePutInDb(data, shutdownGuid, dbGuid, nodeId*deps + j, sizeof(unsigned int) * (nodeId*blockSize + j*stride), sizeof(unsigned int) * stride);
-            hiveFree(data);
+            artsPutInDb(data, shutdownGuid, dbGuid, nodeId*deps + j, sizeof(unsigned int) * (nodeId*blockSize + j*stride), sizeof(unsigned int) * stride);
+            artsFree(data);
         }
         
         if(!nodeId)
         {
-            hiveDbCreateWithGuid(dbGuid, sizeof(unsigned int) * numElements);
-            hiveEdtCreateWithGuid(shutDownEdt, shutdownGuid, 0, NULL, numElements/stride);
+            artsDbCreateWithGuid(dbGuid, sizeof(unsigned int) * numElements);
+            artsEdtCreateWithGuid(shutDownEdt, shutdownGuid, 0, NULL, numElements/stride);
         }
     }
 }
 
 int main(int argc, char** argv)
 {
-    hiveRT(argc, argv);
+    artsRT(argc, argv);
     return 0;
 }

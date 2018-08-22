@@ -1,6 +1,6 @@
-#include "hiveDeque.h"
-#include "hiveMalloc.h"
-#include "hiveAtomics.h"
+#include "artsDeque.h"
+#include "artsMalloc.h"
+#include "artsAtomics.h"
 
 struct circularArray
 {
@@ -9,7 +9,7 @@ struct circularArray
     void ** segment;
 }__attribute__ ((aligned(64)));
 
-struct hiveDeque
+struct artsDeque
 {
     volatile u64  top;
     char pad1[56];
@@ -26,15 +26,15 @@ struct hiveDeque
     volatile unsigned int pop;
     volatile unsigned int steal;
     unsigned int priority;
-    struct hiveDeque * volatile left;
-    struct hiveDeque * volatile right;
+    struct artsDeque * volatile left;
+    struct artsDeque * volatile right;
 }__attribute__ ((aligned(64)));
 
 static inline struct circularArray * 
 newCircularArray(unsigned int size)
 {
     struct circularArray * array 
-        = hiveCalloc( sizeof(struct circularArray) + sizeof(void*) * size); 
+        = artsCalloc( sizeof(struct circularArray) + sizeof(void*) * size); 
 //    memset(array,0,sizeof(struct circularArray) + sizeof(void*) * size);
     array->size = size;
     array->segment = (void**)(array+1);
@@ -44,7 +44,7 @@ newCircularArray(unsigned int size)
 
 
 bool
-hiveDequeEmpty(struct hiveDeque * deque)
+artsDequeEmpty(struct artsDeque * deque)
 {
     //don't really know what this is for
     //return (deque->bottom == deque->top);
@@ -52,13 +52,13 @@ hiveDequeEmpty(struct hiveDeque * deque)
 }
 
 void
-hiveDequeClear(struct hiveDeque *deque)
+artsDequeClear(struct artsDeque *deque)
 {
     deque->top = deque->bottom;
 }
 
 unsigned int 
-hiveDequeSize(struct hiveDeque *deque)
+artsDequeSize(struct artsDeque *deque)
 {
     return deque->bottom - deque->top;
 }
@@ -87,7 +87,7 @@ growCircularArray(struct circularArray * array, u64 b, u64 t)
 }
 
 static inline void
-hiveDequeNewInit(struct hiveDeque * deque, unsigned int size)
+artsDequeNewInit(struct artsDeque * deque, unsigned int size)
 {
     deque->top = 1;
     deque->bottom = 1;
@@ -101,29 +101,29 @@ hiveDequeNewInit(struct hiveDeque * deque, unsigned int size)
     deque->leftLock = deque->rightLock = 0;
 }
 
-struct hiveDeque * 
-hiveDequeNew(unsigned int size)
+struct artsDeque * 
+artsDequeNew(unsigned int size)
 {
-    struct hiveDeque * deque = hiveCalloc(sizeof(struct hiveDeque));
-    hiveDequeNewInit(deque, size);
+    struct artsDeque * deque = artsCalloc(sizeof(struct artsDeque));
+    artsDequeNewInit(deque, size);
     return deque;
 }
 
 void
-hiveDequeDelete(struct hiveDeque *deque)
+artsDequeDelete(struct artsDeque *deque)
 {
     struct circularArray * trail, * current = deque->head;
     while(current)
     {
         trail = current;
         current = current->next;
-        hiveFree(trail);
+        artsFree(trail);
     }
 //    free(deque);
 }
-struct hiveDeque * findTheDeque( struct hiveDeque * deque, unsigned int priority)
+struct artsDeque * findTheDeque( struct artsDeque * deque, unsigned int priority)
 {
-    struct hiveDeque * next = deque;
+    struct artsDeque * next = deque;
     
     while(next->priority != priority)
     {
@@ -132,10 +132,10 @@ struct hiveDeque * findTheDeque( struct hiveDeque * deque, unsigned int priority
             unsigned int old;
             if(next->leftLock == 0)
             {
-                old = hiveAtomicCswap(&next->leftLock, 0U, 1U);
+                old = artsAtomicCswap(&next->leftLock, 0U, 1U);
                 if(old == 0U)
                 {
-                    struct hiveDeque * nextDeque = hiveDequeNew(8);
+                    struct artsDeque * nextDeque = artsDequeNew(8);
                     nextDeque->priority = priority;
                     next->left = nextDeque;
                     return next->left;
@@ -149,10 +149,10 @@ struct hiveDeque * findTheDeque( struct hiveDeque * deque, unsigned int priority
             unsigned int old;
             if(next->rightLock == 0)
             {
-                old = hiveAtomicCswap(&next->rightLock, 0U, 1U);
+                old = artsAtomicCswap(&next->rightLock, 0U, 1U);
                 if(old == 0U)
                 {
-                    struct hiveDeque * nextDeque = hiveDequeNew(8);
+                    struct artsDeque * nextDeque = artsDequeNew(8);
                     nextDeque->priority = priority;
                     next->right = nextDeque;
                     return next->right;
@@ -168,7 +168,7 @@ struct hiveDeque * findTheDeque( struct hiveDeque * deque, unsigned int priority
 }
 
 bool 
-hiveDequePushFront(struct hiveDeque *deque, void *item, unsigned int priority)
+artsDequePushFront(struct artsDeque *deque, void *item, unsigned int priority)
 {
     deque = findTheDeque(deque, priority);
     struct circularArray * a = deque->activeArray;
@@ -186,12 +186,12 @@ hiveDequePushFront(struct hiveDeque *deque, void *item, unsigned int priority)
 }
 
 void *
-hiveDequePopFront(struct hiveDeque *deque)
+artsDequePopFront(struct artsDeque *deque)
 {
     void * o = NULL;
     
     if(deque->left)
-        o = hiveDequePopFront(deque->left);
+        o = artsDequePopFront(deque->left);
     
     if(!o)
     {
@@ -213,25 +213,25 @@ hiveDequePopFront(struct hiveDeque *deque)
             getCircularArray(deque->activeArray, b);
             if(b <= t)
             {
-                if(hiveAtomicCswapU64(&deque->top, t, t+1) != t)
+                if(artsAtomicCswapU64(&deque->top, t, t+1) != t)
                     o = NULL;
                 deque->bottom = t+1;
             }
         }
 
         if(!o && deque->right)
-            o = hiveDequePopFront(deque->right);
+            o = artsDequePopFront(deque->right);
     }
     return o;
 }
 
 void *
-hiveDequePopBack(struct hiveDeque *deque)
+artsDequePopBack(struct artsDeque *deque)
 {
     void * o = NULL;
    
     if(deque->left)
-        o = hiveDequePopBack(deque->left);
+        o = artsDequePopBack(deque->left);
     
     if(!o)
     {
@@ -241,41 +241,41 @@ hiveDequePopBack(struct hiveDeque *deque)
         if(t < b)
         {
             o = getCircularArray(deque->activeArray, t);
-            u64 temp = hiveAtomicCswapU64(&deque->top, t, t+1);
+            u64 temp = artsAtomicCswapU64(&deque->top, t, t+1);
             if(temp!=t)
             {
                 o=NULL;
             }
         }
         if(!o && deque->right)
-            o = hiveDequePopBack(deque->right);
+            o = artsDequePopBack(deque->right);
     }
     return o;
 }
 
-struct hiveDeque *
-hiveDequeListNew(unsigned int listSize, unsigned int dequeSize)
+struct artsDeque *
+artsDequeListNew(unsigned int listSize, unsigned int dequeSize)
 {
-    struct hiveDeque *dequeList =
-        (struct hiveDeque *) hiveCalloc( listSize * sizeof (struct hiveDeque) );
+    struct artsDeque *dequeList =
+        (struct artsDeque *) artsCalloc( listSize * sizeof (struct artsDeque) );
     int i = 0;
     for (i = 0; i < listSize; i++)
-        hiveDequeNewInit(&dequeList[i]  , dequeSize);
+        artsDequeNewInit(&dequeList[i]  , dequeSize);
 
     return dequeList;
 }
 
-struct hiveDeque *
-hiveDequeListGetDeque(struct hiveDeque *dequeList, unsigned int position)
+struct artsDeque *
+artsDequeListGetDeque(struct artsDeque *dequeList, unsigned int position)
 {
     return dequeList+position;
 }
 
 void 
-hiveDequeListDelete(void *dequeList)
+artsDequeListDelete(void *dequeList)
 {
-//    hiveDeque * ptr = (hiveDeque*) dequeList;
+//    artsDeque * ptr = (artsDeque*) dequeList;
 //    for (i = 0; i < listSize; i++)
-//        hiveDequeDelete( dequeList+i  , dequeSize);
-//    hiveFree(dequeList);
+//        artsDequeDelete( dequeList+i  , dequeSize);
+//    artsFree(dequeList);
 }

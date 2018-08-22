@@ -1,10 +1,10 @@
-#include "hive.h"
-#include "hiveMalloc.h"
-#include "hiveAtomics.h"
-#include "hiveTable.h"
+#include "arts.h"
+#include "artsMalloc.h"
+#include "artsAtomics.h"
+#include "artsTable.h"
 #include <string.h>
 
-struct hiveTable
+struct artsTable
 {
     void ** data;
     unsigned int size;
@@ -13,32 +13,32 @@ struct hiveTable
     //unsigned int use;
     //unsigned int col;
     //unsigned int shift;
-    struct hiveTable * next;
+    struct artsTable * next;
 } __attribute__ ((aligned));
 
-struct hiveTable *
-hiveTableListNew(unsigned int listSize, unsigned int tableLength)
+struct artsTable *
+artsTableListNew(unsigned int listSize, unsigned int tableLength)
 {
     int i;
-    struct hiveTable *tableList =
-        (struct hiveTable *) hiveCalloc(sizeof (struct hiveTable) * listSize);
+    struct artsTable *tableList =
+        (struct artsTable *) artsCalloc(sizeof (struct artsTable) * listSize);
 
     for (i = 0; i < listSize; i++)
-        hiveTableNew(tableList + i, tableLength);
+        artsTableNew(tableList + i, tableLength);
 
     return tableList;
 }
 
-extern inline struct hiveTable *
-hiveTableListGetTable(struct hiveTable *tableList, unsigned int position)
+extern inline struct artsTable *
+artsTableListGetTable(struct artsTable *tableList, unsigned int position)
 {
     return tableList + position;
 }
 
 void
-hiveTableNew(struct hiveTable *table, unsigned int tableSize)
+artsTableNew(struct artsTable *table, unsigned int tableSize)
 {
-    table->data =  hiveCalloc( tableSize * sizeof(void *) );
+    table->data =  artsCalloc( tableSize * sizeof(void *) );
     table->size = tableSize;
     //table->elementSize = elementSize;
     //hash->shift = shift;
@@ -48,10 +48,10 @@ hiveTableNew(struct hiveTable *table, unsigned int tableSize)
 }
 
 void
-hiveTableDelete(struct hiveTable *table)
+artsTableDelete(struct artsTable *table)
 {
-    struct hiveTable * next;
-    struct hiveTable * last;
+    struct artsTable * next;
+    struct artsTable * last;
 
     next = table->next;
 
@@ -59,18 +59,18 @@ hiveTableDelete(struct hiveTable *table)
     {
         last = next;
         next = next->next;
-        hiveFree( last->data );
-        hiveFree( last );
+        artsFree( last->data );
+        artsFree( last );
     }
 
-    hiveFree(table->data);
+    artsFree(table->data);
 }
 
 void
-hiveTableListDelete(struct hiveTable *table)
+artsTableListDelete(struct artsTable *table)
 {
-    /*struct hiveHash * next;
-    struct hiveHash * last;
+    /*struct artsHash * next;
+    struct artsHash * last;
 
     next = hash->next;
 
@@ -78,26 +78,26 @@ hiveTableListDelete(struct hiveTable *table)
     {
         last = next;
         next = next->next;
-        hiveFree( last->data );
-        hiveFree( last );
+        artsFree( last->data );
+        artsFree( last );
     }*/
     //FIXME: Free Full List
-    hiveFree(table->data);
+    artsFree(table->data);
 }
 
 
 void
-hiveTableAddItem(struct hiveTable *table, void *item, unsigned int pos, unsigned int size)
+artsTableAddItem(struct artsTable *table, void *item, unsigned int pos, unsigned int size)
 {
-    volatile struct hiveTable * volatile current = table;
-    volatile struct hiveTable * volatile next;
+    volatile struct artsTable * volatile current = table;
+    volatile struct artsTable * volatile next;
 
     while( 1 )
     {
         if( pos < current->size  )
         {
             //PRINTF("current add %p %p %d\n", current, item, pos);
-            void * ptr = hiveMalloc( size );
+            void * ptr = artsMalloc( size );
             memcpy(ptr, item, size);
             current->data[pos] = ptr;
             //memcpy( current->data+pos*current->elementSize, item, current->elementSize );
@@ -106,8 +106,8 @@ hiveTableAddItem(struct hiveTable *table, void *item, unsigned int pos, unsigned
             //current->data[ keyVal ].lock = 1U;
             //current->use++;
             //PRINTF("Added %ld\n", key);
-            //hiveHashKeySet(current, key, keyVal);
-            // hiveHashLock(current, keyVal);
+            //artsHashKeySet(current, key, keyVal);
+            // artsHashLock(current, keyVal);
 
             //detectError(hash);
 
@@ -117,16 +117,16 @@ hiveTableAddItem(struct hiveTable *table, void *item, unsigned int pos, unsigned
         {
             if( current->next == NULL )
             {
-                unsigned int old = hiveAtomicSwap( &current->lock, 1U  );
+                unsigned int old = artsAtomicSwap( &current->lock, 1U  );
                 if( old == 0U)
                 {
                     //break;
                     //PRINTF("Resize %d %d\n", keyVal, 2*current->size);
-                    next = hiveMalloc( sizeof( struct hiveTable  ) );
+                    next = artsMalloc( sizeof( struct artsTable  ) );
 
-                    hiveTableNew( (struct hiveTable *)next, 2*current->size );
+                    artsTableNew( (struct artsTable *)next, 2*current->size );
 
-                    current->next = (struct hiveTable *)next;
+                    current->next = (struct artsTable *)next;
                 }
                 else
                     while( current->next==NULL  ) {}
@@ -140,9 +140,9 @@ hiveTableAddItem(struct hiveTable *table, void *item, unsigned int pos, unsigned
 }
 
 void*
-hiveTableLookupItem(struct hiveTable *table, unsigned int pos)
+artsTableLookupItem(struct artsTable *table, unsigned int pos)
 {
-    volatile struct hiveTable * volatile current = table;
+    volatile struct artsTable * volatile current = table;
 
     while( current != NULL  )
     {

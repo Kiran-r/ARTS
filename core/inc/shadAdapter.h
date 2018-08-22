@@ -5,18 +5,18 @@
 extern "C" {
 #endif
 
-hiveGuid_t hiveEdtCreateShad(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv);
-hiveGuid_t hiveActiveMessageShad(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, void * data, unsigned int size, hiveGuid_t epochGuid);
-void hiveSynchronousActiveMessageShad(hiveEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, void * data, unsigned int size);
+artsGuid_t artsEdtCreateShad(artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv);
+artsGuid_t artsActiveMessageShad(artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, void * data, unsigned int size, artsGuid_t epochGuid);
+void artsSynchronousActiveMessageShad(artsEdt_t funcPtr, unsigned int route, u32 paramc, u64 * paramv, void * data, unsigned int size);
 
-void hiveIncLockShad();
-void hiveDecLockShad();
-void hiveCheckLockShad();
-void hiveStartIntroShad(unsigned int start);
-void hiveStopIntroShad();
-unsigned int hiveGetShadLoopStride();
+void artsIncLockShad();
+void artsDecLockShad();
+void artsCheckLockShad();
+void artsStartIntroShad(unsigned int start);
+void artsStopIntroShad();
+unsigned int artsGetShadLoopStride();
 
-hiveGuid_t hiveAllocateLocalBufferShad(void ** buffer, uint32_t * sizeToWrite, hiveGuid_t epochGuid);
+artsGuid_t artsAllocateLocalBufferShad(void ** buffer, uint32_t * sizeToWrite, artsGuid_t epochGuid);
 
 #ifdef __cplusplus
 }

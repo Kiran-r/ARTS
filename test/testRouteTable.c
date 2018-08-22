@@ -1,45 +1,45 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "hiveRT.h"
-hiveGuid_t shutdownGuid;
-hiveGuid_t * guids;
+#include "artsRT.h"
+artsGuid_t shutdownGuid;
+artsGuid_t * guids;
 
-hiveGuid_t shutdownEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t shutdownEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
-    hiveShutdown();
+    artsShutdown();
 }
 
-hiveGuid_t acquireTest(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t acquireTest(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     for(unsigned int i=0; i<depc; i++)
     {
         unsigned int * num = depv[i].ptr;
-        printf("%u %u i: %u %u\n", hiveGetCurrentNode(), hiveGetCurrentWorker(), i, *num);
+        printf("%u %u i: %u %u\n", artsGetCurrentNode(), artsGetCurrentWorker(), i, *num);
     }
-    hiveSignalEdtValue(shutdownGuid, 0, 0);
+    artsSignalEdtValue(shutdownGuid, 0, 0);
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    guids = hiveMalloc(sizeof(hiveGuid_t)*hiveGetTotalNodes());
-    for(unsigned int i=0; i<hiveGetTotalNodes(); i++)
+    guids = artsMalloc(sizeof(artsGuid_t)*artsGetTotalNodes());
+    for(unsigned int i=0; i<artsGetTotalNodes(); i++)
     {
-        guids[i] = hiveReserveGuidRoute(HIVE_DB_READ, i);
+        guids[i] = artsReserveGuidRoute(ARTS_DB_READ, i);
         if(!nodeId)
             PRINTF("i: %u guid: %ld\n", i, guids[i]);
     }
-    shutdownGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
+    shutdownGuid = artsReserveGuidRoute(ARTS_EDT, 0);
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
 {   
     if(!workerId)
     {
-        for(unsigned int i=0; i<hiveGetTotalNodes(); i++)
+        for(unsigned int i=0; i<artsGetTotalNodes(); i++)
         {
-            if(hiveIsGuidLocal(guids[i]))
+            if(artsIsGuidLocal(guids[i]))
             {
-                unsigned int * ptr = hiveDbCreateWithGuid(guids[i], sizeof(unsigned int));
+                unsigned int * ptr = artsDbCreateWithGuid(guids[i], sizeof(unsigned int));
                 *ptr = i;
                 PRINTF("Created i: %u guid: %ld\n", i, guids[i]);
             }
@@ -47,19 +47,19 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         
         if(!nodeId)
         {
-            hiveEdtCreateWithGuid(shutdownEdt, shutdownGuid, 0, NULL, hiveGetTotalNodes()*hiveGetTotalWorkers());     
+            artsEdtCreateWithGuid(shutdownEdt, shutdownGuid, 0, NULL, artsGetTotalNodes()*artsGetTotalWorkers());     
         }
     }
-    hiveGuid_t edtGuid = hiveEdtCreate(acquireTest, nodeId, 0, NULL, hiveGetTotalNodes());
-    for(unsigned int i=0; i<hiveGetTotalNodes(); i++)
+    artsGuid_t edtGuid = artsEdtCreate(acquireTest, nodeId, 0, NULL, artsGetTotalNodes());
+    for(unsigned int i=0; i<artsGetTotalNodes(); i++)
     {
-        hiveSignalEdt(edtGuid, i, guids[i]);
+        artsSignalEdt(edtGuid, i, guids[i]);
     }
 }
 
 int main(int argc, char** argv)
 {
-    hiveRT(argc, argv);
+    artsRT(argc, argv);
     return 0;
 }
 

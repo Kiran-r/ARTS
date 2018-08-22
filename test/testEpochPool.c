@@ -1,29 +1,29 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "hiveRT.h"
+#include "artsRT.h"
 #include "shadAdapter.h"
 
 uint64_t numDummy = 0;
 
-hiveGuid_t dummytask(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
+artsGuid_t dummytask(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) 
 {
     uint64_t index = paramv[0];
     uint64_t dep = paramv[1];
-    PRINTF("Dep: %lu ID: %lu Current Node: %u Current Worker: %u\n", dep, index, hiveGetCurrentNode(), hiveGetCurrentWorker());
+    PRINTF("Dep: %lu ID: %lu Current Node: %u Current Worker: %u\n", dep, index, artsGetCurrentNode(), artsGetCurrentWorker());
 }
 
-hiveGuid_t rootTask(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[]) 
+artsGuid_t rootTask(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[]) 
 {    
     uint64_t dep = paramv[0];
     PRINTF("Root: %lu\n", dep);
     if(dep)
     {
-        hiveGuid_t poolGuid = hiveInitializeAndStartEpoch(NULL_GUID, 0);
+        artsGuid_t poolGuid = artsInitializeAndStartEpoch(NULL_GUID, 0);
         
         dep--;
-        unsigned int numNodes = hiveGetTotalNodes();
-//        hiveEdtCreateShad(rootTask, (hiveGetCurrentNode()+1)%numNodes, 1, &dep);
-        hiveEdtCreateDep(rootTask, (hiveGetCurrentNode()+1)%numNodes, 1, &dep, 0, false);
+        unsigned int numNodes = artsGetTotalNodes();
+//        artsEdtCreateShad(rootTask, (artsGetCurrentNode()+1)%numNodes, 1, &dep);
+        artsEdtCreateDep(rootTask, (artsGetCurrentNode()+1)%numNodes, 1, &dep, 0, false);
         
 //        uint64_t args[2];
 //        args[0] = dep;
@@ -31,15 +31,15 @@ hiveGuid_t rootTask(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
 //        for(uint64_t i=0; i<numDummy; i++)
 //        {
 //            args[1] = i;
-//            hiveEdtCreateDep(dummytask, i%numNodes, 2, args, 0, false);
+//            artsEdtCreateDep(dummytask, i%numNodes, 2, args, 0, false);
 //        }
         PRINTF("Waiting on %lu\n", poolGuid);
-        if(hiveWaitOnHandle(poolGuid))
+        if(artsWaitOnHandle(poolGuid))
             PRINTF("Done waiting on %lu dep: %lu\n", poolGuid, dep);
     }
     
     if(dep+1 == numDummy)
-        hiveShutdown();
+        artsShutdown();
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv) 
@@ -53,12 +53,12 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     {
         PRINTF("Starting\n");
         uint64_t arg = numDummy;
-        hiveEdtCreateShad(rootTask, 0, 1, &arg);
+        artsEdtCreateShad(rootTask, 0, 1, &arg);
     }
 }
 
 int main(int argc, char** argv) 
 {
-    hiveRT(argc, argv);
+    artsRT(argc, argv);
     return 0;
 }

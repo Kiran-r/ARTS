@@ -2,22 +2,22 @@
 #include <assert.h>
 #include <inttypes.h>
 #include "csr.h"
-#include "hiveEdgeVector.h"
+#include "artsEdgeVector.h"
 
 //#define PRINTF printf
 
 void initCSR(csr_graph* _csr, 
              graph_sz_t _localv,
              graph_sz_t _locale,
-             hive_block_dist_t* _dist,
-             hiveEdgeVector* _edges,
+             arts_block_dist_t* _dist,
+             artsEdgeVector* _edges,
              bool _sorted_by_src) {
 
   // data is a single array that merges row_indices and columns
   graph_sz_t totsz = (_localv+1)+_locale;
 
-#ifndef NO_HIVE_MALLOC
-  _csr->data = hiveDbCreateWithGuid(*getGuidForCurrentNode(_dist), 
+#ifndef NO_ARTS_MALLOC
+  _csr->data = artsDbCreateWithGuid(*getGuidForCurrentNode(_dist), 
                                     totsz * sizeof(vertex));
 #else
   _csr->data = malloc(totsz * sizeof(vertex));
@@ -37,7 +37,7 @@ void initCSR(csr_graph* _csr,
     _csr->columns[i] = 0;
   }
 
-#ifdef HIVE_PRINT_DEBUG
+#ifdef ARTS_PRINT_DEBUG
   printEdgeVector(_edges);
 #endif
   //  PRINTF("\n4\n");
@@ -46,7 +46,7 @@ void initCSR(csr_graph* _csr,
     sortBySource(_edges);
   }
 
-#ifdef HIVE_PRINT_DEBUG
+#ifdef ARTS_PRINT_DEBUG
   printEdgeVector(_edges);
 #endif
 
@@ -137,7 +137,7 @@ void printLocalCSR(const csr_graph* _csr) {
     if (nedges == _csr->num_local_edges)
       break;
 
-    vertex v = getVertexId(hiveGetCurrentNode(), i, _csr->distribution);
+    vertex v = getVertexId(artsGetCurrentNode(), i, _csr->distribution);
 
     for(j = _csr->row_indices[i]; j < _csr->row_indices[i+1]; ++j) {
       vertex u = _csr->columns[j];
@@ -151,8 +151,8 @@ void printLocalCSR(const csr_graph* _csr) {
 }
 
 void freeCSR(csr_graph* _csr) {
-#ifndef NO_HIVE_MALLOC
-  hiveDbDestroy(*getGuidForCurrentNode(_csr->distribution));
+#ifndef NO_ARTS_MALLOC
+  artsDbDestroy(*getGuidForCurrentNode(_csr->distribution));
 #else
   free(_csr->data);
 #endif
@@ -166,7 +166,7 @@ void freeCSR(csr_graph* _csr) {
 }
 
 int loadGraphUsingCmdLineArgs(csr_graph* _graph,
-                              hive_block_dist_t* _dist,
+                              arts_block_dist_t* _dist,
                               int argc, char** argv) {
   bool flip = false;
   bool keep_self_loops = false;
@@ -219,7 +219,7 @@ void getNeighbors(csr_graph* _csr,
                   graph_sz_t* _neighborcount) {
   // make sure vertex belongs to current node
   assert(getOwner(v, _csr->distribution) 
-         == hiveGetCurrentNode());
+         == artsGetCurrentNode());
 
   // get the local index for the vertex
   local_index_t i = getLocalIndex(v, _csr->distribution);
@@ -235,7 +235,7 @@ void getNeighbors(csr_graph* _csr,
 // graph set _flip = True
 int loadGraphNoWeight(const char* _file,
                       csr_graph* _graph,
-                      hive_block_dist_t* _dist,
+                      arts_block_dist_t* _dist,
                       bool _flip,
                       bool _ignore_self_loops) {
 
@@ -245,7 +245,7 @@ int loadGraphNoWeight(const char* _file,
     return -1;
   } 
   
-  hiveEdgeVector vedges;
+  artsEdgeVector vedges;
   initEdgeVector(&vedges, EDGE_VEC_SZ);
 
   char str[MAXCHAR];
@@ -280,17 +280,17 @@ int loadGraphNoWeight(const char* _file,
 
     // TODO weights
     // source belongs to current node
-    if (getOwner(src, _dist) == hiveGetCurrentNode()) {
+    if (getOwner(src, _dist) == artsGetCurrentNode()) {
       pushBackEdge(&vedges, src, target, 0/*weight zeor for the moment*/);
     } /*else {
       printf("src = %" PRIu64 ", owner = %d, global rank : %d", src,
              getOwner(src, _dist),
-             hiveGetCurrentNode());
+             artsGetCurrentNode());
       assert(false); //TODO remove
       }*/
 
     if (_flip) {
-      if (getOwner(target, _dist) == hiveGetCurrentNode()) {
+      if (getOwner(target, _dist) == artsGetCurrentNode()) {
         pushBackEdge(&vedges, target, src, 0/*weight zeor for the moment*/);
       } 
     }
@@ -302,7 +302,7 @@ int loadGraphNoWeight(const char* _file,
   sortBySource(&vedges);
 
   initCSR(_graph, 
-          getNodeBlockSize(hiveGetCurrentNode(), _dist),
+          getNodeBlockSize(artsGetCurrentNode(), _dist),
           vedges.used,
           _dist,
           &vedges,
@@ -315,7 +315,7 @@ int loadGraphNoWeight(const char* _file,
 
 int loadGraphNoWeightCsr(const char* _file,
                         csr_graph* _graph,
-                        hive_block_dist_t* _dist,
+                        arts_block_dist_t* _dist,
                         bool _flip,
                         bool _ignore_self_loops) {
 
@@ -328,7 +328,7 @@ int loadGraphNoWeightCsr(const char* _file,
     u64 numVerts = 0;
     u64 numEdges = 0;
     
-    hiveEdgeVector vedges;
+    artsEdgeVector vedges;
     initEdgeVector(&vedges, EDGE_VEC_SZ);
 
     char str[MAXCHAR];
@@ -360,13 +360,13 @@ int loadGraphNoWeightCsr(const char* _file,
             if (_ignore_self_loops && (src == target))
                 continue;
             
-            if (getOwner(src, _dist) == hiveGetCurrentNode()) {
+            if (getOwner(src, _dist) == artsGetCurrentNode()) {
                 pushBackEdge(&vedges, src, target, 0/*weight zeor for the moment*/);
                 localEdges++;
             }
             
             if (_flip) {
-                if (getOwner(target, _dist) == hiveGetCurrentNode()) {
+                if (getOwner(target, _dist) == artsGetCurrentNode()) {
                     pushBackEdge(&vedges, target, src, 0/*weight zeor for the moment*/);
                     localEdges++;
                 }
@@ -385,7 +385,7 @@ int loadGraphNoWeightCsr(const char* _file,
         sortBySource(&vedges);
 
         initCSR(_graph,
-                getNodeBlockSize(hiveGetCurrentNode(), _dist),
+                getNodeBlockSize(artsGetCurrentNode(), _dist),
                 vedges.used,
                 _dist,
                 &vedges,

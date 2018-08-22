@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "hiveRT.h"
+#include "artsRT.h"
 
 unsigned int numDbs = 0;
-hiveGuid_t reductionGuid = NULL_GUID;
+artsGuid_t reductionGuid = NULL_GUID;
 
-hiveGuid_t reduction(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t reduction(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     u64 total = 0;
     for(unsigned int i=0; i<depc; i++)
@@ -13,19 +13,19 @@ hiveGuid_t reduction(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
         int * dbPtr = depv[i].ptr;
         total+=dbPtr[0];
     }
-    hiveSignalEdtValue(paramv[0], 0, total);
+    artsSignalEdtValue(paramv[0], 0, total);
 }
 
-hiveGuid_t shutDown(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t shutDown(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     PRINTF("Result %lu\n", depv[0].guid);
-    hiveShutdown();
+    artsShutdown();
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    numDbs = hiveGetTotalNodes();  
-    reductionGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
+    numDbs = artsGetTotalNodes();  
+    reductionGuid = artsReserveGuidRoute(ARTS_EDT, 0);
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
@@ -33,21 +33,21 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     if(!workerId)
     {
         int * ptr;
-        hiveGuid_t dbGuid = hiveDbCreate((void**)&ptr, sizeof(unsigned int), HIVE_DB_READ);
+        artsGuid_t dbGuid = artsDbCreate((void**)&ptr, sizeof(unsigned int), ARTS_DB_READ);
         *ptr = nodeId;
         
-        hiveSignalEdt(reductionGuid, nodeId, dbGuid);
+        artsSignalEdt(reductionGuid, nodeId, dbGuid);
         
         if(!nodeId)
         {
-            hiveGuid_t guid = hiveEdtCreate(shutDown, 0, 0, NULL, 1);
-            hiveEdtCreateWithGuid(reduction, reductionGuid, 1, (u64*)&guid, numDbs);
+            artsGuid_t guid = artsEdtCreate(shutDown, 0, 0, NULL, 1);
+            artsEdtCreateWithGuid(reduction, reductionGuid, 1, (u64*)&guid, numDbs);
         }
     }
 }
 
 int main(int argc, char** argv)
 {
-    hiveRT(argc, argv);
+    artsRT(argc, argv);
     return 0;
 }

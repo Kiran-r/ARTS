@@ -1,15 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "hiveRT.h"
+#include "artsRT.h"
 
-hiveGuid_t dbGuid = NULL_GUID;
-hiveGuid_t shutdownGuid = NULL_GUID;
-hiveGuid_t edtGuidFixed = NULL_GUID;
+artsGuid_t dbGuid = NULL_GUID;
+artsGuid_t shutdownGuid = NULL_GUID;
+artsGuid_t edtGuidFixed = NULL_GUID;
 unsigned int numElements = 0;
 unsigned int blockSize = 0;
 unsigned int stride = 0;
 
-hiveGuid_t getter(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t getter(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     unsigned int sum = 0;
     for(unsigned int i=0; i<depc; i++)
@@ -20,24 +20,24 @@ hiveGuid_t getter(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
             sum+=data[j];
         }
     }
-    hiveSignalEdtValue(shutdownGuid, hiveGetCurrentNode(), sum);
+    artsSignalEdtValue(shutdownGuid, artsGetCurrentNode(), sum);
 }
 
-hiveGuid_t creater(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t creater(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
-    unsigned int * data = hiveMalloc(sizeof(unsigned int)*numElements);
+    unsigned int * data = artsMalloc(sizeof(unsigned int)*numElements);
     for(unsigned int i=0; i<numElements; i++)
     {
         data[i] = i;
     }
-    hiveDbCreateWithGuidAndData(dbGuid, data, sizeof(unsigned int) * numElements);
-    hiveEdtCreateWithGuid(getter, edtGuidFixed, 0, NULL, blockSize/stride);
+    artsDbCreateWithGuidAndData(dbGuid, data, sizeof(unsigned int) * numElements);
+    artsEdtCreateWithGuid(getter, edtGuidFixed, 0, NULL, blockSize/stride);
 }
 
-hiveGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
+artsGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, artsEdtDep_t depv[])
 {
     unsigned int sum = 0;
-    for(unsigned int i=0; i<hiveGetTotalNodes(); i++)
+    for(unsigned int i=0; i<artsGetTotalNodes(); i++)
         sum += (unsigned int)depv[i].guid;
     
     unsigned int compare = 0;
@@ -48,16 +48,16 @@ hiveGuid_t shutDownEdt(u32 paramc, u64 * paramv, u32 depc, hiveEdtDep_t depv[])
         PRINTF("CHECK SUM: %u vs %u\n", sum, compare);
     else
         PRINTF("FAIL SUM: %u vs %u\n", sum, compare);
-    hiveShutdown();
+    artsShutdown();
 }
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    dbGuid = hiveReserveGuidRoute(HIVE_DB_PIN, 0);
-    shutdownGuid = hiveReserveGuidRoute(HIVE_EDT, 0);
-    edtGuidFixed = hiveReserveGuidRoute(HIVE_EDT, 0);
+    dbGuid = artsReserveGuidRoute(ARTS_DB_PIN, 0);
+    shutdownGuid = artsReserveGuidRoute(ARTS_EDT, 0);
+    edtGuidFixed = artsReserveGuidRoute(ARTS_EDT, 0);
     numElements = atoi(argv[1]);
-    blockSize = numElements / hiveGetTotalNodes();
+    blockSize = numElements / artsGetTotalNodes();
     stride = atoi(argv[2]);
     if(!nodeId)
         PRINTF("numElements: %u blockSize: %u stride: %u\n", numElements, blockSize, stride);
@@ -69,7 +69,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     {
         if(!nodeId && !workerId)
         {
-            hiveShutdown();
+            artsShutdown();
         }
         return;
     }
@@ -78,8 +78,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     {
         if(!nodeId)
         {
-            hiveEdtCreate(creater, 0, 0, NULL, 0);
-            hiveEdtCreateWithGuid(shutDownEdt, shutdownGuid, 0, NULL, hiveGetTotalNodes());
+            artsEdtCreate(creater, 0, 0, NULL, 0);
+            artsEdtCreateWithGuid(shutDownEdt, shutdownGuid, 0, NULL, artsGetTotalNodes());
         }
         
         unsigned int deps = blockSize/stride;
@@ -87,15 +87,15 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         {
             for(unsigned int j=0; j<deps; j++)
             {
-                hiveGetFromDb(edtGuidFixed, dbGuid, j, sizeof(unsigned int) * (nodeId*blockSize + j*stride), sizeof(unsigned int) * stride);
+                artsGetFromDb(edtGuidFixed, dbGuid, j, sizeof(unsigned int) * (nodeId*blockSize + j*stride), sizeof(unsigned int) * stride);
             }
         }
         else
         {
-            hiveGuid_t edtGuid = hiveEdtCreate(getter, nodeId, 0, NULL, deps);
+            artsGuid_t edtGuid = artsEdtCreate(getter, nodeId, 0, NULL, deps);
             for(unsigned int j=0; j<deps; j++)
             {
-                hiveGetFromDb(edtGuid, dbGuid, j, sizeof(unsigned int) * (nodeId*blockSize + j*stride), sizeof(unsigned int) * stride);
+                artsGetFromDb(edtGuid, dbGuid, j, sizeof(unsigned int) * (nodeId*blockSize + j*stride), sizeof(unsigned int) * stride);
             }
         }
     }
@@ -103,6 +103,6 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 
 int main(int argc, char** argv)
 {
-    hiveRT(argc, argv);
+    artsRT(argc, argv);
     return 0;
 }

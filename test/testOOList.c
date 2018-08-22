@@ -7,38 +7,38 @@
 #endif
 #include <sys/types.h>
 #include <unistd.h>
-#include "hiveAtomics.h"
-#include "hiveMalloc.h"
-#include "hiveOutOfOrderList.h"
-#include "hiveDebug.h"
+#include "artsAtomics.h"
+#include "artsMalloc.h"
+#include "artsOutOfOrderList.h"
+#include "artsDebug.h"
 
 #define NUMTHREADS 2
 
 typedef void (* callback )( void *, void *);
 
 volatile unsigned int count = 0;
-struct hiveOutOfOrderList list;
+struct artsOutOfOrderList list;
 
 void printer(void * id, void * arg)
 {
     unsigned int * Id = (unsigned int *)id;
     printf("Print %u\n", *Id);
-    hiveFree(Id);
+    artsFree(Id);
 }
 
 void * adder(void * data)
 {
     for(unsigned int i=0; i<20; i++)
     {
-        unsigned int * id = (unsigned int*) hiveMalloc(sizeof(unsigned int));
+        unsigned int * id = (unsigned int*) artsMalloc(sizeof(unsigned int));
         *id = i;
-        while(!hiveOutOfOrderListAddItem(&list, id))
+        while(!artsOutOfOrderListAddItem(&list, id))
         {
             PRINTF("RESET\n");
-            hiveOutOfOrderListReset(&list);
+            artsOutOfOrderListReset(&list);
         }
 //        printf("Print Added %u\n", i);
-        hiveAtomicAdd(&count, 1U);
+        artsAtomicAdd(&count, 1U);
     }
 }
 
@@ -46,13 +46,13 @@ void * firer(void * data)
 {
     while(count < 10);
     PRINTF("FIRE 1\n");
-    hiveOutOfOrderListFireCallback(&list, 0,  printer);
+    artsOutOfOrderListFireCallback(&list, 0,  printer);
     while(count < 20);
     PRINTF("FIRE 2\n");
-    hiveOutOfOrderListFireCallback(&list, 0,  printer);
+    artsOutOfOrderListFireCallback(&list, 0,  printer);
 }
 
-//pthread_create(&nodeThreadList[i], &attr, &hiveThreadLoop, &mask[i]);
+//pthread_create(&nodeThreadList[i], &attr, &artsThreadLoop, &mask[i]);
 //pthread_join(nodeThreadList[i], NULL);
 
 int main(void)

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.6)
-project (hive)
+project (arts)
 
 #CMake Configuration
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
@@ -125,9 +125,9 @@ add_subdirectory(graph)
 add_subdirectory(test)
 add_subdirectory(example)
 
-configure_file(sampleConfigs/hive.cfg example/hive.cfg COPYONLY)
-configure_file(sampleConfigs/hive.insp example/hive.insp COPYONLY)
-configure_file(sampleConfigs/hive.cfg test/hive.cfg COPYONLY)
-configure_file(sampleConfigs/hive.insp test/hive.insp COPYONLY)
-install(FILES sampleConfigs/hive.cfg DESTINATION config)
-install(FILES sampleConfigs/hive.insp DESTINATION config)
+configure_file(sampleConfigs/arts.cfg example/arts.cfg COPYONLY)
+configure_file(sampleConfigs/arts.insp example/arts.insp COPYONLY)
+configure_file(sampleConfigs/arts.cfg test/arts.cfg COPYONLY)
+configure_file(sampleConfigs/arts.insp test/arts.insp COPYONLY)
+install(FILES sampleConfigs/arts.cfg DESTINATION config)
+install(FILES sampleConfigs/arts.insp DESTINATION config)

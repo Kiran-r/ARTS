@@ -1,5 +1,5 @@
 set(datastructure_src
-    hiveEdgeVector.c
+    artsEdgeVector.c
     csr.c
 )
 

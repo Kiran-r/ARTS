@@ -1,14 +1,11 @@
-#include "arts.h"
-#include "artsMalloc.h"
-#include "artsAtomics.h"
-#include "artsOutOfOrderList.h"
-#include "artsOutOfOrder.h"
 #include "artsRouteTable.h"
-#include "artsCounter.h"
+#include "artsAtomics.h"
+#include "artsOutOfOrder.h"
 #include "artsGuid.h"
 #include "artsGlobals.h"
 #include "artsDbList.h"
 #include "artsDebug.h"
+#include "artsCounter.h"
 
 #define DPRINTF
 //#define DPRINTF(...) PRINTF(__VA_ARGS__)
@@ -351,9 +348,12 @@ static inline struct artsRouteTable * artsGetRouteTable(artsGuid_t guid)
 {
     artsGuid raw = (artsGuid) guid;
     uint64_t key = raw.fields.key;
-    uint64_t globalThread = (key / keysPerThread);
-    if(minGlobalGuidThread <= globalThread && globalThread < maxGlobalGuidThread)
-        return artsNodeInfo.routeTable[globalThread - minGlobalGuidThread];
+    if(keysPerThread)
+    {
+        uint64_t globalThread = (key / keysPerThread);
+        if(minGlobalGuidThread <= globalThread && globalThread < maxGlobalGuidThread)
+            return artsNodeInfo.routeTable[globalThread - minGlobalGuidThread];
+    }
     return artsNodeInfo.remoteRouteTable;
 }
 

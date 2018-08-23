@@ -4,7 +4,6 @@
 extern "C" {
 #endif
 #include "artsConfig.h"      //For struct artsConfig
-#include "artsMalloc.h"       //For artsMalloc/artsFree
 
 struct artsRemoteLauncher
 {

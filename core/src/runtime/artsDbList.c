@@ -1,16 +1,10 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include "artsGlobals.h"
-#include "artsMalloc.h"
-#include "artsAtomics.h"
 #include "artsDbList.h"
+#include "artsGlobals.h"
+#include "artsAtomics.h"
 #include "artsRemoteFunctions.h"
 #include "artsRouteTable.h"
 #include "artsOutOfOrder.h"
 #include "artsRuntime.h"
-#include "stdint.h"
-#include "inttypes.h"
 
 #define writeSet     0x80000000
 #define exclusiveSet 0x40000000

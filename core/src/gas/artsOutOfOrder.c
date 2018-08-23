@@ -1,21 +1,14 @@
-#include "arts.h"
-#include "artsUtil.h"
 #include "artsOutOfOrder.h"
-#include "artsOutOfOrderList.h"
 #include "artsRuntime.h"
-#include "artsMalloc.h"
 #include "artsGlobals.h"
 #include "artsRouteTable.h"
 #include "artsEdtFunctions.h"
 #include "artsEventFunctions.h"
 #include "artsDbFunctions.h"
 #include "artsRemoteFunctions.h"
-#include "artsGuid.h"
 #include "artsAtomics.h"
 #include "artsTerminationDetection.h"
 #include "artsArrayDb.h"
-#include <string.h>
-#include <unistd.h>
 
 #define DPRINTF(...)
 //#define DPRINTF(...) PRINTF(__VA_ARGS__)

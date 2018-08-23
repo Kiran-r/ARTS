@@ -1,16 +1,8 @@
-#include <unistd.h>
-#include "arts.h"
-#include "artsMalloc.h"
+#include <sys/stat.h>
 #include "artsCounter.h"
 #include "artsGlobals.h"
-#include "artsUtil.h"
 #include "artsArrayList.h"
 #include "artsAtomics.h"
-#include "artsIntrospection.h"
-#include <string.h>
-#include <inttypes.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 
 char * counterPrefix;
 uint64_t countersOn = 0;

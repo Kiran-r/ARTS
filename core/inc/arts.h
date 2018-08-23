@@ -1,132 +1,130 @@
-/*
- * This file is subject to the license agreement located in the file LICENSE
- * and cannot be distributed without it. This notice cannot be
- * removed or modified.
- */
-
 #ifndef ARTS_H
 #define ARTS_H
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-  // #define _GNU_SOURCE
-
-#include "stdint.h"
-#include "stdlib.h"
-#include "stdio.h"
-#include "assert.h"
-
-void PRINTF( const char* format, ... );
-
-/* boolean support in C */
-#ifdef __cplusplus
-#define TRUE true
-#define FALSE false
-#else
-#define true 1
-#define TRUE 1
-#define false 0
-#define FALSE 0
-typedef uint8_t bool;
-#endif /* __cplusplus */
-
-typedef intptr_t artsGuid_t; /**< GUID type */
-#define NULL_GUID ((artsGuid_t)0x0)
-
-typedef enum
-{
-    ARTS_NULL = 0,
-    ARTS_EDT,
-    ARTS_EVENT,
-    ARTS_EPOCH,
-    ARTS_CALLBACK,
-    ARTS_BUFFER,
-    ARTS_DB_READ,
-    ARTS_DB_WRITE,
-    ARTS_DB_PIN,
-    ARTS_DB_ONCE,
-    ARTS_DB_ONCE_LOCAL,
-    ARTS_LAST_TYPE,
-    ARTS_SINGLE_VALUE,
-    ARTS_PTR
-} artsType_t;
-
-typedef struct
-{
-    artsGuid_t guid;
-    artsType_t mode;
-    void *ptr;
-} artsEdtDep_t;
-
-typedef void (*artsEdt_t) (uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
-typedef void (*sendHandler_t) (void * args);
-
-typedef enum
-{
-    ARTS_EVENT_LATCH_DECR_SLOT = 0,
-    ARTS_EVENT_LATCH_INCR_SLOT = 1
-} artsLatchEventSlot_t;
-
-typedef void (*eventCallback_t)(artsEdtDep_t data);
-
-struct artsHeader
-{
-    uint8_t type:8;
-    uint64_t size:56;
-} __attribute__ ((aligned));
-
-struct artsDb
-{
-    struct artsHeader header;
-    artsGuid_t guid;
-    void * dbList;
-} __attribute__ ((aligned));
-
-struct artsEdt
-{
-    struct artsHeader header;
-    artsEdt_t funcPtr;
-    uint32_t paramc;
-    uint32_t depc;
-    artsGuid_t currentEdt;
-    artsGuid_t outputBuffer;
-    artsGuid_t epochGuid;
-    unsigned int cluster;
-    volatile unsigned int depcNeeded;
-    volatile unsigned int invalidateCount;
-} __attribute__ ((aligned));
-
-struct artsDependent
-{
-    uint8_t type;
-    volatile unsigned int slot;
-    volatile artsGuid_t addr;
-    volatile eventCallback_t callback;
-    volatile bool doneWriting;
-};
-
-struct artsDependentList
-{
-    unsigned int size;
-    struct artsDependentList * volatile next;
-    struct artsDependent dependents[];
-};
-
-struct artsEvent
-{
-    struct artsHeader header;
-    volatile bool fired;
-    volatile unsigned int destroyOnFire;
-    volatile unsigned int latchCount;
-    volatile unsigned int pos;
-    volatile unsigned int lastKnown;
-    volatile unsigned int dependentCount;
-    artsGuid_t data;
-    struct artsDependentList dependent;
-} __attribute__ ((aligned));
-
+#include "artsRT.h"
+    
+int artsRT(int argc, char **argv);
 void artsShutdown();
+
+/*Malloc***********************************************************************/
+
+void *artsMalloc(size_t size);
+void *artsMallocAlign(size_t size, size_t align);
+void *artsCalloc(size_t size);
+void *artsCallocAlign(size_t size, size_t allign);
+void * artsRealloc(void *ptr, size_t size);
+void artsFree(void *ptr);
+void artsFreeAlign(void *ptr);
+
+/*GUID*************************************************************************/
+
+artsGuid_t artsReserveGuidRoute(artsType_t type, unsigned int route);
+artsGuid_t artsReserveGuidRouteRemote(artsType_t type, unsigned int route);
+bool artsIsGuidLocal(artsGuid_t guid);
+unsigned int artsGuidGetRank(artsGuid_t guid);
+artsType_t artsGuidGetType(artsGuid_t guid);
+artsGuid_t artsGuidCast(artsGuid_t guid, artsType_t type);
+
+artsGuidRange * artsNewGuidRangeNode(unsigned int type, unsigned int size, unsigned int route);
+artsGuid_t artsGetGuid(artsGuidRange * range, unsigned int index);
+artsGuid_t artsGuidRangeNext(artsGuidRange * range);
+bool artsGuidRangeHasNext(artsGuidRange * range);
+void artsGuidRangeResetIter(artsGuidRange * range);
+
+/*EDT**************************************************************************/
+    
+artsGuid_t artsEdtCreate(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc);
+artsGuid_t artsEdtCreateWithGuid(artsEdt_t funcPtr, artsGuid_t guid, uint32_t paramc, uint64_t * paramv, uint32_t depc);
+artsGuid_t artsEdtCreateWithEpoch(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsGuid_t epochGuid);
+
+artsGuid_t artsEdtCreateDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, bool hasDepv);
+artsGuid_t artsEdtCreateWithGuidDep(artsEdt_t funcPtr, artsGuid_t guid, uint32_t paramc, uint64_t * paramv, uint32_t depc, bool hasDepv);
+artsGuid_t artsEdtCreateWithEpochDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsGuid_t epochGuid, bool hasDepv);
+
+void artsEdtDestroy(artsGuid_t guid);
+
+void artsSignalEdt(artsGuid_t edtGuid, uint32_t slot, artsGuid_t dataGuid);
+void artsSignalEdtValue(artsGuid_t edtGuid, uint32_t slot, uint64_t dataGuid);
+void artsSignalEdtPtr(artsGuid_t edtGuid, uint32_t slot, void * ptr, unsigned int size);
+
+artsGuid_t artsActiveMessageWithDb(artsEdt_t funcPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsGuid_t dbGuid);
+artsGuid_t artsActiveMessageWithDbAt(artsEdt_t funcPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsGuid_t dbGuid, unsigned int rank);
+artsGuid_t artsActiveMessageWithBuffer(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, void * ptr, unsigned int size);
+
+artsGuid_t artsAllocateLocalBuffer(void ** buffer, unsigned int size, unsigned int uses, artsGuid_t epochGuid);
+void * artsSetBuffer(artsGuid_t bufferGuid, void * buffer, unsigned int size);
+void * artsSetBufferNoFree(artsGuid_t bufferGuid, void * buffer, unsigned int size);
+void * artsGetBuffer(artsGuid_t bufferGuid);
+
+/*Event************************************************************************/
+
+artsGuid_t artsEventCreate(unsigned int route, unsigned int latchCount);
+artsGuid_t artsEventCreateWithGuid(artsGuid_t guid, unsigned int latchCount);
+
+bool artsIsEventFiredExt(artsGuid_t event);
+void artsEventDestroy(artsGuid_t guid);
+
+void artsEventSatisfySlot(artsGuid_t eventGuid, artsGuid_t dataGuid, uint32_t slot);
+
+void artsAddDependence(artsGuid_t source, artsGuid_t destination, uint32_t slot);
+void artsAddLocalEventCallback(artsGuid_t source, eventCallback_t callback);
+
+/*DB***************************************************************************/
+
+artsGuid_t artsDbCreate(void **addr, uint64_t size, artsType_t mode);
+void * artsDbCreateWithGuid(artsGuid_t guid, uint64_t size);
+void * artsDbCreateWithGuidAndData(artsGuid_t guid, void * data, uint64_t size);
+artsGuid_t artsDbCreateRemote(unsigned int route, uint64_t size, artsType_t mode);
+
+void * artsDbResize(artsGuid_t guid, unsigned int size, bool copy);
+void artsDbMove(artsGuid_t dbGuid, unsigned int rank);
+
+void artsDbDestroy(artsGuid_t guid);
+void artsDbDestroySafe(artsGuid_t guid, bool remote);
+
+void artsPutInDb(void * ptr, artsGuid_t edtGuid, artsGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size);
+void artsPutInDbAt(void * ptr, artsGuid_t edtGuid, artsGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank);
+void artsPutInDbEpoch(void * ptr, artsGuid_t epochGuid, artsGuid_t dbGuid, unsigned int offset, unsigned int size);
+
+void artsGetFromDb(artsGuid_t edtGuid, artsGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size);
+void artsGetFromDbAt(artsGuid_t edtGuid, artsGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank);
+
+/*Epoch************************************************************************/
+
+artsGuid_t artsGetCurrentEpochGuid();
+void artsAddEdtToEpoch(artsGuid_t edtGuid, artsGuid_t epochGuid);
+artsGuid_t artsInitializeAndStartEpoch(artsGuid_t finishEdtGuid, unsigned int slot);
+artsGuid_t artsInitializeEpoch(unsigned int rank, artsGuid_t finishEdtGuid, unsigned int slot);
+void artsStartEpoch(artsGuid_t epochGuid);
+bool artsWaitOnHandle(artsGuid_t epochGuid);
+void artsYield();
+
+/*ArrayDb************************************************************************/
+
+unsigned int artsGetSizeArrayDb(artsArrayDb_t * array);
+artsGuid_t artsNewArrayDb(artsArrayDb_t **addr, unsigned int elementSize, unsigned int numElements);
+artsArrayDb_t * artsNewArrayDbWithGuid(artsGuid_t guid, unsigned int elementSize, unsigned int numElements);
+void artsGetFromArrayDb(artsGuid_t edtGuid, unsigned int slot, artsArrayDb_t * array, unsigned int index);
+void artsPutInArrayDb(void * ptr, artsGuid_t edtGuid, unsigned int slot, artsArrayDb_t * array, unsigned int index);
+void artsForEachInArrayDb(artsArrayDb_t * array, artsEdt_t funcPtr, uint32_t paramc, uint64_t * paramv);
+void artsForEachInArrayDbAtData(artsArrayDb_t * array, unsigned int stride, artsEdt_t funcPtr, uint32_t paramc, uint64_t * paramv);
+void artsGatherArrayDb(artsArrayDb_t * array, artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint64_t depc);
+void artsAtomicAddInArrayDb(artsArrayDb_t * array, unsigned int index, unsigned int toAdd, artsGuid_t edtGuid, unsigned int slot);
+void artsAtomicCompareAndSwapInArrayDb(artsArrayDb_t * array, unsigned int index, unsigned int oldValue, unsigned int newValue, artsGuid_t edtGuid, unsigned int slot);
+
+/*Util*************************************************************************/
+
+artsGuid_t artsGetCurrentGuid();
+unsigned int artsGetCurrentNode();
+unsigned int artsGetTotalNodes();
+unsigned int artsGetCurrentWorker();
+unsigned int artsGetTotalWorkers();
+unsigned int artsGetCurrentCluster();
+unsigned int artsGetTotalClusters();
+uint64_t artsGetTimeStamp();
 
 #ifdef __cplusplus
 }

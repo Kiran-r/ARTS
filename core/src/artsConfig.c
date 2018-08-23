@@ -1,10 +1,7 @@
 #include "arts.h"
-#include "artsMalloc.h"
 #include "artsConfig.h"
 #include "artsGlobals.h"
 #include "artsRemoteLauncher.h"
-#include "string.h"
-#include "stdlib.h"
 #include "unistd.h"
 #include <ctype.h>
 

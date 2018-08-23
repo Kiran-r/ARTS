@@ -4,7 +4,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include <assert.h>
-#include "artsRT.h"
+#include "arts.h"
 
 #include <signal.h>
 #include "artsGraph.h"

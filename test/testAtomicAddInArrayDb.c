@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "artsRT.h"
+#include "arts.h"
 
 unsigned int elementsPerBlock = 0;
 unsigned int blocks = 0;

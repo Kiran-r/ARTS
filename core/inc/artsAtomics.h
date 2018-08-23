@@ -4,13 +4,13 @@
 extern "C" {
 #endif
 
-#include "arts.h"
+#include "artsRT.h"
 #define HW_MEMORY_FENCE() __sync_synchronize() 
 #define COMPILER_DO_NOT_REORDER_WRITES_BETWEEN_THIS_POINT() __asm__ volatile("": : :"memory")
 
 volatile unsigned int artsAtomicSwap(volatile unsigned int *destination, unsigned int swapIn);
 volatile uint64_t artsAtomicSwapU64(volatile uint64_t *destination, uint64_t swapIn);
-volatile void * artsAtomicSwapPtr(volatile void *destination, void * swapIn);
+volatile void * artsAtomicSwapPtr(volatile void **destination, void * swapIn);
 volatile unsigned int artsAtomicSub(volatile unsigned int *destination, unsigned int subVal);
 volatile unsigned int artsAtomicAdd(volatile unsigned int *destination, unsigned int addVal);
 volatile unsigned int artsAtomicFetchAdd(volatile unsigned int *destination, unsigned int addVal);

@@ -8,6 +8,7 @@ void artsDebugPrintStack();
 void artsDebugGenerateSegFault();
 void artsTurnOnCoreDumps();
 char * getBackTrace(unsigned int skip);
+
 #ifdef __cplusplus
 }
 #endif

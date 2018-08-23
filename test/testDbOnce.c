@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "artsRT.h"
+#include "arts.h"
 
 artsGuid_t dbGuid = NULL_GUID;
 artsGuid_t aGuid = NULL_GUID;

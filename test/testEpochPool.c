@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "artsRT.h"
+#include "arts.h"
 #include "shadAdapter.h"
 
 uint64_t numDummy = 0;

@@ -26,7 +26,6 @@ struct artsRuntimeShared
     bool (*scheduler)();
     struct artsDeque ** deque;
     struct artsDeque ** receiverDeque;
-    artsQueue ** numaQueue;
     struct artsRouteTable ** routeTable;
     struct artsRouteTable * remoteRouteTable;
     volatile bool ** localSpin;

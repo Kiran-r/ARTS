@@ -4,7 +4,7 @@
 extern "C" {
 #endif
 
-#include "artsRT.h"
+#include "arts.h"
 #include "artsGlobals.h"
 
 typedef uint64_t vertex;

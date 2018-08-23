@@ -1,5 +1,4 @@
 #include "arts.h"
-#include "artsMalloc.h"
 #include "artsGuid.h"
 #include "artsConfig.h"
 #include "artsGlobals.h"

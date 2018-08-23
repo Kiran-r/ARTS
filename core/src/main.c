@@ -7,11 +7,9 @@
 #include "artsRemote.h"
 #include "artsGuid.h"
 #include "artsRuntime.h"
-#include "artsMalloc.h"
 #include "artsRemoteLauncher.h"
 #include "artsIntrospection.h"
 #include "artsDebug.h"
-#include <string.h>
 
 extern struct artsConfig * config;
 

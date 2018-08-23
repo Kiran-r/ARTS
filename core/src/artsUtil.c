@@ -1,5 +1,4 @@
 #include "arts.h"
-#include "artsMalloc.h"
 #include "artsGuid.h"
 #include "artsRemote.h"
 #include "artsRemoteFunctions.h"
@@ -13,7 +12,6 @@
 #include "artsDebug.h"
 #include "artsEdtFunctions.h"
 #include "artsDbFunctions.h"
-#include "artsUtil.h"
 #include "artsIntrospection.h"
 #include <stdarg.h>
 #include <string.h>

@@ -30,7 +30,7 @@
 #ifndef ARTSQUEUE_H
 #define	ARTSQUEUE_H
 
-#include <stdint.h>
+#include "arts.h"
 
 #define Object          uint64_t
 #define RING_POW        (9)

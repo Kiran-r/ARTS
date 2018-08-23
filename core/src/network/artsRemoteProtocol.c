@@ -1,7 +1,6 @@
 #include "arts.h"
 #include "artsLinkList.h"
 #include "artsGlobals.h"
-#include "artsMalloc.h"
 #include "artsAtomics.h"
 #include "artsIntrospection.h"
 #include "artsRemoteProtocol.h"

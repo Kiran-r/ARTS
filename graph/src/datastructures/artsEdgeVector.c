@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include "arts.h"
-#include "artsMalloc.h"
 #include "artsEdgeVector.h"
 
 #define INCREASE_SZ_BY 2

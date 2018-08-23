@@ -1,34 +1,22 @@
-#include <unistd.h>
-#include "arts.h"
-#include "artsMalloc.h"
-#include "artsDeque.h"
-#include "artsAtomics.h"
-#include "artsGuid.h"
-#include "artsCounter.h"
-#include "artsGlobals.h"
-#include "artsRemote.h"
-#include "artsOutOfOrder.h"
 #include "artsRuntime.h"
-#include <inttypes.h>
-#include "artsCounter.h"
-#include "artsDebug.h"
+#include "artsAtomics.h"
+#include "artsGlobals.h"
+#include "artsDeque.h"
+#include "artsGuid.h"
+#include "artsRemote.h"
 #include "artsRemoteFunctions.h"
-#include "artsDbFunctions.h"
+#include "artsOutOfOrder.h"
 #include "artsAbstractMachineModel.h"
 #include "artsRouteTable.h"
 #include "artsEdtFunctions.h"
 #include "artsEventFunctions.h"
-#include "artsThreads.h"
-#include "artsOutOfOrder.h"
-#include "artsIntrospection.h"
+#include "artsDbFunctions.h"
 #include "artsTerminationDetection.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include "artsTimer.h"
+#include "artsThreads.h"
 #include "artsArrayList.h"
-#include "artsQueue.h"
-
-//#define SIM_INTEL
+#include "artsDebug.h"
+#include "artsCounter.h"
+#include "artsIntrospection.h"
 
 #define DPRINTF( ... )
 #define PACKET_SIZE 4096
@@ -58,9 +46,6 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.scheduler = schedulerLoop[config->scheduler];
     artsNodeInfo.deque = (struct artsDeque**) artsMalloc(sizeof(struct artsDeque*)*totalThreads);
     artsNodeInfo.receiverDeque = (struct artsDeque**) artsMalloc(sizeof(struct artsDeque*)*receiverThreads);
-    artsNodeInfo.numaQueue = (struct artsQueue**) artsMalloc(sizeof(struct artsQueue*)*numNumaDomains);
-    for(unsigned int i=0; i<numNumaDomains; i++)
-        artsNodeInfo.numaQueue[i] = artsNewQueue();
     artsNodeInfo.routeTable = (struct artsRouteTable**) artsCalloc(sizeof(struct artsRouteTable*)*totalThreads);
     artsNodeInfo.remoteRouteTable = artsRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
     artsNodeInfo.localSpin = (volatile bool**) artsCalloc(sizeof(bool*)*totalThreads);
@@ -261,11 +246,7 @@ void artsHandleReadyEdt(struct artsEdt * edt)
     {
         incrementQueueEpoch(edt->epochGuid);
         globalShutdownGuidIncQueue();
-//        if(edt->cluster == artsThreadInfo.clusterId)
-            artsDequePushFront(artsThreadInfo.myDeque, edt, 0);
-//        else
-//            enqueue((uint64_t)edt, artsNodeInfo.numaQueue[artsThreadInfo.clusterId]);
-//        enqueue((uint64_t)edt, artsNodeInfo.numaQueue[edt->cluster]);
+        artsDequePushFront(artsThreadInfo.myDeque, edt, 0);
         artsUpdatePerformanceMetric(artsEdtQueue, artsThread, 1, false);
     }
 }
@@ -370,52 +351,6 @@ inline struct artsEdt * artsRuntimeStealFromWorker()
     return edt;
 }
 
-struct artsEdt * artsRuntimeStealFromWorkerMult()
-{
-    struct artsEdt * edt = NULL;
-    if(artsNodeInfo.totalThreadCount > 1)
-    {
-        
-        long unsigned int stealLoc;
-        do
-        {
-            stealLoc = jrand48(artsThreadInfo.drand_buf);
-            stealLoc = stealLoc % artsNodeInfo.totalThreadCount;
-        } while(stealLoc == artsThreadInfo.threadId);
-
-        unsigned int size = artsDequeSize(artsNodeInfo.deque[stealLoc]);
-        unsigned int half = size/2;
-        unsigned int stolen = 0;
-        if(STEALSIZE < half)
-        {
-            for(unsigned int i=0; i<half; i+=STEALSIZE) 
-            {
-                void ** array = artsDequePopBackMult(artsNodeInfo.deque[stealLoc]);
-                if(array)
-                {
-                    for(unsigned int j=0; j<STEALSIZE; j++)
-                    {
-                        if(edt)
-                            artsDequePushFront(artsThreadInfo.myDeque, array[j], 0);
-                        else
-                            edt = array[j];
-                    }
-                    stolen+=STEALSIZE;
-                }
-                else
-                    break;
-            }
-
-            if(edt)
-            {
-                artsUpdatePerformanceMetric(artsEdtSteal, artsThread, stolen, false);
-                lastHitThread = (unsigned int) stealLoc;
-            }
-        }
-    }
-    return edt;
-}
-
 bool artsNetworkFirstSchedulerLoop()
 {
 //    struct artsEdt *edtFound;
@@ -460,21 +395,13 @@ bool artsDefaultSchedulerLoop()
     struct artsEdt * edtFound = NULL;
     if(!(edtFound = artsDequePopFront(artsThreadInfo.myDeque)))
     {
-//        if(!(edtFound = artsCheckLastWorker()))
-        if(!(edtFound = artsRuntimeStealFromWorkerMult()))
+        if(!(edtFound = artsRuntimeStealFromWorker()))
         {
-            artsUpdatePerformanceMetric(artsEdtStealAttempt, artsThread, 1, false);
-    //        if(!(edtFound = (struct artsEdt*)dequeue(artsNodeInfo.numaQueue[artsThreadInfo.clusterId])))
-            {
-                if(!(edtFound = artsRuntimeStealFromWorker()))
-                {
-                    edtFound = artsRuntimeStealFromNetwork();
-                }
-                else
-                {
-                    artsUpdatePerformanceMetric(artsEdtSteal, artsThread, 1, false);
-                }
-            }
+            edtFound = artsRuntimeStealFromNetwork();
+        }
+        else
+        {
+            artsUpdatePerformanceMetric(artsEdtSteal, artsThread, 1, false);
         }
     }
 
@@ -483,10 +410,10 @@ bool artsDefaultSchedulerLoop()
         artsRunEdt(edtFound);
         return true;
     }
-    else
-    {
-        usleep(1);
-    }
+//    else
+//    {
+//        usleep(1);
+//    }
     return false;
 }
 

@@ -1,8 +1,6 @@
 #define _GNU_SOURCE
-
 #include <pthread.h>
 #include "arts.h"
-#include "artsMalloc.h"
 #include "artsRuntime.h"
 #include "artsConfig.h"
 #include "artsRemote.h"
@@ -17,22 +15,11 @@ unsigned int artsGlobalRankId;
 unsigned int artsGlobalRankCount;
 unsigned int artsGlobalMasterRankId;
 struct artsConfig * gConfig;
-
-artsGuid_t mainEdt(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
-
-struct artsThreadArgs
-{
-    unsigned int coreId;
-    unsigned int threadId;
-    unsigned int uniqueThreadId;
-};
-
-pthread_t * nodeThreadList;
-//struct artsThreadArgs * args;
 struct artsConfig * config;
 
-void *
-artsThreadLoop(void * data)
+pthread_t * nodeThreadList;
+
+void * artsThreadLoop(void * data)
 {
     struct threadMask * unit = (struct threadMask*) data;
     if(unit->pin) {
@@ -46,8 +33,7 @@ artsThreadLoop(void * data)
 }
 
 
-void
-artsThreadMainJoin()
+void artsThreadMainJoin()
 {
     artsRuntimeLoop();
     artsRuntimePrivateCleanup();
@@ -59,8 +45,7 @@ artsThreadMainJoin()
     artsFree(nodeThreadList);
 }
 
-void
-artsThreadInit( struct artsConfig * config  )
+void artsThreadInit( struct artsConfig * config  )
 {
     gConfig = config;
     struct threadMask * mask = getThreadMask(config);
@@ -89,40 +74,13 @@ artsThreadInit( struct artsConfig * config  )
     artsRuntimePrivateInit(&mask[0], config);
 }
 
-void
-artsShutdown()
+void artsShutdown()
 {
     if(artsGlobalRankCount>1)
         artsRemoteShutdown();
 
     if(artsGlobalRankCount==1)
         artsRuntimeStop();
-}
-
-void
-artsAbort(uint8_t errorCode)
-{
-    artsRemoteShutdown();
-
-    if(artsGlobalRankCount==1)
-        artsRuntimeStop();
-
-    PRINTF("Abort: %d\n", errorCode);
-}
-
-uint64_t
-getArgc(void *dbPtr)
-{
-    int *val = dbPtr;
-    return (uint64_t) * val;
-}
-
-char *
-getArgv(void *dbPtr, uint64_t count)
-{
-    int *argcAddress = dbPtr;
-    char ***argvAddress = (char ***) (argcAddress + 1);
-    return (*argvAddress)[count];
 }
 
 void artsThreadSetOsThreadCount(unsigned int threads)

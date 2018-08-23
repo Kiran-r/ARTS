@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "artsRT.h"
+#include "arts.h"
 
 unsigned int elemsPerNode = 4;
 artsArrayDb_t * array = NULL;

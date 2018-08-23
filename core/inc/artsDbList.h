@@ -3,7 +3,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+#include "arts.h"
+    
 #define DBSPERELEMENT 8
 
 struct artsDbElement

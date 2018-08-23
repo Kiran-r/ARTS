@@ -1,9 +1,5 @@
 #include "arts.h"
 #include "artsGlobals.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <string.h>
 
 void PRINTF( const char* format, ... )
 {

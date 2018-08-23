@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "artsRT.h"
+#include "arts.h"
 
 #define NUMVERT 100
 #define NUMEDGE 10

@@ -1,7 +1,6 @@
 set(system_inc
     ${CORE_INCLUDE_DIR}/artsAbstractMachineModel.h
     ${CORE_INCLUDE_DIR}/artsAtomics.h
-    ${CORE_INCLUDE_DIR}/artsMalloc.h
     ${CORE_INCLUDE_DIR}/artsDebug.h
     ${CORE_INCLUDE_DIR}/artsTimer.h
     ${CORE_INCLUDE_DIR}/artsThreads.h

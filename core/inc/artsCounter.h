@@ -4,7 +4,7 @@
 extern "C" {
 #endif
     
-#include "artsTimer.h"
+#include "arts.h"
     
 #ifdef JUSTCOUNT
 #define COUNTERTIMESTAMP 0

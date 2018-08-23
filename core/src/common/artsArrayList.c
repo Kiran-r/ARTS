@@ -1,10 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include "artsMalloc.h"
 #include "artsArrayList.h"
-#include "stdint.h"
-#include "inttypes.h"
 
 artsArrayListElement * artsNewArrayListElement(uint64_t start, size_t elementSize, size_t arrayLength)
 {

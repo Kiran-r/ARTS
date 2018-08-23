@@ -1,9 +1,7 @@
-#include <string.h>
-#include "arts.h"
 #include "artsArrayDb.h"
+#include "artsAtomics.h"
 #include "artsGlobals.h"
 #include "artsGuid.h"
-#include "artsMalloc.h"
 #include "artsDbFunctions.h"
 #include "artsEdtFunctions.h"
 #include "artsRemoteFunctions.h"
@@ -11,7 +9,6 @@
 #include "artsTerminationDetection.h"
 #include "artsRouteTable.h"
 #include "artsOutOfOrder.h"
-#include "artsAtomics.h"
 #include "artsDebug.h"
 
 unsigned int artsGetSizeArrayDb(artsArrayDb_t * array)

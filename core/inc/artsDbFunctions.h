@@ -3,33 +3,14 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
+#include "arts.h"
+
 void artsDbCreateInternal(artsGuid_t guid, void *addr, uint64_t size, uint64_t packetSize, artsType_t mode);    
-    
-artsGuid_t artsDbCreate(void **addr, uint64_t size, artsType_t mode);
-void * artsDbCreateWithGuid(artsGuid_t guid, uint64_t size);
-void * artsDbCreateWithGuidAndData(artsGuid_t guid, void * data, uint64_t size);
-artsGuid_t artsDbCreateRemote(unsigned int route, uint64_t size, artsType_t mode);
-
-void * artsDbResize(artsGuid_t guid, unsigned int size, bool copy);
-void artsDbMove(artsGuid_t dbGuid, unsigned int rank);
-
-void artsDbDestroy(artsGuid_t guid);
-void artsDbDestroySafe(artsGuid_t guid, bool remote);
-
 void acquireDbs(struct artsEdt * edt);
 void releaseDbs(unsigned int depc, artsEdtDep_t * depv);
-
 bool artsAddDbDuplicate(struct artsDb * db, unsigned int rank, struct artsEdt * edt, unsigned int slot, artsType_t mode);
 void prepDbs(unsigned int depc, artsEdtDep_t * depv);
-
 void internalPutInDb(void * ptr, artsGuid_t edtGuid, artsGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, artsGuid_t epochGuid, unsigned int rank);
-void artsPutInDb(void * ptr, artsGuid_t edtGuid, artsGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size);
-void artsPutInDbAt(void * ptr, artsGuid_t edtGuid, artsGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank);
-void artsPutInDbEpoch(void * ptr, artsGuid_t epochGuid, artsGuid_t dbGuid, unsigned int offset, unsigned int size);
-
-void artsGetFromDb(artsGuid_t edtGuid, artsGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size);
-void artsGetFromDbAt(artsGuid_t edtGuid, artsGuid_t dbGuid, unsigned int slot, unsigned int offset, unsigned int size, unsigned int rank);
 
 #ifdef __cplusplus
 }

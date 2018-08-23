@@ -1,12 +1,4 @@
-#define _GNU_SOURCE
-
-#include "artsMalloc.h"
 #include "artsQueue.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sched.h>
-#include <sys/time.h>
 
 #define CACHE_ALIGN     __attribute__((aligned(64)))
 
@@ -44,49 +36,6 @@
     asm volatile("lock btsq $63, %0; setnc %1" : "+m"(*ptr), "=a"(__ret) : : "cc"); \
     __ret;                                                      \
 })
-
-void * artsMallocAlign(size_t size, size_t align)
-{
-    if(!size || align < ALIGNMENT || align % 2)
-        return NULL;
-
-    void * ptr = artsMalloc(size + align);
-    memset(ptr, 0, align);
-    if(ptr)
-    {
-        char * temp = ptr;
-        *temp = 'a';
-        ptr = (void*)(temp+1);
-        uintptr_t mask = ~(uintptr_t)(align - 1);
-        ptr = (void *)(((uintptr_t)ptr + align - 1) & mask);
-    }
-    return ptr;
-}
-
-void * artsCallocAlign(size_t size, size_t align)
-{
-    if(!size || align < ALIGNMENT || align % 2)
-        return NULL;
-
-    void * ptr = artsCalloc(size + align);
-    if(ptr)
-    {
-        char * temp = ptr;
-        *temp = 1;
-        ptr = (void*)(temp+1);
-        uintptr_t mask = ~(uintptr_t)(align - 1);
-        ptr = (void *)(((uintptr_t)ptr + align - 1) & mask);
-    }
-    return ptr;
-}
-
-void artsFreeAlign(void * ptr)
-{
-    char * trail = (char*)ptr - 1;
-    while(!(*trail))
-        trail--;
-    artsFree(trail);
-}
 
 void init_ring(RingQueue *r)
 {

@@ -1,23 +1,14 @@
-#include "arts.h"
-#include "artsConfig.h"
-#include "artsGlobals.h"
-#include "artsMalloc.h"
-#include "artsAtomics.h"
-#include "artsArrayList.h"
-#include "artsRemoteFunctions.h"
 #include "artsIntrospection.h"
+#include "artsAtomics.h"
+#include "artsGlobals.h"
+#include "artsRemoteFunctions.h"
 #include "artsDebug.h"
-#include <time.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
-#include "stdint.h"
-#include "inttypes.h"
+
 #define DPRINTF( ... )
 #define NANOSECS 1000000000
+#define localTimeStamp artsGetTimeStamp
+#define globalTimeStamp artsGetTimeStamp
 
 artsMETRICNAME;
 uint64_t ** countWindow;
@@ -30,23 +21,6 @@ artsInspector * inspector = NULL;
 artsInspectorStats * stats = NULL;
 artsInspectorShots * inspectorShots = NULL;
 artsPacketInspector * packetInspector = NULL;
-
-uint64_t localTimeStamp(void)
-{
-    struct timespec res;
-    clock_gettime(CLOCK_REALTIME, &res);
-//    clock_gettime(CLOCK_BOOTTIME, &res);
-    uint64_t timeRes = res.tv_sec*NANOSECS+res.tv_nsec;
-    return timeRes;
-}
-
-uint64_t globalTimeStamp(void)
-{
-    struct timespec res;
-    clock_gettime(CLOCK_REALTIME, &res);
-    uint64_t timeRes = res.tv_sec*NANOSECS+res.tv_nsec;
-    return timeRes;
-}
 
 uint64_t artsGetInspectorTime(void)
 {

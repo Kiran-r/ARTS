@@ -1,7 +1,7 @@
+#include <string.h>
+
 #include "artsDeque.h"
-#include "artsMalloc.h"
 #include "artsAtomics.h"
-#include "string.h"
 
 struct circularArray
 {
@@ -178,26 +178,6 @@ artsDequePopBack(struct artsDeque *deque)
         if(temp==t)
         {        
             return o;
-        }
-    }
-    return NULL;
-}
-
-
-
-void **
-artsDequePopBackMult(struct artsDeque *deque)
-{
-    uint64_t t = deque->top;
-    HW_MEMORY_FENCE();
-    uint64_t b = deque->bottom;
-    if(t + STEALSIZE < b)
-    {
-        getMultipleCircularArray(deque->activeArray, t);
-        uint64_t temp = artsAtomicCswapU64(&deque->top, t, t+STEALSIZE);
-        if(temp==t)
-        {        
-            return stealArray;
         }
     }
     return NULL;

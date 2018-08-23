@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "artsRT.h"
+#include "arts.h"
 unsigned int numWrites = 0;
 artsGuid_t dbGuid;
 artsGuid_t * writeGuids;

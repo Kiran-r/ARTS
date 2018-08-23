@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include <assert.h>
-#include "artsRT.h"
+#include "arts.h"
 #include "artsGraph.h"
 
 void initPerNode(unsigned int nodeId, int argc, char** argv) {

@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "artsRT.h"
+#include "arts.h"
 
 unsigned int elements = 32;
 artsArrayDb_t * array = NULL;

@@ -1,5 +1,4 @@
 #include "arts.h"
-#include "artsMalloc.h"
 #include "artsGuid.h"
 #include "artsRemote.h"
 #include "artsRemoteFunctions.h"
@@ -15,8 +14,6 @@
 #include "artsTerminationDetection.h"
 #include "artsArrayList.h"
 #include "artsQueue.h"
-#include <stdarg.h>
-#include <string.h>
 
 artsGuid_t artsEdtCreateShad(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv)
 {

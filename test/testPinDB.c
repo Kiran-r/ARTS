@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "artsRT.h"
+#include "arts.h"
 
 unsigned int node = 0;
 artsGuid_t someDbGuid = NULL_GUID;

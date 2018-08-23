@@ -10,7 +10,6 @@
 #include "artsRemote.h"
 #include "artsAtomics.h"
 #include "artsIntrospection.h"
-#include "artsTimer.h"
 #include <unistd.h>
 //#include "artsRemote.h"
 #define DPRINTF( ... )
@@ -60,68 +59,6 @@ void artsRemoteShutdown()
     artsLLServerShutdown();
 }
 
-void artsServerSendStealRequest()
-{
-    static int node=0;
-    
-    if(node == artsGlobalRankId)
-        node++;
-    
-    if(node>=artsGlobalRankCount)
-    {
-        if(artsGlobalRankId != 0)
-            node=0;
-        else
-            node=1;
-    }
-    
-    DPRINTF("Steal to node %d\n", node);
-
-    struct artsRemotePacket packed;
-    packed.rank = artsGlobalRankId;
-    packed.messageType = ARTS_REMOTE_EDT_STEAL_MSG;
-    packed.size = sizeof(packed);
-    artsRemoteSendRequestAsync( node , (char *)&packed,  sizeof(packed) );
-    node++;
-}
-
-static inline bool mugEdts(int requester, int mugSize)
-{
-    void * muggerCoat[EDT_MUG_SIZE];
-    int stolen = artsRuntimeStealAnyMultipleEdt( EDT_MUG_SIZE, muggerCoat );
-    //void * muggerCoat;
-    //muggerCoat[0] = artsRuntimeStealFromWorker(0);
-    //if(muggerCoat[0]!= NULL)
-    //    stolen++;
-    int i;
-    if(stolen>0)
-    {
-        DPRINTF("stolen %d %d\n",stolen, requester);
-        struct artsRemotePacket * packed;
-        int size = packageEdts(muggerCoat, stolen, (void **)&packed);
-        //for(i=0; i< stolen; i++)
-        //    artsRouteTableInvalidateItem( NULL, (artsGuid_t) ((struct artsEdt *)muggerCoat[i])->currentEdt, requester, 1);
-        artsRemoteSendRequestAsync( requester, (char *)packed,  size);
-        artsFree(packed);
-        for(i=0; i< stolen; i++)
-        {
-            struct artsEdt * edt = (struct artsEdt*)muggerCoat[i];
-            artsFree(muggerCoat[i]);
-        }
-        return true;
-    }
-    else
-    {
-        struct artsRemotePacket packed;
-        packed.rank = artsGlobalRankId;
-        packed.messageType = ARTS_REMOTE_EDT_FAIL_MSG; 
-        packed.size = sizeof(packed);
-        artsRemoteSendRequestAsync( requester, (char *)&packed,  sizeof(packed) );
-    }
-    return false;
-}
-
-
 void artsServerSetup( struct artsConfig * config)
 {
     //ASYNC Message Deque Init
@@ -152,25 +89,23 @@ void artsServerProcessPacket(struct artsRemotePacket * packet)
     
     switch(packet->messageType)
     {
-        case ARTS_REMOTE_EVENT_SATISFY_SLOT_MSG:
+        case ARTS_REMOTE_SHUTDOWN_MSG:
         {
-            struct artsRemoteEventSatisfySlotPacket *pack = (struct artsRemoteEventSatisfySlotPacket *)(packet);
-//            PRINTF("Remote Event Satisfy Slot Recieved %lu %u\n", pack->event, pack->slot);
-            artsEventSatisfySlot(pack->event, pack->db, pack->slot);
+            DPRINTF("Remote Shutdown Request\n");
+            artsLLServerSyncEndRecv();           
+            artsRuntimeStop();
             break;
-        }   
+        }
         case ARTS_REMOTE_EDT_SIGNAL_MSG:
         {
-            DPRINTF("EDT Signal Recieved\n");
             struct artsRemoteEdtSignalPacket *pack = (struct artsRemoteEdtSignalPacket *)(packet);
             internalSignalEdt(pack->edt, pack->slot, pack->db, pack->mode, NULL, 0);
             break;
         }   
-        case ARTS_REMOTE_ADD_DEPENDENCE_MSG:
+        case ARTS_REMOTE_EVENT_SATISFY_SLOT_MSG:
         {
-            DPRINTF("Dependence Recieved\n");
-            struct artsRemoteAddDependencePacket *pack = (struct artsRemoteAddDependencePacket *)(packet);
-            artsAddDependence( pack->source, pack->destination, pack->slot);
+            struct artsRemoteEventSatisfySlotPacket *pack = (struct artsRemoteEventSatisfySlotPacket *)(packet);
+            artsEventSatisfySlot(pack->event, pack->db, pack->slot);
             break;
         }   
         case ARTS_REMOTE_DB_REQUEST_MSG:
@@ -188,6 +123,14 @@ void artsServerProcessPacket(struct artsRemotePacket * packet)
             artsRemoteHandleDbRecieved(pack);
             break;
         }
+        case ARTS_REMOTE_ADD_DEPENDENCE_MSG:
+        {
+            DPRINTF("Dependence Recieved\n");
+            struct artsRemoteAddDependencePacket *pack = (struct artsRemoteAddDependencePacket *)(packet);
+            artsAddDependence( pack->source, pack->destination, pack->slot);
+            break;
+        }   
+        
         case ARTS_REMOTE_INVALIDATE_DB_MSG:
         {
             DPRINTF("DB Invalidate Recieved\n");
@@ -257,49 +200,12 @@ void artsServerProcessPacket(struct artsRemotePacket * packet)
             artsRemoteHandleEventMove(packet);
             break;
         }
-        case ARTS_REMOTE_EDT_STEAL_MSG:
-        {
-            DPRINTF("Remote Steal Request %d\n", packet->rank);
-            mugEdts(packet->rank, 0);
-            break;
-        }
-        case ARTS_REMOTE_EDT_FAIL_MSG:
-        {
-            DPRINTF("Remote Steal Fail\n");
-            artsNodeInfo.stealRequestLock=0U;
-            break;
-        }
-        case ARTS_REMOTE_EDT_RECV_MSG:
-        {
-            DPRINTF("Remote Handle EDT\n");
-            unsigned int remoteStolenEdtCount = handleIncomingEdts( (char *)(packet+1), packet->size- sizeof(*packet) );
-            artsUpdatePerformanceMetric(artsNetworkRecieveBW, artsThread, (uint64_t) remoteStolenEdtCount, false);
-            artsNodeInfo.stealRequestLock=0U;
-            break;
-        }
-        case ARTS_REMOTE_SHUTDOWN_MSG:
-        {
-            DPRINTF("Remote Shutdown Request\n");
-            artsLLServerSyncEndRecv();           
-            artsRuntimeStop();
-            break;
-        }
-        case ARTS_REMOTE_GUID_ROUTE_MSG:
-        {
-            PRINTF("Guid Route Recieved Deprecated Now\n");
-            break;
-        }
         case ARTS_REMOTE_METRIC_UPDATE_MSG:
         {
             
             struct artsRemoteMetricUpdate * pack = (struct artsRemoteMetricUpdate *) (packet);
             DPRINTF("Metric update Recieved %u -> %d %ld\n", artsGlobalRankId, pack->type, pack->toAdd);
             artsHandleRemoteMetricUpdate(pack->type, artsSystem, pack->toAdd, pack->sub);
-            break;    
-        }
-        case ARTS_ACTIVE_MESSAGE_MSG:
-        {
-            artsRemoteHandleActiveMessage(packet);
             break;    
         }
         case ARTS_REMOTE_GET_FROM_DB_MSG:

@@ -1,13 +1,7 @@
-#include "arts.h"
 #include "artsGuid.h"
-#include "artsHash.h"
-#include "artsRouteTable.h"
 #include "artsGlobals.h"
-#include "artsMalloc.h"
-#include "artsCounter.h"
 #include "artsDebug.h"
-#include <stdint.h>
-#include <string.h>
+#include "artsCounter.h"
 
 #define DPRINTF
 //#define DPRINTF(...) PRINTF(__VA_ARGS__)

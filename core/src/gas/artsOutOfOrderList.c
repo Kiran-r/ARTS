@@ -1,7 +1,5 @@
-#include "arts.h"
-#include "artsAtomics.h"
-#include "artsMalloc.h"
 #include "artsOutOfOrderList.h"
+#include "artsAtomics.h"
 #include "artsDebug.h"
 
 #define DPRINTF
@@ -166,7 +164,7 @@ void artsOutOfOrderListFireCallback(struct artsOutOfOrderList * fireMe, void * l
                     volatile void * item = NULL;
                     while(!item)
                     {
-                        item = artsAtomicSwapPtr((volatile void *)&current->array[i], (void*)0);
+                        item = artsAtomicSwapPtr((volatile void **)&current->array[i], (void*)0);
                     }
                     callback((void *)item, localGuidAddress);
                     j++;

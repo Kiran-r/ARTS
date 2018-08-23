@@ -1,10 +1,10 @@
 #include <stdio.h>              //For FILE, popen
 #include <string.h>             //For strncpy
 #include <unistd.h>             //For getcwd
-#include "artsConfig.h"          //For struct artsConfig
-#include "artsGlobals.h"         //For artsGloablMessageTable
-#include "artsMalloc.h"          //For artsMalloc, artsFree
-#include "artsRemoteLauncher.h"  //For struct artsLauncher
+#include "arts.h"
+#include "artsConfig.h"         //For struct artsConfig
+#include "artsGlobals.h"        //For artsGloablMessageTable
+#include "artsRemoteLauncher.h" //For struct artsLauncher
 
 #define DPRINTF(...)
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )

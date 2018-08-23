@@ -9,38 +9,30 @@ extern "C" {
 enum artsServerMessageType
 {
     ARTS_REMOTE_SHUTDOWN_MSG=0,
-    ARTS_REMOTE_EDT_STEAL_MSG,
-    ARTS_REMOTE_EDT_RECV_MSG,
-    ARTS_REMOTE_EDT_FAIL_MSG,
     ARTS_REMOTE_EDT_SIGNAL_MSG,
-    ARTS_REMOTE_EVENT_SATISFY_MSG,
+    ARTS_REMOTE_SIGNAL_EDT_WITH_PTR_MSG,
     ARTS_REMOTE_EVENT_SATISFY_SLOT_MSG,
+    ARTS_REMOTE_ADD_DEPENDENCE_MSG,
     ARTS_REMOTE_DB_REQUEST_MSG,
     ARTS_REMOTE_DB_SEND_MSG,
-    ARTS_REMOTE_EDT_MOVE_MSG,
-    ARTS_REMOTE_GUID_ROUTE_MSG,
-    ARTS_REMOTE_EVENT_MOVE_MSG,
-    ARTS_REMOTE_ADD_DEPENDENCE_MSG,
     ARTS_REMOTE_INVALIDATE_DB_MSG,
-    ARTS_REMOTE_DB_MOVE_MSG,
     ARTS_REMOTE_DB_UPDATE_GUID_MSG,
     ARTS_REMOTE_DB_UPDATE_MSG,
     ARTS_REMOTE_DB_DESTROY_MSG,
     ARTS_REMOTE_DB_DESTROY_FORWARD_MSG,
     ARTS_REMOTE_DB_CLEAN_FORWARD_MSG,
+    ARTS_REMOTE_DB_MOVE_REQ_MSG,      
+    ARTS_REMOTE_EDT_MOVE_MSG,
+    ARTS_REMOTE_EVENT_MOVE_MSG,
+    ARTS_REMOTE_DB_MOVE_MSG,
     ARTS_REMOTE_PINGPONG_TEST_MSG,
-    ARTS_DB_LOCK_MSG,
-    ARTS_DB_UNLOCK_MSG,
-    ARTS_DB_LOCK_ALL_DBS_MSG,
     ARTS_REMOTE_METRIC_UPDATE_MSG,
-    ARTS_ACTIVE_MESSAGE_MSG,
     ARTS_REMOTE_DB_FULL_REQUEST_MSG,
     ARTS_REMOTE_DB_FULL_SEND_MSG,
     ARTS_REMOTE_DB_FULL_SEND_ALREADY_LOCAL_MSG,
     ARTS_REMOTE_GET_FROM_DB_MSG,
     ARTS_REMOTE_PUT_IN_DB_MSG,
-    ARTS_REMOTE_SIGNAL_EDT_WITH_PTR_MSG,
-    ARTS_REMOTE_SEND_MSG, 
+    ARTS_REMOTE_SEND_MSG,
     ARTS_EPOCH_INIT_MSG,
     ARTS_EPOCH_INIT_POOL_MSG,
     ARTS_EPOCH_REQ_MSG, 
@@ -48,8 +40,7 @@ enum artsServerMessageType
     ARTS_EPOCH_DELETE_MSG,
     ARTS_ATOMIC_ADD_ARRAYDB_MSG,
     ARTS_ATOMIC_CAS_ARRAYDB_MSG,
-    ARTS_REMOTE_BUFFER_SEND_MSG,
-    ARTS_REMOTE_DB_MOVE_REQ_MSG
+    ARTS_REMOTE_BUFFER_SEND_MSG
 };
 
 //Header
@@ -66,27 +57,6 @@ struct __attribute__ ((__packed__)) artsRemotePacket
     uint64_t timeStamp;
     uint64_t procTimeStamp;
 #endif
-};
-
-struct __attribute__ ((__packed__)) artsDbLockAllDbsPacket
-{
-    struct artsRemotePacket header;
-    void * edt;
-};
-
-struct __attribute__ ((__packed__)) artsDbUnlockPacket
-{
-    struct artsRemotePacket header;
-    artsGuid_t dbGuid;
-    bool write;
-};
-
-struct __attribute__ ((__packed__)) artsDbLockPacket
-{
-    struct artsRemotePacket header;
-    artsGuid_t dbGuid;
-    void * edt;
-    bool shared;
 };
 
 struct artsRemoteGuidOnlyPacket
@@ -113,19 +83,6 @@ struct __attribute__ ((__packed__)) artsRemoteUpdateDbPacket
     artsGuid_t guid;
 };
 
-struct __attribute__ ((__packed__)) artsRemotePingBackPacket
-{
-    struct artsRemotePacket header;
-    void * signalMe;
-};
-
-struct __attribute__ ((__packed__)) artsRemoteRouteGuidPacket
-{
-    struct artsRemotePacket header;
-    artsGuid_t guid;
-    unsigned int route;
-};
-
 struct __attribute__ ((__packed__)) artsRemoteMemoryMovePacket
 {
     struct artsRemotePacket header;
@@ -139,7 +96,6 @@ struct __attribute__ ((__packed__)) artsRemoteAddDependencePacket
     artsGuid_t destination;
     uint32_t slot;
     artsType_t mode;
-
     unsigned int destRoute;
 };
 
@@ -150,15 +106,6 @@ struct __attribute__ ((__packed__)) artsRemoteEdtSignalPacket
     artsGuid_t db;
     uint32_t slot;
     artsType_t mode;
-    //-------------------------Routing info
-    unsigned int dbRoute;
-};
-
-struct __attribute__ ((__packed__)) artsRemoteEventSatisfyPacket
-{
-    struct artsRemotePacket header;
-    artsGuid_t event;
-    artsGuid_t db;
     //-------------------------Routing info
     unsigned int dbRoute;
 };
@@ -200,18 +147,6 @@ struct __attribute__ ((__packed__)) artsRemoteDbFullSendPacket
     struct artsEdt * edt;
     unsigned int slot;
     artsType_t mode;
-};
-
-struct __attribute__ ((__packed__)) artsRemoteMemoryMovePingPacket
-{
-    struct artsRemotePacket header;
-    unsigned int threadToPing;
-    unsigned int result;
-};
-
-struct __attribute__ ((__packed__)) artsRemoteShutdownPingPacket
-{
-    struct artsRemotePacket header;
 };
 
 struct __attribute__ ((__packed__)) artsRemoteMetricUpdate

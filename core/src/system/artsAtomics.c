@@ -1,4 +1,4 @@
-#include "arts.h"
+#include "artsAtomics.h"
 
 volatile unsigned int
 artsAtomicSwap(volatile unsigned int *destination, unsigned int swapIn)

@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "artsRT.h"
+#include "arts.h"
 artsGuid_t shutdownGuid;
 artsGuid_t * guids;
 

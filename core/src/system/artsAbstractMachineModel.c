@@ -1,12 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include "arts.h"
 #include "artsAbstractMachineModel.h"
-#include "artsConfig.h"
 #include "artsRuntime.h"
 #include "artsGlobals.h"
-#include "artsThreads.h"
 
 unsigned int numNumaDomains = 1;
 

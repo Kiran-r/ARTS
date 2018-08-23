@@ -1,38 +1,24 @@
-#include "arts.h"
-#include "artsMalloc.h"
+#include "artsRemoteFunctions.h"
 #include "artsGlobals.h"
 #include "artsGuid.h"
 #include "artsRemoteProtocol.h"
 #include "artsRouteTable.h"
-#include "string.h"
-#include "stdio.h"
-#include "stdlib.h"
-#include "artsCounter.h"
-#include "artsIntrospection.h"
 #include "artsRuntime.h"
 #include "artsOutOfOrder.h"
 #include "artsAtomics.h"
 #include "artsRemote.h"
-#include "artsRemoteFunctions.h"
 #include "artsDbFunctions.h"
 #include "artsDbList.h"
 #include "artsDebug.h"
 #include "artsEdtFunctions.h"
 #include "artsServer.h"
-#include "artsQueue.h"
 #include "artsTerminationDetection.h"
 #include "artsArrayDb.h"
-#include <unistd.h>
+#include "artsCounter.h"
+#include "artsIntrospection.h"
 
 #define DPRINTF( ... )
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
-
-struct artsInvalidatePingBack
-{
-    unsigned int awaiting;
-    unsigned int signalRank;
-    volatile void * volatile signalMe;
-};
 
 static inline void artsFillPacketHeader(struct artsRemotePacket * header, unsigned int size, unsigned int messageType)
 {
@@ -331,30 +317,8 @@ void artsRemoteSignalEdt(artsGuid_t edt, artsGuid_t db, uint32_t slot, artsType_
 //    if(artsGlobalRankId==1) {PRINTF("Size: %u\n", sizeof(packet)); artsDebugPrintStack();}
 }
 
-void artsRemoteSendStealRequest( unsigned int rank)
-{
-    static int whom=0;
-    struct artsRemotePacket stealPacket;
 
-    stealPacket.rank=artsGlobalRankId;
-    stealPacket.messageType = ARTS_REMOTE_EDT_STEAL_MSG;
-    stealPacket.size = sizeof(stealPacket);
-    DPRINTF("Steal %d %d\n", rank, stealPacket.rank);
-    artsRemoteSendRequestAsync(rank, (char *)&stealPacket, sizeof(stealPacket) );
-}
-
-void artsRemoteEventSatisfy(artsGuid_t eventGuid, artsGuid_t dataGuid )
-{
-    DPRINTF("Remote Satisfy sent %ld %ld\n", eventGuid, dataGuid);
-    struct artsRemoteEventSatisfyPacket packet;
-    packet.event = eventGuid;
-    packet.db = dataGuid;
-    packet.dbRoute = artsGuidGetRank(dataGuid); 
-    artsFillPacketHeader(&packet.header, sizeof(packet), ARTS_REMOTE_EVENT_SATISFY_MSG);
-    artsRemoteSendRequestAsync(artsGuidGetRank( eventGuid ), (char *)&packet, sizeof(packet) );
-}
-
-void artsRemoteEventSatisfySlot(artsGuid_t eventGuid, artsGuid_t dataGuid, uint32_t slot )
+void artsRemoteEventSatisfySlot(artsGuid_t eventGuid, artsGuid_t dataGuid, uint32_t slot)
 {  
     DPRINTF("Remote Satisfy Slot\n");
     struct artsRemoteEventSatisfySlotPacket packet;
@@ -688,52 +652,6 @@ void artsRemoteHandleSignalEdtWithPtr(void * pack)
     artsSignalEdtPtr(packet->edtGuid, packet->slot, dest, packet->size);
 }
 
-//void artsRemoteHandleDbExclusiveRequest(struct artsRemoteDbExclusiveRequestPacket * pack)
-//{
-//    struct artsDb * db = artsRouteTableLookupItem(pack->dbGuid);
-//    if(db == NULL)
-//    {
-//        artsOutOfOrderHandleRemoteDbExclusiveRequest(pack->dbGuid, pack->header.rank, pack->edt, pack->slot, pack->mode);
-//        return;
-//    }
-//    if(artsAddDbDuplicate(db, pack->header.rank, pack->edt, pack->slot, pack->mode))
-//        artsRemoteDbExclusiveSend(pack->header.rank, db, pack->edt, pack->slot, pack->mode);
-//}
-//
-//void artsRemoteHandleDbExclusiveRecieved(struct artsRemoteDbExclusiveSendPacket * packet)
-//{
-//    struct artsDb * packetDb = (struct artsDb *)(packet+1);    
-//    struct artsDb * dbRes = NULL;
-//    
-//    struct artsDb * tPtr = NULL;
-//    itemState state = artsRouteTableLookupItemWithState(packetDb->guid, (void*)&tPtr, anyKey);
-//    
-//    struct artsDbList * dbList = NULL;
-//    if(tPtr && artsIsGuidLocal(packetDb->guid))    
-//        dbList = tPtr->dbList;
-//    
-//    switch(state)
-//    {
-//        case deletedKey:
-//            PRINTF("Deleted key received not supported yet...");
-//        case reservedKey:
-//        case allocatedKey:
-//            artsRouteTableInvalidateItem(packetDb->guid);
-//        case noKey:
-//        default:
-//            PRINTF("GOT A REMOTE ONE... %lu\n", packetDb->guid);
-//            ARTSSETMEMSHOTTYPE(artsDbMemorySize);
-//            dbRes = artsMalloc(packetDb->header.size);
-//            ARTSSETMEMSHOTTYPE(artsDbMemorySize);
-//
-//            memcpy(dbRes, packetDb, packetDb->header.size);
-//            if(!artsRouteTableAddItemRace((void*)dbRes, packetDb->guid, artsGlobalRankId, true))
-//                PRINTF("HOW DID SOMEONE DO THAT\n");
-//            artsDbRequestCallback(packet->edt, packet->slot, dbRes);       
-//    }
-//    dbRes->dbList = dbList;
-//}
-
 bool artsRemoteShutdownSend()
 {
     struct artsRemotePacket shutdownPacket;
@@ -741,193 +659,6 @@ bool artsRemoteShutdownSend()
     shutdownPacket.messageType = ARTS_REMOTE_SHUTDOWN_MSG;
     shutdownPacket.size = sizeof(shutdownPacket);
     return artsLLServerSyncEndSend( (char *)&shutdownPacket, sizeof(shutdownPacket));
-}
-
-unsigned int packageEdt( void * edtPacket, void ** package )
-{
-
-    struct artsHeader * header = edtPacket;
-
-    unsigned int size = sizeof( struct artsRemotePacket )+header->size;
-
-    struct artsRemotePacket * packet = artsMalloc( size );
-
-    packet->messageType = ARTS_REMOTE_EDT_RECV_MSG;
-    packet->rank=artsGlobalRankId;
-    packet->size = size;
-    memcpy( packet+1, edtPacket, header->size );
-
-    *package = packet;
-
-    return size;
-}
-
-unsigned int packageEdts( void ** edtPackets, int edtCount, void ** package )
-{
-
-    int i;
-    unsigned int size = sizeof( struct artsRemotePacket );
-    struct artsHeader * header;
-    struct artsEdt *edt;
-    char * ptr;
-
-    for(i=0; i<edtCount; i++)
-    {
-        header = (struct artsHeader *)edtPackets[i];
-        size+=header->size;
-    }
-
-    struct artsRemotePacket * packet = artsMalloc( size );
-
-    packet->messageType = ARTS_REMOTE_EDT_RECV_MSG;
-    packet->rank=artsGlobalRankId;
-    packet->size = size;
-
-    ptr = (char*)(packet+1);
-    for(i=0; i<edtCount; i++)
-    {
-        header = (struct artsHeader *)edtPackets[i];
-        //artsRouteTableUpdateItem( NULL, (artsGuid_t) guid, originRank, invalidate);
-        memcpy( ptr, header, header->size );
-        ptr+=header->size;
-    }
-    *package = packet;
-    return size;
-}
-
-unsigned int packageEdtsAndDbs( void ** edtPackets, int edtCount, void ** package, int rank )
-{
-
-    int i, j;
-    unsigned int size = sizeof( struct artsRemotePacket );
-    unsigned int finalSize = size;
-    struct artsHeader * header;
-    struct artsEdt *edt;
-    char * ptr;
-    artsEdtDep_t *depv;
-    uint32_t depc;
-    bool res;
-
-    DPRINTF("------------Packaging edts-----------\n");
-    for(i=0; i<edtCount; i++)
-    {
-        header = (struct artsHeader *)edtPackets[i];
-
-        size+=header->size;
-        edt = (struct artsEdt *)header;
-        depv = (artsEdtDep_t *)(((uint64_t *)(edt + 1)) + edt->paramc);        
-        depc = edt->depc;
-
-        for(j=0; j<depc; j++)
-        {
-            header = (struct artsHeader * ) artsRouteTableLookupItem( (artsGuid_t) depv[j].guid );
-            res = false;
-
-            if( header != NULL && !res )
-            {
-                size+=header->size;
-            }
-        }
-    }
-
-    struct artsRemotePacket * packet = artsMalloc( size );
-
-    packet->messageType = ARTS_REMOTE_EDT_RECV_MSG;
-    packet->rank=artsGlobalRankId;
-    packet->size = size;
-
-    ptr = (char*)(packet+1);
-    for(i=0; i<edtCount; i++)
-    {
-        header = (struct artsHeader *)edtPackets[i];
-        memcpy( ptr, header, header->size );
-        depv = (artsEdtDep_t *)(((uint64_t *)(((struct artsEdt*) ptr) + 1)) + edt->paramc);
-        ptr+=header->size;
-        finalSize+=header->size;
-
-        edt = (struct artsEdt *)header;
-        depc = edt->depc;
-        DPRINTF("EDT SIze %d\n", header->size);
-
-        for(j=0; j<depc; j++)
-        {
-            header = (struct artsHeader *) artsRouteTableLookupItem( (artsGuid_t) depv[j].guid );
-            res = false;
-
-            if(header != NULL && !res)
-            {
-                DPRINTF("Edt guid not found sent %ld\n", depv[j].guid);
-                DPRINTF("Sent depc %d %d\n",j, header->size);
-                depv[j].ptr = (void*)(uint64_t)0x2;
-                memcpy( ptr, header, header->size );
-                ptr+=header->size;
-                finalSize+=header->size;
-                DPRINTF("Edt guid not found sent %ld %p\n", depv[j].guid, depv[j].ptr);
-            }
-            else if(header != NULL && res)
-            {
-                depv[j].ptr = (void*)(uint64_t)0x1;
-                DPRINTF("Edt guid found sent %ld %p\n", depv[j].guid, depv[j].ptr);
-
-            }
-            else
-                DPRINTF("Edt guid error sent %ld %p\n", depv[j].guid, depv[j].ptr);
-        }
-
-    }
-    packet->size = finalSize;
-    DPRINTF("tog %d %d %d\n", finalSize, finalSize-sizeof(struct artsRemotePacket), ((char *)ptr)-((char *)packet));
-
-    DPRINTF("------------Packaging edts done-----------\n");
-    *package = packet;
-
-    return finalSize;
-}
-
-unsigned int handleIncomingEdts( char* address, int edtSizes )
-{
-    struct artsHeader * header;
-    int size = 0;
-    struct artsDb * db;
-    int i, totalSize=0;
-    void * newEdt;
-    struct artsEdt * edt;
-    uint32_t depc;
-    artsEdtDep_t *depv;
-    unsigned int totalEdtsRecieved = 0;
-
-    while(totalSize != edtSizes)
-    {
-        header = (struct artsHeader *) (address+totalSize);
-        //if(header->size != 192 && header->size != 240)
-        DPRINTF("%d\n", header->size);
-
-        totalSize += header->size;
-        ARTSSETMEMSHOTTYPE(artsEdtMemorySize);
-        newEdt = artsMalloc( header->size );
-        ARTSSETMEMSHOTTYPE(artsDefaultMemorySize);
-        memcpy(newEdt, header, header->size);
-        
-        edt = newEdt;
-        artsRouteTableAddItemRace( edt, (artsGuid_t) edt->currentEdt, artsGlobalRankId, false);
-        depc = edt->depc;
-        depv = (artsEdtDep_t *)(((uint64_t *)(edt + 1)) + edt->paramc);
-
-        DPRINTF("Edt Stolen needs %d\n", depc);
-
-        for(i=0; i< depc; i++)
-           depv[i].ptr=NULL;
-
-        //if(((uint64_t)edt->currentEdt) < 0x16)
-        //    artsDebugGenerateSegFault();
-        
-//        edt->ewSortList = 0x0;
-        //    artsDebugGenerateSegFault();
-//        PRINTF("STOLE %p %lu %lu\n", edt->funcPtr, edt->currentEdt, edt->outputEvent);
-        artsHandleReadyEdt( newEdt );
-        totalEdtsRecieved++;
-    }
-    return totalEdtsRecieved;
 }
 
 void artsRemoteMetricUpdate(int rank, int type, int level, uint64_t timeStamp, uint64_t toAdd, bool sub)
@@ -940,54 +671,6 @@ void artsRemoteMetricUpdate(int rank, int type, int level, uint64_t timeStamp, u
     packet.sub = sub; 
     artsFillPacketHeader(&packet.header, sizeof(packet), ARTS_REMOTE_METRIC_UPDATE_MSG);
     artsRemoteSendRequestAsync( rank, (char *)&packet, sizeof(packet) );
-}
-
-void artsRemoteHandleActiveMessage(void * ptr)
-{
-    struct artsRemoteMemoryMovePacket * packet = ptr;    
-    struct artsEdt * edtOrig = (struct artsEdt *)(packet+1);
-    unsigned int edtSize = edtOrig->header.size;
-    
-    ARTSSETMEMSHOTTYPE(artsEdtMemorySize);
-    struct artsEdt * edt = artsMalloc(edtSize);
-    ARTSSETMEMSHOTTYPE(artsDefaultMemorySize);
-    memcpy(edt, edtOrig, edtSize);
-
-    unsigned int size = packet->header.size - sizeof(struct artsRemoteMemoryMovePacket) - edtSize;
-    struct artsDb * dbOrig = (struct artsDb *)(((char*)(edtOrig)) + edtSize);
-    artsEdtDep_t * edtDep = (artsEdtDep_t *)((uint64_t *)(edt + 1) + edt->paramc);
-    while(size > 0)
-    {
-//        PRINTF("unpack size %u\n", size);
-        struct artsDb * db = artsRouteTableLookupItem(edtDep->guid);
-        if(db)
-            memcpy(db, dbOrig, dbOrig->header.size);
-        else
-        {
-            ARTSSETMEMSHOTTYPE(artsDbMemorySize);
-            db = artsMalloc(dbOrig->header.size);
-            ARTSSETMEMSHOTTYPE(artsDefaultMemorySize);
-            memcpy(db, dbOrig, dbOrig->header.size);
-        }
-//        artsRouteTableUpdateItem(db, edtDep->guid, artsGlobalRankId);
-        edtDep->ptr = db;
-        edt->depcNeeded--;
-        
-        size-=dbOrig->header.size;
-        edtDep++;
-        dbOrig = (struct artsDb*)((char*)(dbOrig) + dbOrig->header.size);
-    }
-
-    if(edt->depcNeeded == 0)
-    {
-        artsRouteTableAddItemRace(edt, (artsGuid_t)packet->guid, artsGlobalRankId, false);
-        artsHandleReadyEdt(edt);
-    }
-    else
-    {    
-        artsRouteTableAddItemRace(edt, (artsGuid_t) packet->guid, artsGlobalRankId, false);
-        artsRouteTableFireOO(packet->guid, artsOutOfOrderHandler); 
-    }            
 }
 
 void artsRemoteSend(unsigned int rank, sendHandler_t funPtr, void * args, unsigned int size, bool free)

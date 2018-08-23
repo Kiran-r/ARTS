@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "artsRT.h"
+#include "arts.h"
 unsigned int numReads = 0;
 unsigned int numWrites = 0;
 unsigned int numDynamicReads = 0;

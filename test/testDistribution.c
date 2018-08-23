@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "artsRT.h"
+#include "arts.h"
 #include "artsGraph.h"
 #include "artsGlobals.h"
 #include <assert.h>

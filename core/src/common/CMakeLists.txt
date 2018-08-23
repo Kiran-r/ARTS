@@ -9,17 +9,13 @@ endif()
 set(common_inc
     ${CORE_INCLUDE_DIR}/artsDeque.h
     ${CORE_INCLUDE_DIR}/artsQueue.h
-    ${CORE_INCLUDE_DIR}/artsHash.h
     ${CORE_INCLUDE_DIR}/artsArrayList.h
-    ${CORE_INCLUDE_DIR}/artsTable.h
     ${CORE_INCLUDE_DIR}/artsLinkList.h
 )
 
 set(common_src
     ${common_lib_src}
-    hashLock.c
-    table.c
-    linkList.c
+    artsLinkList.c
     artsArrayList.c
     artsQueue.c
 )

@@ -1,5 +1,4 @@
 #include "artsDeque.h"
-#include "artsMalloc.h"
 #include "artsAtomics.h"
 
 struct circularArray

@@ -3,7 +3,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "arts.h"
+
 #include "artsOutOfOrderList.h"
 
 struct artsRouteInvalidate

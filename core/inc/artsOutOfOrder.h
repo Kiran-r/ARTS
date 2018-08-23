@@ -1,8 +1,10 @@
 #ifndef ARTSOUTOFORDER_H
-#include "artsOutOfOrderList.h"
+#define ARTSOUTOFORDER_H
 #ifdef __cplusplus
 extern "C" {
 #endif
+    
+#include "artsOutOfOrderList.h"
 void artsOutOfOrderSignalEdt ( artsGuid_t waitOn, artsGuid_t edtPacket, artsGuid_t dataGuid, uint32_t slot, artsType_t mode);
 void artsOutOfOrderEventSatisfy( artsGuid_t waitOn, artsGuid_t eventGuid, artsGuid_t dataGuid );
 void artsOutOfOrderEventSatisfySlot( artsGuid_t waitOn, artsGuid_t eventGuid, artsGuid_t dataGuid, uint32_t slot );
@@ -25,6 +27,7 @@ void artsOutOfOrderAtomicCompareAndSwapInArrayDb(artsGuid_t dbGuid,  unsigned in
 void artsOutOfOrderDbMove(artsGuid_t dataGuid, unsigned int rank);
 
 void artsOutOfOrderHandler( void * handleMe, void * memoryPtr );
+
 #ifdef __cplusplus
 }
 #endif

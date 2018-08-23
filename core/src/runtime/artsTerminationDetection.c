@@ -1,10 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <assert.h>
-#include "artsRT.h"
+#include "arts.h"
 #include "artsTerminationDetection.h"
+#include "artsEdtFunctions.h"
+#include "artsGuid.h"
 #include "artsAtomics.h"
 #include "artsRouteTable.h"
 #include "artsOutOfOrder.h"

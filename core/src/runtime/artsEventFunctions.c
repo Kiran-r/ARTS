@@ -1,19 +1,14 @@
-#include "arts.h"
-#include "artsMalloc.h"
-#include "artsGuid.h"
-#include "artsRemote.h"
-#include "artsRemoteFunctions.h"
-#include "artsGlobals.h"
-#include "artsAtomics.h"
-#include "artsCounter.h"
-#include "artsIntrospection.h"
-#include "artsEdtFunctions.h"
 #include "artsEventFunctions.h"
+#include "artsAtomics.h"
+#include "artsGlobals.h"
+#include "artsGuid.h"
+#include "artsRemoteFunctions.h"
+#include "artsEdtFunctions.h"
 #include "artsOutOfOrder.h"
 #include "artsRouteTable.h"
 #include "artsDebug.h"
-#include <stdarg.h>
-#include <string.h>
+#include "artsCounter.h"
+#include "artsIntrospection.h"
 
 extern __thread struct artsEdt * currentEdt;
 
@@ -49,7 +44,7 @@ bool artsEventCreateInternal(artsGuid_t * guid, unsigned int route, unsigned int
     return false;
 }
 
-artsGuid_t artsEventCreateLatch(unsigned int route, unsigned int latchCount) {
+artsGuid_t artsEventCreate(unsigned int route, unsigned int latchCount) {
     ARTSEDTCOUNTERTIMERSTART(eventCreateCounter);
     artsGuid_t guid = NULL_GUID;
     artsEventCreateInternal(&guid, route, INITIAL_DEPENDENT_SIZE, latchCount, false);
@@ -57,7 +52,7 @@ artsGuid_t artsEventCreateLatch(unsigned int route, unsigned int latchCount) {
     return guid;
 }
 
-artsGuid_t artsEventCreateLatchWithGuid(artsGuid_t guid, unsigned int latchCount) {
+artsGuid_t artsEventCreateWithGuid(artsGuid_t guid, unsigned int latchCount) {
     ARTSEDTCOUNTERTIMERSTART(eventCreateCounter);
     unsigned int route = artsGuidGetRank(guid);
     bool ret = artsEventCreateInternal(&guid, route, INITIAL_DEPENDENT_SIZE, latchCount, false);

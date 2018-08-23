@@ -3,6 +3,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+    
 #include "artsConfig.h"
 
 void artsThreadInit(struct artsConfig * config);

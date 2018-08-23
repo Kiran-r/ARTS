@@ -1,5 +1,4 @@
-#include <stdlib.h>
-#include "arts.h"
+#include "artsRT.h"
 #include "artsDebug.h"
 #include "artsGlobals.h"
 #include "artsCounter.h"
@@ -7,15 +6,11 @@
 
 static void zeroMemory(char * addr, size_t size )
 {
-    size_t i;
-
-    for( i=0; i< size; i++ )
+    for(size_t i=0; i< size; i++ )
         addr[i]=0;
-
 }
 
-extern inline void *
-artsMalloc(size_t size)
+void * artsMalloc(size_t size)
 {
     ARTSEDTCOUNTERTIMERSTART(mallocMemory);
     size+=sizeof(uint64_t);
@@ -35,8 +30,7 @@ artsMalloc(size_t size)
     return address;
 }
 
-extern inline void *
-artsRealloc(void * ptr, size_t size)
+void * artsRealloc(void * ptr, size_t size)
 {
     uint64_t * temp = (uint64_t*) ptr;
     temp--;
@@ -46,8 +40,7 @@ artsRealloc(void * ptr, size_t size)
     return ++temp;
 }
 
-extern inline void *
-artsCalloc(size_t size)
+void * artsCalloc(size_t size)
 {
     ARTSEDTCOUNTERTIMERSTART(callocMemory);
     size+=sizeof(uint64_t);
@@ -68,8 +61,7 @@ artsCalloc(size_t size)
     return address;
 }
 
-extern inline void
-artsFree(void *ptr)
+void artsFree(void *ptr)
 {
     ARTSEDTCOUNTERTIMERSTART(freeMemory);
     uint64_t * temp = (uint64_t*) ptr;
@@ -79,4 +71,47 @@ artsFree(void *ptr)
     if(artsThreadInfo.mallocTrace)
         artsUpdatePerformanceMetric(artsFreeBW, artsThread, size, false);
     ARTSEDTCOUNTERTIMERENDINCREMENT(freeMemory);
+}
+
+void * artsMallocAlign(size_t size, size_t align)
+{
+    if(!size || align < ALIGNMENT || align % 2)
+        return NULL;
+
+    void * ptr = artsMalloc(size + align);
+    memset(ptr, 0, align);
+    if(ptr)
+    {
+        char * temp = ptr;
+        *temp = 'a';
+        ptr = (void*)(temp+1);
+        uintptr_t mask = ~(uintptr_t)(align - 1);
+        ptr = (void *)(((uintptr_t)ptr + align - 1) & mask);
+    }
+    return ptr;
+}
+
+void * artsCallocAlign(size_t size, size_t align)
+{
+    if(!size || align < ALIGNMENT || align % 2)
+        return NULL;
+
+    void * ptr = artsCalloc(size + align);
+    if(ptr)
+    {
+        char * temp = ptr;
+        *temp = 1;
+        ptr = (void*)(temp+1);
+        uintptr_t mask = ~(uintptr_t)(align - 1);
+        ptr = (void *)(((uintptr_t)ptr + align - 1) & mask);
+    }
+    return ptr;
+}
+
+void artsFreeAlign(void * ptr)
+{
+    char * trail = (char*)ptr - 1;
+    while(!(*trail))
+        trail--;
+    artsFree(trail);
 }

@@ -20,7 +20,6 @@ set(runtime_src
     artsArrayDb.c
     artsTerminationDetection.c
     shadAdapter.c
-    artsLoopPolicy.c
 )
 
 add_library(runtime OBJECT ${runtime_inc} ${runtime_src})

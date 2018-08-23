@@ -1,8 +1,6 @@
-#include "arts.h"
-#include "artsMalloc.h"
-#include "artsAtomics.h"
 #include "artsLinkList.h"
-#include <string.h>
+#include "arts.h"
+#include "artsAtomics.h"
 
 #define DPRINTF( ... )
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )

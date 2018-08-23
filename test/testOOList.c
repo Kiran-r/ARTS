@@ -7,8 +7,8 @@
 #endif
 #include <sys/types.h>
 #include <unistd.h>
+#include "arts.h"
 #include "artsAtomics.h"
-#include "artsMalloc.h"
 #include "artsOutOfOrderList.h"
 #include "artsDebug.h"
 

@@ -1,7 +1,6 @@
-#include "arts.h"
 #include <time.h>
-#include <stdlib.h>
-#include <math.h>
+#include "arts.h"
+
 #define NANOSECS 1000000000
 
 uint64_t artsGetTimeStamp()

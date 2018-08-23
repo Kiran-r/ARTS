@@ -10,7 +10,6 @@ set(main_inc
     ${CORE_INCLUDE_DIR}/arts.h
     ${CORE_INCLUDE_DIR}/artsGlobals.h
     ${CORE_INCLUDE_DIR}/artsConfig.h
-    ${CORE_INCLUDE_DIR}/artsUtil.h
 )
 
 set(main_src

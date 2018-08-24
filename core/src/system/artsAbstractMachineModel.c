@@ -172,11 +172,7 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
     unsigned int stride = config->pinStride;
     unsigned int strideLoop =0;
     unsigned int offset = 0;
-    #ifndef USE_MPI
     unsigned int networkThreads = (artsGlobalRankCount>1)*(numberOfReceivers+numberOfSenders);
-    #else
-    unsigned int networkThreads = (artsGlobalRankCount>1)*(numberOfReceivers);
-    #endif
     numberOfSenders = (artsGlobalRankCount>1) * numberOfSenders;
     numberOfReceivers = (artsGlobalRankCount>1) * numberOfReceivers;
     unsigned int workerThreadId = 0;
@@ -198,11 +194,7 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
             }
             else if(totalThreads < numberOfWorkers+numberOfReceivers+numberOfSenders)
             {
-                #ifndef USE_MPI
                     addAThread(&node->cluster[i].core[j].unit[k], 0, 0, 1, abstractInbound, networkInThreadId++, config->pinThreads);
-                #else
-                    addAThread(&node->cluster[i].core[j].unit[k], 0, 1, 1, abstractInbound, networkInThreadId++, config->pinThreads);
-                #endif
             }
         }
         totalThreads++;
@@ -362,7 +354,7 @@ struct artsCoreInfo
 void artsAbstractMachineModelPinThread(struct artsCoreInfo * coreInfo )
 {
     //For now this will not pin anything if there is no hwloc library
-    PRINTF("NO PIN\n");
+//    PRINTF("NO PIN\n");
 }
 
 void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, unsigned int numberOfReceivers, struct unitMask * flat, unsigned int numCores,  struct artsConfig * config)
@@ -371,11 +363,7 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
     unsigned int stride = config->pinStride;
     unsigned int strideLoop =0;
     unsigned int i=0, offset = 0;
-    #ifndef USE_MPI
     unsigned int networkThreads = (artsGlobalRankCount>1)*(numberOfReceivers+numberOfSenders);
-    #else
-    unsigned int networkThreads = (artsGlobalRankCount>1)*(numberOfReceivers);
-    #endif
     unsigned int workerThreadId = 0;
     unsigned int networkOutThreadId = 0;
     unsigned int networkInThreadId = 0;
@@ -397,11 +385,7 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
             }
             else if(totalThreads < numberOfWorkers+numberOfReceivers+numberOfSenders)
             {
-                #ifndef USE_MPI
                 addAThread(&flat[i%numCores], 0, 0, 1, abstractInbound, networkInThreadId++, config->pinThreads);
-                #else
-                addAThread(&flat[i%numCores], 0, 1, 1, abstractInbound, networkInThreadId++, config->pinThreads);
-                #endif
             }
         }
         totalThreads++;

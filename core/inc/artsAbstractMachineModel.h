@@ -3,7 +3,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+#include <assert.h>
 #include "arts.h"
 #include "artsConfig.h"
     

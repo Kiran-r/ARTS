@@ -35,11 +35,32 @@ typedef enum
     ARTS_EPOCH,
     ARTS_CALLBACK,
     ARTS_BUFFER,
-    ARTS_DB_READ,
+//These are the DB modes.  Allocate/cast these types of DBs!
+            
+//ARTS_DB_READ: This mode is write once read many.  
+//Create the DB in this mode and write data before signaling the dbGuid.
+//This mode aggregates requests, and caches reads in the routing table.
+    ARTS_DB_READ, 
+            
+//ARTS_DB_WRITE: This mode is used to provide exclusive access.  
+//Use this mode by casting ARTS_DB_READ DBs to ARTS_DB_WRITE and signal an EDT.
+//This mode is currently broken!!!
     ARTS_DB_WRITE,
+            
+//ARTS_DB_PIN: This mode bypasses the memory model.
+//The DB is only available on a single node.
+//To interact with it remotely use put/gets
     ARTS_DB_PIN,
+            
+//ARTS_DB_ONCE: This mode will automatically free the DB after it is acquired.
+//This is to help memory management, since we are never reusing the DB.
     ARTS_DB_ONCE,
+            
+//ARTS_DB_ONCE: This mode is the same as ARTS_DB_ONCE except we are guarenteing
+//That the DB is local to the EDT accessing it (i.e. edtGuid and dbGuid have the same route).
     ARTS_DB_ONCE_LOCAL,
+            
+//End DB modes
     ARTS_LAST_TYPE,
     ARTS_SINGLE_VALUE,
     ARTS_PTR
@@ -52,8 +73,13 @@ typedef struct
     void *ptr;
 } artsEdtDep_t;
 
+//Signature of an EDT
 typedef void (*artsEdt_t)      (uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
+
+//Signature of an event callback.  The data parameter is the value of the dataGuid used to satisfy the event.
 typedef void (*eventCallback_t)(artsEdtDep_t data);
+
+//Signature of the send handler used by artsRemoteSend.
 typedef void (*sendHandler_t)  (void * args);
 
 typedef enum

@@ -87,6 +87,7 @@ void artsRemoteHandleInvalidateDb(void * ptr)
     artsRouteTableInvalidateItem(packet->guid);
 }
 
+//TODO: Fix this...
 void artsRemoteDbDestroy(artsGuid_t guid, unsigned int originRank, bool clean)
 {
 //    unsigned int rank = artsGuidGetRank(guid);

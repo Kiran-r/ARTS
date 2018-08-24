@@ -292,7 +292,7 @@ void artsAddLocalEventCallback(artsGuid_t source, eventCallback_t callback) {
     }
 }
 
-bool artsIsEventFiredExt(artsGuid_t event) {
+bool artsIsEventFired(artsGuid_t event) {
     bool fired = false;
     struct artsEvent * actualEvent = (struct artsEvent *) artsRouteTableLookupItem(event);
     if (actualEvent)

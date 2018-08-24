@@ -5,6 +5,7 @@ extern "C" {
 #endif
 #include "arts.h"
 
+unsigned int artsGetSizeArrayDb(artsArrayDb_t * array);
 unsigned int getOffsetFromIndex(artsArrayDb_t * array, unsigned int index);
 unsigned int getRankFromIndex(artsArrayDb_t * array, unsigned int index);
 artsGuid_t getArrayDbGuid(artsArrayDb_t * array);

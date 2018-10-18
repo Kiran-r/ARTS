@@ -74,6 +74,7 @@ struct artsConfigVariable * artsConfigFindVariable( struct artsConfigVariable **
     
     return found;
 }
+
 char * artsConfigFindVariableChar( struct artsConfigVariable * head, char * string  )
 {
     struct artsConfigVariable * found = NULL;
@@ -917,10 +918,10 @@ struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
         config->masterNode = artsConfigMakeNewVar( foundVariable->value );
     else if (strncmp(config->launcher, "local", 5) != 0) 
     {
-      if (strncmp(config->launcher, "slurm", 5) != 0)
-        ONCE_PRINTF("No master given: defaulting to first node in node list\n");
+        if(strncmp(config->launcher, "slurm", 5 )!=0)
+            ONCE_PRINTF("No master given: defaulting to first node in node list\n");
 
-      config->masterNode = NULL;
+        config->masterNode = NULL;
     }
     
     if( (foundVariable = artsConfigFindVariable(&configVariables, "prefix")) != NULL)
@@ -1099,16 +1100,6 @@ struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
         exit(1);
     }
 
-    if ((foundVariableChar = artsConfigFindVariableChar(
-             configVariables, "remoteWorkStealing")) != NULL) {
-        config->remoteWorkStealing = strtol(foundVariableChar, &end, 10);
-    } 
-    else if (strncmp(config->launcher, "local", 5) != 0) 
-    {
-        config->remoteWorkStealing = 0;
-        ONCE_PRINTF("Defaulting to no remote work stealing\n");
-    }
-
     if( (foundVariable = artsConfigFindVariable(&configVariables,"stackSize")) != NULL)
         config->stackSize = strtoull( foundVariable->value, &end , 10);
     else
@@ -1151,7 +1142,15 @@ struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
         config->pinThreads = strtol( foundVariable->value, &end , 10);
     else
     {
-        config->pinThreads = 1; // default thread pinning 
+        config->pinThreads = 1;
+    }
+
+    // @awmm tMT
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"tMT")) != NULL)
+        config->tMT = strtol( foundVariable->value, &end , 10);
+    else
+    {
+        config->tMT = 0;
     }
     
     DPRINTF("Config Parsed\n");

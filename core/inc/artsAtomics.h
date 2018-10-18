@@ -43,6 +43,7 @@ void artsUnlock( volatile unsigned int * lock);
 bool artsTryLock( volatile unsigned int * lock);
 volatile uint64_t artsAtomicFetchAndU64(volatile uint64_t * destination, uint64_t addVal);
 volatile uint64_t artsAtomicFetchOrU64(volatile uint64_t * destination, uint64_t addVal);
+volatile uint64_t artsAtomicFetchXOrU64(volatile uint64_t * destination, uint64_t addVal); //@awmm
 volatile unsigned int artsAtomicFetchOr(volatile unsigned int * destination, unsigned int addVal);
 volatile unsigned int artsAtomicFetchAnd(volatile unsigned int * destination, unsigned int addVal);
 #ifdef __cplusplus

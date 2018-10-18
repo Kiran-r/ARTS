@@ -9,6 +9,7 @@
 #include "artsGlobals.h"
 #include "artsCounter.h"
 #include "artsThreads.h"
+#include "hive_tMT.h"
 #include <unistd.h>
 
 unsigned int artsGlobalRankId;
@@ -18,6 +19,8 @@ struct artsConfig * gConfig;
 struct artsConfig * config;
 
 pthread_t * nodeThreadList;
+
+extern msi_t*  _hive_tMT_msi;          // @awmm tMt shared data structure
 
 void * artsThreadLoop(void * data)
 {
@@ -51,6 +54,13 @@ void artsThreadInit( struct artsConfig * config  )
     struct threadMask * mask = getThreadMask(config);
     nodeThreadList = artsMalloc(sizeof (pthread_t) * artsNodeInfo.totalThreadCount);
     unsigned int i = 0, threadCount=artsNodeInfo.totalThreadCount;
+    
+    if (config->tMT) // @awmm
+    {
+//        DPRINTF("tMT: PthreadLayer: preparing aliasing for master thread %d\n", unit->id);
+    	_hive_tMT_msi = (msi_t *) artsCalloc(threadCount * sizeof(msi_t)); // shared info with MasterThread (MT)
+    }
+    
     if(config->stackSize)
     {
         void * stack;

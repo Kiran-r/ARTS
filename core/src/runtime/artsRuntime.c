@@ -33,6 +33,7 @@
 #include "artsDebug.h"
 #include "artsCounter.h"
 #include "artsIntrospection.h"
+#include "hive_tMT.h"
 
 #define DPRINTF( ... )
 #define PACKET_SIZE 4096
@@ -44,6 +45,9 @@ extern char **mainArgv;
 extern void initPerNode(unsigned int nodeId, int argc, char** argv) __attribute__((weak));
 extern void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char**argv) __attribute__((weak));
 extern void artsMain(int argc, char** argv) __attribute__((weak));
+
+extern msi_t*  _hive_tMT_msi; // @awmm
+bool   tMT = false;
 
 struct artsRuntimeShared artsNodeInfo;
 __thread struct artsRuntimePrivate artsThreadInfo;
@@ -136,6 +140,12 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
     if(unit->worker)
     {
         artsNodeInfo.routeTable[unit->id] =  artsRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
+        if (config->tMT) // @awmm
+        {
+            tMT = true;
+            DPRINTF("tMT: PthreadLayer: preparing aliasing for master thread %d\n", unit->id);
+            hive_tMT_RuntimePrivateInit(unit, config);
+        }
     }
 
     if(unit->networkSend || unit->networkReceive)
@@ -367,6 +377,22 @@ inline struct artsEdt * artsRuntimeStealFromWorker()
     return edt;
 }
 
+// @awmm
+inline struct artsEdt* hive_tMT_RuntimeStealPromise()
+{
+    struct artsEdt *edt = NULL;
+    long unsigned int stealLoc;
+    do
+    {
+        stealLoc = jrand48(artsThreadInfo.drand_buf);
+        stealLoc = stealLoc % artsNodeInfo.totalThreadCount;
+    } while(stealLoc == artsThreadInfo.threadId);
+
+    edt = artsDequePopBack(_hive_tMT_msi[stealLoc].ti->promise_queue);
+
+    return edt;
+}
+
 bool artsNetworkFirstSchedulerLoop()
 {
 //    struct artsEdt *edtFound;
@@ -411,14 +437,15 @@ bool artsDefaultSchedulerLoop()
     struct artsEdt * edtFound = NULL;
     if(!(edtFound = artsDequePopFront(artsThreadInfo.myDeque)))
     {
-        if(!(edtFound = artsRuntimeStealFromWorker()))
-        {
-            edtFound = artsRuntimeStealFromNetwork();
-        }
-        else
-        {
+        if(tMT)
+            edtFound = hive_tMT_RuntimeStealPromise(); // @awmm
+
+        if(!edtFound)
+            if(!(edtFound = artsRuntimeStealFromWorker()))
+                edtFound = artsRuntimeStealFromNetwork();
+        
+        if(edtFound)
             artsUpdatePerformanceMetric(artsEdtSteal, artsThread, 1, false);
-        }
     }
 
     if(edtFound)
@@ -478,4 +505,5 @@ int artsRuntimeLoop()
         }
     }
     ARTSCOUNTERTIMERENDINCREMENT(totalCounter);
+    return 0;
 }

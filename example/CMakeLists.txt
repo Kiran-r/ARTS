@@ -13,6 +13,15 @@ endif()
 add_executable(fib fib.c)
 target_link_libraries(fib ${LIBS})
 
+add_executable(fib_yield fib_yield.c)
+target_link_libraries(fib_yield ${LIBS})
+
+add_executable(fib_futures_iter fib_futures_iter.c)
+target_link_libraries(fib_futures_iter ${LIBS})
+
+add_executable(fib_futures_rec fib_futures_rec.c)
+target_link_libraries(fib_futures_rec ${LIBS})
+
 add_executable(simpleReduction simpleReduction.c)
 target_link_libraries(simpleReduction ${LIBS})
 

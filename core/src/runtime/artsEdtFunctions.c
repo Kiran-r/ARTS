@@ -409,11 +409,15 @@ artsGuid_t artsAllocateLocalBuffer(void ** buffer, unsigned int size, unsigned i
     if(epochGuid)
         incrementActiveEpoch(epochGuid);
     globalShutdownGuidIncActive();
-      
+    
+    unsigned int alloc = 0;  
     if(size)
     {
         if(*buffer == NULL)
+        {
             *buffer = artsMalloc(sizeof(char) * size);
+            alloc = 1;
+        }
     }
     
     artsBuffer_t * stub = artsMalloc(sizeof(artsBuffer_t));

@@ -93,6 +93,7 @@ unsigned int getNumberOfType(hwloc_topology_t topology, hwloc_obj_t obj, hwloc_o
 
 void artsAbstractMachineModelPinThread(struct artsCoreInfo * coreInfo )
 {
+//    PRINTF("BINDING\n");
     hwloc_set_cpubind(coreInfo->topology, coreInfo->cpuset, HWLOC_CPUBIND_THREAD);
 }
 
@@ -354,7 +355,7 @@ struct artsCoreInfo
 void artsAbstractMachineModelPinThread(struct artsCoreInfo * coreInfo )
 {
     //For now this will not pin anything if there is no hwloc library
-//    PRINTF("NO PIN\n");
+//    PRINTF("NO BINDING\n");
 }
 
 void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, unsigned int numberOfReceivers, struct unitMask * flat, unsigned int numCores,  struct artsConfig * config)

@@ -986,6 +986,12 @@ struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
     else
         config->shadLoopStride = 32;
     
+    // @awmm tMT
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"tMT")) != NULL)
+        config->tMT = strtol( foundVariable->value, &end , 10);
+    else
+        config->tMT = 0;
+    
     //WARNING: Slurm Launcher Set!  
     if(strncmp(config->launcher, "slurm", 5 )==0)
     {
@@ -1143,14 +1149,6 @@ struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
     else
     {
         config->pinThreads = 1;
-    }
-
-    // @awmm tMT
-    if( (foundVariable = artsConfigFindVariable(&configVariables,"tMT")) != NULL)
-        config->tMT = strtol( foundVariable->value, &end , 10);
-    else
-    {
-        config->tMT = 0;
     }
     
     DPRINTF("Config Parsed\n");

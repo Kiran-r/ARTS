@@ -69,11 +69,13 @@ else()
 endif()
 
 find_package(Hwloc)
-if(${HWLOC_FOUND})
+if(HWLOC_FOUND)
     include_directories(${HWLOC_INC})
     add_definitions(-DHWLOC)
+    message("Using HWLOC")
 else()
     set(HWLOC_LIB "")
+    message("Not using HWLOC")
 endif()
 
 #<-------------------------------------------

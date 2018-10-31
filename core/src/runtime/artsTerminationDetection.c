@@ -589,20 +589,28 @@ bool artsWaitOnHandle(artsGuid_t epochGuid)
         *guid = NULL_GUID; //Unset
         unsigned int flag = 1;
         artsEpoch_t * epoch = artsRouteTableLookupItem(local);
-        epoch->waitPtr = &flag;
-        incrementFinishedEpoch(local);
-//        globalShutdownGuidIncFinished();
         
-        ARTSCOUNTERINCREMENT(yield);
-        threadLocal_t tl;
-        artsSaveThreadLocal(&tl);
-        while(flag)
-            artsNodeInfo.scheduler();
-        artsRestoreThreadLocal(&tl);
-        
-        cleanEpochPool();
-        
-        return true;
+//        if(artsNodeInfo.tMT)
+//        {
+//            
+//        }
+//        else
+        {
+            epoch->waitPtr = &flag;
+            incrementFinishedEpoch(local);
+    //        globalShutdownGuidIncFinished();
+
+            ARTSCOUNTERINCREMENT(yield);
+            threadLocal_t tl;
+            artsSaveThreadLocal(&tl);
+            while(flag)
+                artsNodeInfo.scheduler();
+            artsRestoreThreadLocal(&tl);
+
+            cleanEpochPool();
+
+            return true;
+        }
     }
     return false;
 }

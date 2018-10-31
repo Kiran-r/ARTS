@@ -67,6 +67,9 @@ struct artsRuntimeShared
     unsigned int printNodeStats;
     artsGuid_t shutdownEpoch;
     unsigned int shadLoopStride;
+    bool tMT;
+    uint64_t ** keys;
+    uint64_t * globalGuidThreadId;
 }__attribute__ ((aligned(64)));
 
 struct artsRuntimePrivate
@@ -84,7 +87,6 @@ struct artsRuntimePrivate
     volatile bool worker;
     volatile bool networkSend;
     volatile bool networkReceive;
-    volatile bool acdt;
     volatile bool statusSend;
     artsGuid_t currentEdtGuid;
     int mallocType;

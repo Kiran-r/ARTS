@@ -32,6 +32,7 @@ typedef struct
 {
   uint32_t threadpool_id;     // alias id
   ti_t*    threadpool_info;   // alias shared pool info
+  struct artsRuntimePrivate * tlToCopy;
 } tmask_t; // per alias thread info
 
 // per alias thread names

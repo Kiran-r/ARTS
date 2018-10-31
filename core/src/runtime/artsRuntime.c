@@ -91,6 +91,9 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.printNodeStats = config->printNodeStats;
     artsNodeInfo.shutdownEpoch = (config->shutdownEpoch) ? 1 : NULL_GUID ;
     artsNodeInfo.shadLoopStride = config->shadLoopStride;
+    artsNodeInfo.tMT = config->tMT;
+    artsNodeInfo.keys = artsCalloc(sizeof(uint64_t*) * totalThreads);
+    artsNodeInfo.globalGuidThreadId = artsCalloc(sizeof(uint64_t) * totalThreads);
     artsInitIntrospector(config);
 }
 
@@ -140,12 +143,6 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
     if(unit->worker)
     {
         artsNodeInfo.routeTable[unit->id] =  artsRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
-        if (config->tMT) // @awmm
-        {
-            tMT = true;
-            DPRINTF("tMT: PthreadLayer: preparing aliasing for master thread %d\n", unit->id);
-            hive_tMT_RuntimePrivateInit(unit, config);
-        }
     }
 
     if(unit->networkSend || unit->networkReceive)
@@ -208,6 +205,14 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
     artsThreadInfo.shadLock = 0;
     artsGuidKeyGeneratorInit();
     INITCOUNTERLIST(unit->id, artsGlobalRankId, config->counterFolder, config->counterStartPoint);
+    
+    if (artsNodeInfo.tMT) // @awmm
+    {
+        tMT = true;
+        DPRINTF("tMT: PthreadLayer: preparing aliasing for master thread %d\n", unit->id);
+        hive_tMT_RuntimePrivateInit(unit, config, &artsThreadInfo);
+    }
+    
     artsAtomicSub(&artsNodeInfo.readyToPush, 1U);
     while(artsNodeInfo.readyToPush){  };
     if(unit->id)
@@ -437,8 +442,8 @@ bool artsDefaultSchedulerLoop()
     struct artsEdt * edtFound = NULL;
     if(!(edtFound = artsDequePopFront(artsThreadInfo.myDeque)))
     {
-        if(tMT)
-            edtFound = hive_tMT_RuntimeStealPromise(); // @awmm
+//        if(tMT)
+//            edtFound = hive_tMT_RuntimeStealPromise(); // @awmm
 
         if(!edtFound)
             if(!(edtFound = artsRuntimeStealFromWorker()))
@@ -451,12 +456,14 @@ bool artsDefaultSchedulerLoop()
     if(edtFound)
     {
         artsRunEdt(edtFound);
+        wakeUpContext();
         return true;
     }
-//    else
-//    {
+    else
+    {
+        artsNextContext();
 //        usleep(1);
-//    }
+    }
     return false;
 }
 

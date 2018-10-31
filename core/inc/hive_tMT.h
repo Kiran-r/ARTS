@@ -19,10 +19,12 @@
 #include <semaphore.h>
 #include "artsConfig.h"
 #include "artsAbstractMachineModel.h"
+#include "artsRuntime.h"
+#include "artsGlobals.h"
 
 #include "hiveFutures.h"
 
-#define MAX_THREADS_PER_MASTER 128
+#define MAX_THREADS_PER_MASTER 64
 
 // types
 typedef uint64_t accst_t; // accessor state
@@ -39,14 +41,15 @@ typedef struct
 {
   size_t                    numAT;                                        // # of potential aliases
   pthread_t*                pthread;                                      // all info pertinent to pthreads
-  struct threadMask*        unit;                                         // master thread info @ hive RT level
-  volatile unsigned int     current_alias_id;        		          // current active alias
-  int                       ticket_counter[MAX_THREADS_PER_MASTER];
+  struct threadMask*        unit;       		          // current active alias
+  unsigned int              ticket_counter[MAX_THREADS_PER_MASTER];
   volatile uint16_t         ticket_serial;
   struct artsDeque*         promise_queue;
   volatile accst_t*         alias_running __attribute__ ((aligned (64))); // FIXME: right data structure?
   volatile accst_t*         alias_avail;                    		  // FIXME: right data structure?
-  volatile unsigned int     queue_own;                                    // ownership baton is '1'
+  volatile unsigned int     queue_own;
+  artsQueue *               wakeQueue;
+  // ownership baton is '1'
 } ti_t; // shared amongst MT and AT pool
 
 typedef struct
@@ -67,6 +70,11 @@ typedef struct
 
 
 // RTS internal interface
-void hive_tMT_RuntimePrivateInit(struct threadMask* unit, struct artsConfig* config);
-
+void hive_tMT_RuntimePrivateInit(struct threadMask* unit, struct artsConfig* config, struct artsRuntimePrivate * semiPrivate);
+void artsContextSwitch(unsigned int waitCount);
+void artsNextContext();
+bool availContext();
+void setContextAvail(unsigned int context);
+unsigned int getCurrentContext();
+void wakeUpContext();
 #endif /* CORE_INC_HIVE_TMT_H_ */

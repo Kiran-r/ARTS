@@ -25,6 +25,7 @@
 #define __USE_GNU
 #include <string.h>
 
+#include "artsGlobals.h"
 #include "artsAtomics.h"
 #include "artsDeque.h"
 #include "artsDbFunctions.h"
@@ -44,6 +45,7 @@ static size_t _numAT_MT; // # aliases + master thread; after initialization via 
 
 static __thread tmask_t tls; // thread local storage for AT (alias thread)
 __thread tci_t tci; // common interface for MT & AT
+__thread unsigned int aliasId = 0;
 
 unsigned int startUpCount = 0;
 
@@ -196,10 +198,13 @@ static inline bool hiveRunPromise(void *edtPacket)
 // alias threads
 static void* AThreadLoop(void* arg) 
 {
-
     //--------- initialization
-    tls = *(tmask_t*) arg;
-
+    tmask_t * tArgs = (tmask_t*)arg;
+    tls = *tArgs;
+    memcpy(&artsThreadInfo, tArgs->tlToCopy, sizeof(struct artsRuntimePrivate));
+    
+    DPRINTF("Test TL: %p %p\n", artsThreadInfo.alive, artsThreadInfo.myDeque);
+            
     msi_t* mastershare_info = _hive_tMT_msi;
     ti_t* threadpool_info = tls.threadpool_info;
 
@@ -250,7 +255,48 @@ static void* AThreadLoop(void* arg)
     }
 }
 
-static inline void CreateContexts(ti_t* threadpool_info) 
+static void* BThreadLoop(void* arg) 
+{
+    //--------- initialization
+    tmask_t * tArgs = (tmask_t*)arg;
+    tls = *tArgs;
+    memcpy(&artsThreadInfo, tArgs->tlToCopy, sizeof(struct artsRuntimePrivate));
+            
+    msi_t* mastershare_info = _hive_tMT_msi;
+    ti_t* threadpool_info = tls.threadpool_info;
+
+    tci.isMT = false;
+    tci.unitID = threadpool_info->unit->id;
+    tci.threadpool_info = threadpool_info;
+
+    aliasId = tArgs->threadpool_id;
+    
+    unsigned int unit = threadUNIT();
+    unsigned int TID = threadID();
+
+    if(mastershare_info->unit->pin)
+    {
+        DPRINTF("PINNING to %lu\n", tls.threadpool_info->unit->id);
+        artsAbstractMachineModelPinThread(mastershare_info->unit->coreInfo);
+    }
+    
+    // we're officially running, not waiting and not available for scheduling
+    hiveAccessorState(threadpool_info->alias_running, TID, true, false, true);
+    hiveAccessorState(threadpool_info->alias_avail, TID, true, false, true);
+
+    if(sem_post(&mastershare_info[unit].sem[_idMT])) // finished  mask copy
+        exit(EXIT_FAILURE);
+
+    unsigned int ret = artsAtomicSub(&startUpCount, 1);
+    
+    DPRINTF("Master %lu: AThread 0x%x with threadpool_id %lu starting thread loop. Waiting for recruitment... %u\n",
+            tls.threadpool_info->unit->id, pthread_self(), threadID(), ret);
+
+    hivePutToSleep(threadpool_info, threadID(), true); // toggle availability
+    artsRuntimeLoop();
+}
+
+static inline void CreateContexts(ti_t* threadpool_info, struct artsRuntimePrivate * semiPrivate) 
 {
 #ifdef PT_CONTEXTS
     unsigned int unitID = threadpool_info->unit->id;
@@ -267,14 +313,16 @@ static inline void CreateContexts(ti_t* threadpool_info)
         if(sem_init(&_hive_tMT_msi[unitID].sem[i], 0, 0))
             exit(EXIT_FAILURE);
     }
-
+    
+    tmask.tlToCopy = semiPrivate;
     tmask.threadpool_info = threadpool_info;
     threadpool_info->pthread[0] = (pthread_t) 0; // BT place holder; BT currently not needed
     for(int i = 1; i < _numAT; ++i) 
     { // create alias thread (ATs) pool and potentially BT
         tmask.threadpool_id = i;
 
-        if(pthread_create(&threadpool_info->pthread[i], &attr, &AThreadLoop, &tmask)) {
+//        if(pthread_create(&threadpool_info->pthread[i], &attr, &AThreadLoop, &tmask)) {
+        if(pthread_create(&threadpool_info->pthread[i], &attr, &BThreadLoop, &tmask)) {
             exit(EXIT_FAILURE);
         }
 
@@ -434,7 +482,7 @@ void hiveGetFuture(ticket_t ticket)
 // RT visible functions
 
 // COMMENT: MasterThread (MT) is the original thread
-void hive_tMT_RuntimePrivateInit(struct threadMask* unit, struct artsConfig* config) 
+void hive_tMT_RuntimePrivateInit(struct threadMask* unit, struct artsConfig* config, struct artsRuntimePrivate * semiPrivate) 
 { // run during master's initialization
     _numAT = config->tMT;
     _numAT_MT = _numAT + 1; // # aliases + master thread
@@ -448,17 +496,18 @@ void hive_tMT_RuntimePrivateInit(struct threadMask* unit, struct artsConfig* con
     ti_t* threadpool_info = (ti_t*) artsCalloc(sizeof (ti_t)); // shared info amongst BrokerThread (BT) and AliasThread (AT)
     threadpool_info->unit = unit; // master's info
     threadpool_info->numAT = _numAT;
-    threadpool_info->current_alias_id = 0; // no aliasing at this point
     threadpool_info->pthread = (pthread_t*) artsMalloc(sizeof (pthread_t) * (_numBT + _numAT));
     // FIXME: convert SOA into AOS to avoid collisions
     threadpool_info->alias_running = (accst_t*) artsCalloc(sizeof (accst_t));
     *threadpool_info->alias_running = 1UL << _idMT; // MT is running
     threadpool_info->alias_avail = (accst_t*) artsCalloc(sizeof (accst_t));
-    *threadpool_info->alias_avail = (1UL << (_numAT_MT)) - 1UL; // FIXME: init bitmap
+//    *threadpool_info->alias_avail = (1UL << (_numAT_MT)) - 1UL; // FIXME: init bitmap
+    *threadpool_info->alias_avail = (1UL << (_numAT)) - 1UL; // FIXME: init bitmap
     *threadpool_info->alias_avail ^= 1UL << _idMT; // MT already being used
     threadpool_info->ticket_serial = 0;
     threadpool_info->promise_queue = artsDequeNew(_numPromises);
     threadpool_info->queue_own = 1; // queue open for business
+    threadpool_info->wakeQueue = artsNewQueue();
 
     tci.isMT = true;
     tci.unitID = unitID;
@@ -473,9 +522,104 @@ void hive_tMT_RuntimePrivateInit(struct threadMask* unit, struct artsConfig* con
     _hive_tMT_msi[unitID].unit = unit; // master's info
     _hive_tMT_msi[unitID].sem = (sem_t*) artsMalloc(sizeof (sem_t) * (_numAT_MT));
     _hive_tMT_msi[unitID].ti = threadpool_info;
-
+    
     startUpCount = _numAT;
-    CreateContexts(threadpool_info);
+    CreateContexts(threadpool_info, semiPrivate);
     while(!startUpCount);
+    while(!hiveTestStateOneLeft(threadpool_info->alias_running));
 }
 // End of RT visible functions
+
+void artsContextSwitch(unsigned int waitCount) 
+{
+    ti_t* threadpool_info = tci.threadpool_info;
+    unsigned int alias;
+    unsigned int * waitFlag = &threadpool_info->ticket_counter[aliasId];
+    artsAtomicAdd(waitFlag, waitCount);
+//    PRINTF("CTX: %u FLAG: %u\n", aliasId, *waitFlag);
+    while(*waitFlag)
+    {
+        while(!hiveTestStateOneLeft(threadpool_info->alias_running));
+//        unsigned int cand = dequeue(threadpool_info->wakeQueue);
+        uint64_t cand = 0; //(uint64_t) artsDequePopFront(threadpool_info->promise_queue);
+        if(!cand)
+            cand = hiveNextCandidate(threadpool_info->alias_avail);
+        
+        if(cand) {
+            alias = cand - 1;
+        }
+        else {
+            alias = (aliasId + 1) % threadpool_info->numAT;
+        }
+        
+//        PRINTF("SWITCH c %u\n", alias);
+        hivePutToWork(threadpool_info, alias, true);
+        hivePutToSleep(threadpool_info, aliasId, false); // do not change availability
+    }
+}
+
+void artsNextContext() 
+{
+    ti_t* threadpool_info = tci.threadpool_info;
+    while(!hiveTestStateOneLeft(threadpool_info->alias_running));
+    
+//    unsigned int alias = dequeue(threadpool_info->wakeQueue);
+    unsigned int alias = 0; //(uint64_t) artsDequePopFront(threadpool_info->promise_queue);
+    if(alias)
+    {
+        alias--;
+        hivePutToWork(threadpool_info, alias, false); //already blocked don't flip
+//        PRINTF("SWITCH a %u\n", alias);
+    }
+    else
+    {
+        alias = (aliasId + 1) % threadpool_info->numAT;
+//        PRINTF("SWITCH b %u\n", alias);
+        hivePutToWork(threadpool_info, alias, true);  //available so flip
+    }
+    hivePutToSleep(threadpool_info, aliasId, true);
+}
+
+bool availContext()
+{
+    if(artsNodeInfo.tMT)
+    {
+        ti_t* threadpool_info = tci.threadpool_info;
+        unsigned int cand = (uint64_t) hiveNextCandidate(threadpool_info->alias_avail);
+//        PRINTF("CAND: %u %p\n", cand, *threadpool_info->alias_avail);
+        return cand != 0;
+    }
+    return 0;
+}
+
+__thread unsigned int wakeUpCtx = 0;
+void wakeUpContext()
+{
+    ti_t* threadpool_info = tci.threadpool_info;
+    if(wakeUpCtx)
+    {
+        unsigned int alias = wakeUpCtx-1;
+        wakeUpCtx = 0;
+        hivePutToWork(threadpool_info, alias, false);
+        hivePutToSleep(threadpool_info, aliasId, true);
+    }
+}
+
+void setContextAvail(unsigned int context)
+{
+//    PRINTF("Dec CONTEXT: %u\n", context);
+    ti_t* threadpool_info = tci.threadpool_info;
+    if(!artsAtomicSub(&threadpool_info->ticket_counter[context], 1))
+    {
+        wakeUpCtx = context+1;
+    //    PRINTF("Waking %u\n", context);
+    //    enqueue(context+1, threadpool_info->wakeQueue);
+//        uint64_t temp = context+1;
+//        artsDequePushFront(threadpool_info->promise_queue, (void*)temp, 0);
+    }
+}
+
+unsigned int getCurrentContext()
+{
+    return aliasId;
+}

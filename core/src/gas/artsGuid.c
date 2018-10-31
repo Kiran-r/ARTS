@@ -22,8 +22,8 @@
 #define DPRINTF
 //#define DPRINTF(...) PRINTF(__VA_ARGS__)
 
-__thread uint64_t globalGuidThreadId = 0;
-__thread uint64_t * keys;
+//__thread uint64_t globalGuidThreadId = 0;
+//__thread uint64_t * keys;
 uint64_t numTables = 0;
 uint64_t keysPerThread = 0;
 uint64_t globalGuidOn = 0;
@@ -37,7 +37,8 @@ void setGlobalGuidOn()
 
 uint64_t * artsGuidGeneratorGetKey(unsigned int route, unsigned int type )
 {
-    return &keys[route*ARTS_LAST_TYPE + type];
+    return &artsNodeInfo.keys[artsThreadInfo.groupId][route*ARTS_LAST_TYPE + type];
+//    return &keys[route*ARTS_LAST_TYPE + type];
 }
 
 artsGuid_t artsGuidCreateForRankInternal(unsigned int route, unsigned int type, unsigned int guidCount)
@@ -64,7 +65,8 @@ artsGuid_t artsGuidCreateForRankInternal(unsigned int route, unsigned int type, 
         uint64_t value = *key;
         if(value + guidCount < keysPerThread)
         {
-            guid.fields.key = value + keysPerThread * globalGuidThreadId;
+//            guid.fields.key = value + keysPerThread * globalGuidThreadId;
+            guid.fields.key = value + keysPerThread * artsNodeInfo.globalGuidThreadId[artsThreadInfo.groupId];
             (*key)+=guidCount;
         }
         else
@@ -99,12 +101,15 @@ void artsGuidKeyGeneratorInit()
     uint64_t localId         = (artsThreadInfo.worker) ? artsThreadInfo.threadId : artsNodeInfo.workerThreadCount;
     minGlobalGuidThread = numTables * artsGlobalRankId;
     maxGlobalGuidThread = (artsGlobalRankCount == 1) ? minGlobalGuidThread + numTables : minGlobalGuidThread + numTables -1;
-    globalGuidThreadId  = minGlobalGuidThread + localId;
+//    globalGuidThreadId  = minGlobalGuidThread + localId;
+    artsNodeInfo.globalGuidThreadId[artsThreadInfo.groupId] = minGlobalGuidThread + localId;
     
 //    PRINTF("numTables: %lu localId: %lu minGlobalGuidThread: %lu maxGlobalGuidThread: %lu globalGuidThreadId: %lu\n", numTables, localId, minGlobalGuidThread, maxGlobalGuidThread, globalGuidThreadId);
-    keys = artsMalloc(sizeof(uint64_t) * ARTS_LAST_TYPE * artsGlobalRankCount);
+//    keys = artsMalloc(sizeof(uint64_t) * ARTS_LAST_TYPE * artsGlobalRankCount);
+    artsNodeInfo.keys[artsThreadInfo.groupId] = artsMalloc(sizeof(uint64_t) * ARTS_LAST_TYPE * artsGlobalRankCount);
     for(unsigned int i=0; i<ARTS_LAST_TYPE * artsGlobalRankCount; i++)
-        keys[i] = 1;
+        artsNodeInfo.keys[artsThreadInfo.groupId][i] = 1;
+//        keys[i] = 1;
 }
 
 artsGuid_t artsGuidCast(artsGuid_t guid, artsType_t type)

@@ -45,8 +45,8 @@ void initBlockDistribution(arts_block_dist_t* _dist,
 void initBlockDistributionWithCmdLineArgs(arts_block_dist_t* _dist,
                                           int argc, 
                                           char** argv) {
-  uint64_t n;
-  uint64_t m;
+  uint64_t n = 0;
+  uint64_t m = 0;
 
   for (int i=0; i < argc; ++i) {
     if (strcmp("--num-vertices", argv[i]) == 0) {
@@ -58,19 +58,24 @@ void initBlockDistributionWithCmdLineArgs(arts_block_dist_t* _dist,
     }
   }
 
-  PRINTF("[INFO] Initializing Block Distribution with following parameters ...\n");
-  PRINTF("[INFO] Vertices : %" PRIu64 "\n", n);
-  PRINTF("[INFO] Edges : %" PRIu64 "\n", m);
+  if(n && m)
+  {
+    PRINTF("[INFO] Initializing Block Distribution with following parameters ...\n");
+    PRINTF("[INFO] Vertices : %" PRIu64 "\n", n);
+    PRINTF("[INFO] Edges : %" PRIu64 "\n", m);
 
-  _dist->num_vertices = n;
-  _dist->num_edges = m;
-  _dist->block_sz = getBlockSize(_dist);
+    _dist->num_vertices = n;
+    _dist->num_edges = m;
+    _dist->block_sz = getBlockSize(_dist);
 
-  // copied from ssspStart.c
-  _dist->graphGuid = artsMalloc(sizeof(artsGuid_t)*artsGetTotalNodes());
-  for(unsigned int i=0; i<artsGetTotalNodes(); i++) {
-    _dist->graphGuid[i] = artsReserveGuidRoute(ARTS_DB_PIN, i % artsGetTotalNodes());
+    // copied from ssspStart.c
+    _dist->graphGuid = artsMalloc(sizeof(artsGuid_t)*artsGetTotalNodes());
+    for(unsigned int i=0; i<artsGetTotalNodes(); i++) {
+      _dist->graphGuid[i] = artsReserveGuidRoute(ARTS_DB_PIN, i % artsGetTotalNodes());
+    }
   }
+  else
+      PRINTF("Must set --num-vertices and --num-edges\n");
 }
 
 void freeDistribution(arts_block_dist_t* _dist) {

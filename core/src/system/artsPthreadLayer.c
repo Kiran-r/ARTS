@@ -20,8 +20,6 @@ struct artsConfig * config;
 
 pthread_t * nodeThreadList;
 
-extern msi_t*  _hive_tMT_msi;          // @awmm tMt shared data structure
-
 void * artsThreadLoop(void * data)
 {
     struct threadMask * unit = (struct threadMask*) data;
@@ -54,13 +52,7 @@ void artsThreadInit( struct artsConfig * config  )
     struct threadMask * mask = getThreadMask(config);
     nodeThreadList = artsMalloc(sizeof (pthread_t) * artsNodeInfo.totalThreadCount);
     unsigned int i = 0, threadCount=artsNodeInfo.totalThreadCount;
-    
-    if (config->tMT) // @awmm
-    {
-//        DPRINTF("tMT: PthreadLayer: preparing aliasing for master thread %d\n", unit->id);
-    	_hive_tMT_msi = (msi_t *) artsCalloc(threadCount * sizeof(msi_t)); // shared info with MasterThread (MT)
-    }
-    
+        
     if(config->stackSize)
     {
         void * stack;

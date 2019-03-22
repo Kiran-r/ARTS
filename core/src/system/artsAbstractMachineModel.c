@@ -312,7 +312,7 @@ struct threadMask * getThreadMask(struct artsConfig * config)
     defaultPolicy(workerThreads, config->senderCount, config->recieverCount, topology, config);
     totalThreads = flattenMask(config, topology, &flat);
 
-    artsRuntimeNodeInit(workerThreads, 1, config->senderCount, config->recieverCount, totalThreads, config->remoteWorkStealing && networkOn, config);
+    artsRuntimeNodeInit(workerThreads, 1, config->senderCount, config->recieverCount, totalThreads, 0, config);
     if(config->printTopology)
         printMask(flat,totalThreads);
     return flat;

@@ -381,12 +381,12 @@ int loadGraphNoWeightCsr(const char* _file,
                 localEdges++;
             }
             
-            if (_flip) {
-                if (getOwner(target, _dist) == artsGetCurrentNode()) {
-                    pushBackEdge(&vedges, target, src, 0/*weight zeor for the moment*/);
-                    localEdges++;
-                }
-            }
+//            if (_flip) {
+//                if (getOwner(target, _dist) == artsGetCurrentNode()) {
+//                    pushBackEdge(&vedges, target, src, 0/*weight zeor for the moment*/);
+//                    localEdges++;
+//                }
+//            }
 
             edgeCount++;
         }
@@ -396,7 +396,7 @@ int loadGraphNoWeightCsr(const char* _file,
     fclose(file);
     
     if (src == numVerts) {
-        PRINTF("Sorting edges %lu local %lu\n", edgeCount, localEdges);
+        PRINTF("Sorting edges %lu local %lu vert %lu\n", edgeCount, localEdges, src);
         // done loading edge -- sort them by source
         sortBySource(&vedges);
 

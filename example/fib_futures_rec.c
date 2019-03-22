@@ -1,108 +1,86 @@
-/*
- * hive_tMT.h
- *
- *  Created on: March 30, 2018
- *      Author: Andres Marquez (@awmm)
- *
- *
- * This file is subject to the license agreement located in the file LICENSE
- * and cannot be distributed without it. This notice cannot be
- * removed or modified.
- *
- *
- *
- */
-
-
+//===----------------------------------------------------------------------===//
+//
+// Copyright 2018 Battelle Memorial Institute
+//
+//THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+//AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+//IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+//DISCLAIMED. IN NO EVENT SHALL BATTELLE OR CONTRIBUTORS BE LIABLE FOR ANY
+//DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+//(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+//LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+//ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+//(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+//SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+//===----------------------------------------------------------------------===//
 #include <stdio.h>
 #include <stdlib.h>
-#include "artsRT.h"
+#include "arts.h"
+#include "artsAtomics.h"
+#include "hive_tMT.h"
+uint64_t start = 0;
 
-// Test
-#include <pthread.h>
-
-#include "artsGlobals.h"
-#include "hiveFutures.h"
-
-// debugging support
-unsigned int ext_threadID();
-unsigned int ext_threadUNIT();
-
-uint64_t start;
-
-void fibForkFut(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
+void fib(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    // unpack
-    uint64_t* futures = (uint64_t*) paramv[1];
-    ticket_t ticket = (ticket_t) paramv[2]; // need all tickets
-    unsigned int num_start = paramv[3];
-    unsigned int num = paramv[4];
-    unsigned int id = paramv[5];
+    artsGuid_t resultGuid = paramv[0];
+    int num = paramv[1];
+    int sum = num;
+    int x = -1;
+    int y = -1;
     
-    // compute
-    uint64_t temp;
-    uint64_t FutureFib[2];
-
-    if(num < 2) {
-        temp = num;
-//        PRINTF("UNIT:MT/AT %lu:%lu Fib Anchor Ticket! 0x%llx  id=%d value=%d parent 0x%llx\n",
-//            ext_threadUNIT(), ext_threadID(), 0, id, num, ticket); fflush(stdout);
-
-    } else {
-        uint64_t  args[] = {(uint64_t) fibForkFut, (uint64_t) FutureFib, 2, num_start, num-1, 0}; // second argument: # futures
-        ticket_t tickets[2];
-        tickets[0] = hiveCreateFuture(sizeof(args)/sizeof(uint64_t), args);
-
-//        PRINTF("UNIT:MT/AT %lu:%lu Fib Ticket0! 0x%llx  value=%d parent 0x%llx\n",
-//            ext_threadUNIT(), ext_threadID(), tickets[0], num-1, ticket); fflush(stdout);
-
-        args[2] = 2;
-        args[4] = num-2;
-        args[5] = 1;
-        tickets[1] = hiveCreateFuture(sizeof(args)/sizeof(uint64_t), args);
-
-//        PRINTF("UNIT:MT/AT %lu:%lu Fib Ticket1! 0x%llx  value=%d parent 0x%llx\n",
-//            ext_threadUNIT(), ext_threadID(), tickets[1], num-2, ticket); fflush(stdout);
-
-        hiveGetFutures(tickets, 2);
-
-        temp = FutureFib[0] + FutureFib[1];
-
-//        PRINTF("UNIT:MT/AT %lu:%lu Fib Finished Ticket! 0x%llx  id=%d value=%d parent 0x%llx\n",
-//            ext_threadUNIT(), ext_threadID(), tickets[1], id, id?num-2:num-1, ticket); fflush(stdout);
-
-    }
-
-    // pack
-    futures[id] = temp;
-
-    if (num_start == num)
+    if(num >= 2) 
     {
-        // hiveSignalEdt(guid, fib, slot, DB_MODE_SINGLE_VALUE);
-//        PRINTF("fibForkFut: finished recursion\n");
+        artsTicket_t ctx = artsGetContextTicket();
+        unsigned int count = 2;
+        
+        int * xPtr = &x;
+        int * yPtr = &y;
+        artsGuid_t xGuid = artsAllocateLocalBuffer((void**)&xPtr, sizeof(int), 1, NULL_GUID);
+        artsGuid_t yGuid = artsAllocateLocalBuffer((void**)&yPtr, sizeof(int), 1, NULL_GUID);
+        
+        uint64_t args[3];
+        
+        args[0] = xGuid;
+        args[1] = num-2;
+        args[2] = ctx;
+        artsEdtCreate(fib, 0, 3, args, 0);
+        
+        args[0] = yGuid;
+        args[1] = num-1;
+        artsEdtCreate(fib, 0, 3, args, 0);
+        
+        artsContextSwitch(2);
+        sum = x + y;
+    }
+    
+    PRINTF("num: %d x: %d y: %d sum: %d\n", num, x, y, sum);
+    if(resultGuid)
+    {
+        artsSetBuffer(resultGuid, &sum, sizeof(int));
+        artsSignalContext(paramv[2]);
+    }
+    else
+    {
         uint64_t time = artsGetTimeStamp() - start;
-        PRINTF("Fib %u: %u %lu\n", num_start, temp, time); //fflush(stdout);
+        PRINTF("Fib %d: %d %lu\n", num, sum, time);
         artsShutdown();
     }
-
 }
-
 
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    
-}
 
-uint64_t root_FutureFib[2];
+}
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
 {   
     if(!nodeId && !workerId)
     {
-        unsigned int num = atoi(argv[1]);
-        uint64_t  args[] = {(uint64_t) NULL, (uint64_t) root_FutureFib, 2, num, num, 0}; // REQUIRED arg list for solver second argument: # futures
+        int num = atoi(argv[1]);
+        uint64_t args[] = {NULL_GUID, num};
         start = artsGetTimeStamp();
-        artsGuid_t guid = artsEdtCreate(fibForkFut, 0, 6, args, 0);
+        artsGuid_t guid = artsEdtCreate(fib, 0, 2, args, 0);
     }
 }
 

@@ -18,6 +18,8 @@
 #include <stdlib.h>
 #include "arts.h"
 
+uint64_t start = 0;
+
 void fibJoin(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     unsigned int x = depv[0].guid;
@@ -27,7 +29,7 @@ void fibJoin(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t dep
 
 void fibFork(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    unsigned int next = (artsGetCurrentNode() + 1) % artsGetTotalNodes();
+    unsigned int next = 0; //(artsGetCurrentNode() + 1) % artsGetTotalNodes();
 //    PRINTF("NODE: %u WORKER: %u NEXT: %u\n", artsGetCurrentNode(), artsGetCurrentWorker(), next);
     artsGuid_t guid = paramv[0];
     unsigned int slot = paramv[1];
@@ -49,7 +51,8 @@ void fibFork(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t dep
 
 void fibDone(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    PRINTF("Fib %u: %u %u\n", paramv[0], depv[0].guid, depc);
+    uint64_t time = artsGetTimeStamp() - start;
+    PRINTF("Fib %u: %u %lu\n", paramv[0], depv[0].guid, time);
     artsShutdown();
 }
 
@@ -65,6 +68,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         unsigned int num = atoi(argv[1]);
         artsGuid_t doneGuid = artsEdtCreate(fibDone, 0, 1, (uint64_t*)&num, 1);
         uint64_t args[3] = {doneGuid, 0, num};
+        start = artsGetTimeStamp();
         artsGuid_t guid = artsEdtCreate(fibFork, 0, 3, args, 0);
     }
 }

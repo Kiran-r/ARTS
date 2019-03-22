@@ -44,9 +44,10 @@ void rootTask(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t de
     if(dep)
     {
         dep--;
-        artsGuid_t guid = artsEdtCreate(syncTask, artsGetCurrentNode(), 1, &dep, 1);
-        artsGuid_t epochGuid = artsInitializeAndStartEpoch(guid, 0);
-        PRINTF("Guid: %lu Root: %lu sync: %lu epoch: %lu\n", artsGetCurrentGuid(), dep, guid, epochGuid);
+//        artsGuid_t guid = artsEdtCreate(syncTask, artsGetCurrentNode(), 1, &dep, 1);
+//        artsGuid_t epochGuid = artsInitializeAndStartEpoch(guid, 0);
+        artsGuid_t epochGuid = artsInitializeAndStartEpoch(NULL_GUID, 0);
+        PRINTF("Guid: %lu Root: %lu sync: %lu epoch: %lu\n", artsGetCurrentGuid(), dep, NULL_GUID, epochGuid);
         
         unsigned int numNodes = artsGetTotalNodes();
         for (unsigned int rank = 0; rank < numNodes; rank++)
@@ -54,6 +55,8 @@ void rootTask(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t de
         
         for (uint64_t rank = 0; rank < numNodes * numDummy; rank++)
             artsEdtCreate(dummytask, rank % numNodes, 0, NULL, 0);
+        
+        artsWaitOnHandle(epochGuid);
     }
 }
 

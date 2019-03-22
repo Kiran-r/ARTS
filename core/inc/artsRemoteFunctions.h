@@ -81,7 +81,8 @@ void artsDbMoveRequest(artsGuid_t dbGuid, unsigned int destRank);
 void artsDbMoveRequestHandle(void * pack);
 void artsRemoteHandleBufferSend(void * pack);
 void artsRemoteHandleDbDestroy(void * ptr);
-
+void artsRemoteSignalContext(unsigned int rank, uint64_t ticket);
+void artsRemoteHandleSignalContext(void * pack);
 #ifdef __cplusplus
 }
 #endif

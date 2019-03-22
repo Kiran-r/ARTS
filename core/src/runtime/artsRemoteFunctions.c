@@ -32,6 +32,7 @@
 #include "artsArrayDb.h"
 #include "artsCounter.h"
 #include "artsIntrospection.h"
+#include "hive_tMT.h"
 
 #define DPRINTF( ... )
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
@@ -867,4 +868,18 @@ void artsRemoteHandleBufferSend(void * pack)
     unsigned int size = packet->header.size - sizeof(struct artsRemoteMemoryMovePacket);
     void * buffer = (void*)(packet+1);
     artsSetBuffer(packet->guid, buffer, size);
+}
+
+void artsRemoteSignalContext(unsigned int rank, uint64_t ticket)
+{
+    struct artsRemoteSignalContextPacket packet;
+    packet.ticket = ticket;
+    artsFillPacketHeader(&packet.header, sizeof(packet), ARTS_ATOMIC_ADD_ARRAYDB_MSG);
+    artsRemoteSendRequestAsync(rank, (char *)&packet, sizeof(packet));
+}
+
+void artsRemoteHandleSignalContext(void * pack)
+{
+    struct artsRemoteSignalContextPacket * packet = pack;
+    artsSignalContext(packet->ticket);
 }

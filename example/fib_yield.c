@@ -31,48 +31,31 @@ void fib(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
     
     if(num >= 2) 
     {
-        bool hasCtx = 1; //availContext();
-        unsigned int ctx = getCurrentContext();
         unsigned int count = 2;
-        
-//        PRINTF("FIB: %d ctx: %u\n", num, ctx);
-        
+
         int * xPtr = &x;
         int * yPtr = &y;
         artsGuid_t xGuid = artsAllocateLocalBuffer((void**)&xPtr, sizeof(int), 1, NULL_GUID);
         artsGuid_t yGuid = artsAllocateLocalBuffer((void**)&yPtr, sizeof(int), 1, NULL_GUID);
         
-        uint64_t args[3];
+        uint64_t args[2];
         
         args[0] = xGuid;
         args[1] = num-2;
-        args[2] = ctx;
-        artsEdtCreate(fib, 0, (hasCtx) ? 3 : 2, args, 0);
+        artsEdtCreate(fib, 0, 2, args, 0);
         
         args[0] = yGuid;
         args[1] = num-1;
-        artsEdtCreate(fib, 0, (hasCtx) ? 3 : 2, args, 0);
+        artsEdtCreate(fib, 0, 2, args, 0);
         
-        if(hasCtx) 
-        {
-            artsContextSwitch(2);
-        }
-        else
-        {
-            PRINTF("Yield %d\n", num);
-            while(x<0 || y<0)
-                artsYield();
-        }
+        while(x<0 || y<0)
+            artsYield();
         sum = x + y;
     }
     
     if(resultGuid)
     {
         artsSetBuffer(resultGuid, &sum, sizeof(int));
-        if(paramc == 3)
-        {
-            setContextAvail(paramv[2]);
-        }
     }
     else
     {

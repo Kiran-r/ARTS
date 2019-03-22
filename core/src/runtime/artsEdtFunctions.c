@@ -173,13 +173,14 @@ bool artsEdtCreateInternal(artsGuid_t * guid, unsigned int route, unsigned int c
         if(*guid == NULL_GUID)
         {
             createdGuid = true;
-            *guid = artsGuidCreateForRank(route, ARTS_EDT);
+            edt->currentEdt = *guid = artsGuidCreateForRank(route, ARTS_EDT);
         }
-        
+        else
+            edt->currentEdt = *guid;
+
         edt->funcPtr = funcPtr;
         edt->depc = (hasDepv) ? depc : 0;
         edt->paramc = paramc;
-        edt->currentEdt = *guid;
         edt->outputBuffer = outputBuffer;
         edt->epochGuid = NULL_GUID;
         edt->cluster = cluster;
@@ -238,7 +239,8 @@ artsGuid_t artsEdtCreateDep(artsEdt_t funcPtr, unsigned int route, uint32_t para
     unsigned int depSpace = (hasDepv) ? depc * sizeof(artsEdtDep_t) : 0;
     unsigned int edtSpace = sizeof(struct artsEdt) + paramc * sizeof(uint64_t) + depSpace;
     artsGuid_t guid = NULL_GUID;
-    artsEdtCreateInternal(&guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
+    artsGuid_t * guidPtr = &guid; 
+    artsEdtCreateInternal(guidPtr, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
     ARTSEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return guid;
 }

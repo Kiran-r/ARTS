@@ -197,6 +197,7 @@ typedef struct {
     artsGuid_t guid;
     artsGuid_t poolGuid;
     volatile unsigned int * waitPtr;
+    volatile uint64_t ticket;
 } artsEpoch_t;
 
 void PRINTF( const char* format, ... );

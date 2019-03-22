@@ -56,7 +56,8 @@ enum artsServerMessageType
     ARTS_EPOCH_DELETE_MSG,
     ARTS_ATOMIC_ADD_ARRAYDB_MSG,
     ARTS_ATOMIC_CAS_ARRAYDB_MSG,
-    ARTS_REMOTE_BUFFER_SEND_MSG
+    ARTS_REMOTE_BUFFER_SEND_MSG,
+    ARTS_REMOTE_CONTEXT_SIG_MSG
 };
 
 //Header
@@ -251,6 +252,12 @@ struct __attribute__ ((__packed__)) artsRemoteAtomicCompareAndSwapInArrayDbPacke
     unsigned int index;
     unsigned int oldValue;
     unsigned int newValue;
+};
+
+struct __attribute__ ((__packed__)) artsRemoteSignalContextPacket
+{
+    struct artsRemotePacket header;
+    uint64_t ticket;
 };
 
 void outInit( unsigned int size );

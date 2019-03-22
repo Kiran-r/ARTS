@@ -26,6 +26,7 @@
 #include "artsRouteTable.h"
 #include "artsArrayList.h"
 #include "artsDebug.h"
+#include "hive_tMT.h"
 
 #define DPRINTF( ... )
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
@@ -309,6 +310,8 @@ bool checkEpoch(artsEpoch_t * epoch, unsigned int totalActive, unsigned int tota
             DPRINTF("%lu epoch done!!!!!!!\n", epoch->guid);
             if(epoch->waitPtr)
                 *epoch->waitPtr = 0;
+            if(epoch->ticket)
+                artsSignalContext(epoch->ticket);
             if(epoch->terminationExitGuid)
             {
                 DPRINTF("%lu Calling finalization continuation provided by the user %u\n", epoch->guid, totalFinish);
@@ -332,6 +335,8 @@ bool checkEpoch(artsEpoch_t * epoch, unsigned int totalActive, unsigned int tota
                 DPRINTF("%lu epoch done!!!!!!!\n", epoch->guid);
                 if(epoch->waitPtr)
                     *epoch->waitPtr = 0;
+                if(epoch->ticket)
+                    artsSignalContext(epoch->ticket);
                 if(epoch->terminationExitGuid)
                 {
                     DPRINTF("%lu Calling finalization continuation provided by the user %u !\n", epoch->guid, totalFinish);
@@ -583,18 +588,21 @@ void artsYield()
 bool artsWaitOnHandle(artsGuid_t epochGuid)
 {
     artsGuid_t * guid = artsCheckEpochIsRoot(epochGuid);
-    if(guid)
+    if(guid) //For now lets leave this rule here
     {
         artsGuid_t local = *guid;
         *guid = NULL_GUID; //Unset
         unsigned int flag = 1;
         artsEpoch_t * epoch = artsRouteTableLookupItem(local);
-        
-//        if(artsNodeInfo.tMT)
-//        {
-//            
-//        }
-//        else
+        epoch->ticket = artsGetContextTicket();
+        if(artsNodeInfo.tMT && epoch->ticket)
+        {
+            incrementFinishedEpoch(local);
+            artsContextSwitch(1);
+            cleanEpochPool();
+            return true;
+        }
+        if(!epoch->ticket)
         {
             epoch->waitPtr = &flag;
             incrementFinishedEpoch(local);

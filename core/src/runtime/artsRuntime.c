@@ -46,7 +46,6 @@ extern void initPerNode(unsigned int nodeId, int argc, char** argv) __attribute_
 extern void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char**argv) __attribute__((weak));
 extern void artsMain(int argc, char** argv) __attribute__((weak));
 
-extern msi_t*  _hive_tMT_msi; // @awmm
 bool   tMT = false;
 
 struct artsRuntimeShared artsNodeInfo;
@@ -92,8 +91,10 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.shutdownEpoch = (config->shutdownEpoch) ? 1 : NULL_GUID ;
     artsNodeInfo.shadLoopStride = config->shadLoopStride;
     artsNodeInfo.tMT = config->tMT;
+    artsNodeInfo.tMTLocalSpin = NULL;
     artsNodeInfo.keys = artsCalloc(sizeof(uint64_t*) * totalThreads);
     artsNodeInfo.globalGuidThreadId = artsCalloc(sizeof(uint64_t) * totalThreads);
+    hive_tMT_NodeInit(workerThreads);
     artsInitIntrospector(config);
 }
 
@@ -210,7 +211,7 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
     {
         tMT = true;
         DPRINTF("tMT: PthreadLayer: preparing aliasing for master thread %d\n", unit->id);
-        hive_tMT_RuntimePrivateInit(unit, config, &artsThreadInfo);
+        hive_tMT_RuntimePrivateInit(unit, &artsThreadInfo);
     }
     
     artsAtomicSub(&artsNodeInfo.readyToPush, 1U);
@@ -239,6 +240,7 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
 
 void artsRuntimePrivateCleanup()
 {
+    hive_tMTRuntimePrivateCleanup();
     artsAtomicSub(&artsNodeInfo.readyToClean, 1U);
     while(artsNodeInfo.readyToClean){ };
     if(artsThreadInfo.myDeque)
@@ -259,6 +261,7 @@ void artsRuntimeStop()
         while(!artsNodeInfo.localSpin[i]);
         (*artsNodeInfo.localSpin[i]) = false;
     }
+    hive_tMTRuntimeStop();
     artsStopInspector();
 }
 
@@ -382,22 +385,6 @@ inline struct artsEdt * artsRuntimeStealFromWorker()
     return edt;
 }
 
-// @awmm
-inline struct artsEdt* hive_tMT_RuntimeStealPromise()
-{
-    struct artsEdt *edt = NULL;
-    long unsigned int stealLoc;
-    do
-    {
-        stealLoc = jrand48(artsThreadInfo.drand_buf);
-        stealLoc = stealLoc % artsNodeInfo.totalThreadCount;
-    } while(stealLoc == artsThreadInfo.threadId);
-
-    edt = artsDequePopBack(_hive_tMT_msi[stealLoc].ti->promise_queue);
-
-    return edt;
-}
-
 bool artsNetworkFirstSchedulerLoop()
 {
 //    struct artsEdt *edtFound;
@@ -442,9 +429,6 @@ bool artsDefaultSchedulerLoop()
     struct artsEdt * edtFound = NULL;
     if(!(edtFound = artsDequePopFront(artsThreadInfo.myDeque)))
     {
-//        if(tMT)
-//            edtFound = hive_tMT_RuntimeStealPromise(); // @awmm
-
         if(!edtFound)
             if(!(edtFound = artsRuntimeStealFromWorker()))
                 edtFound = artsRuntimeStealFromNetwork();
@@ -456,7 +440,7 @@ bool artsDefaultSchedulerLoop()
     if(edtFound)
     {
         artsRunEdt(edtFound);
-        wakeUpContext();
+        artsWakeUpContext();
         return true;
     }
     else

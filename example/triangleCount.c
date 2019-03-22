@@ -113,7 +113,7 @@ inline uint64_t processVertex(vertex i, vertex * neighbors, uint64_t neighborCou
     
     uint64_t firstPred = lowerBound(i, 0, neighborCount, neighbors);
     uint64_t lastPred = neighborCount;
-    
+//    PRINTF("%lu = %lu %lu\n", i, firstPred, lastPred);
     for (uint64_t nextPred = firstPred + 1; nextPred < lastPred; nextPred++) {
         vertex j = neighbors[nextPred];
         unsigned int owner = getOwner(j, &distribution);
@@ -123,7 +123,9 @@ inline uint64_t processVertex(vertex i, vertex * neighbors, uint64_t neighborCou
             getNeighbors(&graph, j, &jNeighbors, &jNeighborCount);
             uint64_t firstSucc = lowerBound(i, 0, jNeighborCount, jNeighbors);
             uint64_t lastSucc = upperBound(j, 0, jNeighborCount, jNeighbors);
-            localCount += countTriangles(neighbors, firstPred, nextPred, jNeighbors, firstSucc, lastSucc);
+            uint64_t temp = countTriangles(neighbors, firstPred, nextPred, jNeighbors, firstSucc, lastSucc);
+            localCount += temp;
+//            PRINTF("%lu %lu -- %lu\n", i, j, temp);
             (*procLocal)++;
         }
         else if(checkAndSet(visitMask, owner)) {
@@ -164,13 +166,14 @@ void visitVertex(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t
         for(vertex i=start; i<end; i++) {
             uint64_t visitMask = 0;
             getNeighbors(&graph, i, &neighbors, &neighborCount);
+//            PRINTF("Neighbors: %lu %lu\n", i, neighborCount);
             localCount += processVertex(i, neighbors, neighborCount, &visitMask, &procLocal, &procRemote);
         }
         artsAtomicAddU64(&localTriangleCount, localCount);
         artsAtomicAddU64(&local, procLocal);
         artsAtomicAddU64(&remote, procRemote);
     }
-    
+//    PRINTF("%lu : %lu\n", start, localCount);
     
 }
 
@@ -200,7 +203,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     
     uint64_t args[2];
     uint64_t workerIndex = 0;
-    for (vertex i = distStart; i < distEnd; i+=blockSize) {
+    for (vertex i = distStart; i <=distEnd; i+=blockSize) {
         if(workerIndex % artsGetTotalWorkers() == workerId) {
             args[0] = i;
             args[1] = (i+blockSize < distEnd) ? i+blockSize : distEnd;

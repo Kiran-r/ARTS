@@ -45,6 +45,7 @@ struct artsRuntimeShared
     struct artsRouteTable ** routeTable;
     struct artsRouteTable * remoteRouteTable;
     volatile bool ** localSpin;
+    volatile bool ** tMTLocalSpin;
     unsigned int ** memoryMoves;
     struct atomicCreateBarrierInfo ** atomicWaits;
     unsigned int workerThreadCount;

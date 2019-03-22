@@ -1,5 +1,5 @@
 /*
- * hive_tMT.h
+ * artsTMT
  *
  *  Created on: March 30, 2018
  *      Author: Andres Marquez (@awmm)
@@ -13,8 +13,8 @@
  *
  */
 
-#ifndef CORE_INC_HIVE_TMT_H_
-#define CORE_INC_HIVE_TMT_H_
+#ifndef CORE_INC_ARTS_TMT_H_
+#define CORE_INC_ARTS_TMT_H_
 
 #include <semaphore.h>
 #include "arts.h"
@@ -39,8 +39,6 @@ typedef union
     } fields;
 } artsTicket;
 
-typedef uint64_t artsTicket_t;
-
 typedef struct
 {
     pthread_t *               aliasThreads;                           //Actual pthreads
@@ -62,17 +60,15 @@ typedef struct
 } tmask_t; // per alias thread info
 
 // RTS internal interface
-void hive_tMT_NodeInit(unsigned int numThreads);
-void hive_tMT_RuntimePrivateInit(struct threadMask* unit, struct artsRuntimePrivate * semiPrivate);
-void hive_tMTRuntimePrivateCleanup();
-void hive_tMTRuntimeStop();
+void artsTMTNodeInit(unsigned int numThreads);
+void artsTMTRuntimePrivateInit(struct threadMask* unit, struct artsRuntimePrivate * semiPrivate);
+void artsTMTRuntimePrivateCleanup();
+void artsTMTRuntimeStop();
 
+bool artsAvailContext();
 void artsNextContext();
 void artsWakeUpContext();
 
-bool artsContextSwitch(unsigned int waitCount);
-bool artsAvailContext();
-bool artsSignalContext(artsTicket_t ticket);
-artsTicket_t artsGetContextTicket();
 
-#endif /* CORE_INC_HIVE_TMT_H_ */
+
+#endif /* CORE_INC_ARTS_TMT_H_ */

@@ -17,8 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "arts.h"
-#include "artsAtomics.h"
-#include "hive_tMT.h"
+
 uint64_t start = 0;
 
 void fib(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
@@ -54,7 +53,6 @@ void fib(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
         sum = x + y;
     }
     
-    PRINTF("num: %d x: %d y: %d sum: %d\n", num, x, y, sum);
     if(resultGuid)
     {
         artsSetBuffer(resultGuid, &sum, sizeof(int));

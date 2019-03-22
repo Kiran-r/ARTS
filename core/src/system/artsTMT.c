@@ -1,5 +1,5 @@
 /*
- * hive_tMT.c
+ * arts_tMT.c
  *
  *  Created on: March 30, 2018
  *      Author: Andres Marquez (@awmm)
@@ -32,14 +32,14 @@
 #include "artsEdtFunctions.h"
 #include "artsRemoteFunctions.h"
 
-#include "hive_tMT.h"
+#include "artsTMT.h"
 
 #define DPRINTF( ... )
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
 #define ONLY_ONE_THREAD 
-//while(!hiveTestStateOneLeft(localPool->alias_running) && artsThreadInfo.alive)
+//while(!artsTestStateOneLeft(localPool->alias_running) && artsThreadInfo.alive)
 
-msi_t * _hive_tMT_msi = NULL; // tMT shared data structure
+msi_t * _arts_tMT_msi = NULL; // tMT shared data structure
 __thread unsigned int aliasId = 0;
 __thread msi_t * localPool = NULL;
 
@@ -54,7 +54,7 @@ static inline artsTicket GenTicket()
     return ticket;
 }
 
-static inline bool hiveAccessorState(volatile accst_t* all_states, unsigned int start, bool flipstate) 
+static inline bool artsAccessorState(volatile accst_t* all_states, unsigned int start, bool flipstate) 
 {
     uint64_t uint64_tState = *all_states;
     uint64_t current_pos = 1UL << start;  
@@ -65,28 +65,28 @@ static inline bool hiveAccessorState(volatile accst_t* all_states, unsigned int 
     return bState;
 }
 
-static inline unsigned int hiveNextCandidate(volatile accst_t* all_states) 
+static inline unsigned int artsNextCandidate(volatile accst_t* all_states) 
 {
 	return ffsll(*all_states);
 }
 
-static inline bool hiveTestStateEmpty(volatile accst_t* all_states) 
+static inline bool artsTestStateEmpty(volatile accst_t* all_states) 
 {
     return !*all_states;
 }
 
-static inline bool hiveTestStateOneLeft(volatile accst_t* all_states) 
+static inline bool artsTestStateOneLeft(volatile accst_t* all_states) 
 {
     return *all_states && !(*all_states & (*all_states-1));
 }
 
-static inline void hivePutToWork(unsigned int rank, unsigned int unit, unsigned int thread, bool avail) 
+static inline void artsPutToWork(unsigned int rank, unsigned int unit, unsigned int thread, bool avail) 
 {
     if(rank == artsGlobalRankId)
     {
-        msi_t * pool = &_hive_tMT_msi[unit];
-        hiveAccessorState(pool->alias_running, thread, true);
-        if(avail) hiveAccessorState(pool->alias_avail, thread, true);
+        msi_t * pool = &_arts_tMT_msi[unit];
+        artsAccessorState(pool->alias_running, thread, true);
+        if(avail) artsAccessorState(pool->alias_avail, thread, true);
 
     #ifdef PT_CONTEXTS
         if(sem_post(&pool->sem[thread]) == -1) { //Wake avail thread up
@@ -97,13 +97,13 @@ static inline void hivePutToWork(unsigned int rank, unsigned int unit, unsigned 
     }
 }
 
-static inline void hivePutToSleep(unsigned int rank, unsigned int unit, unsigned int thread, bool avail) 
+static inline void artsPutToSleep(unsigned int rank, unsigned int unit, unsigned int thread, bool avail) 
 {
     if(rank == artsGlobalRankId)
     {
-        msi_t * pool = &_hive_tMT_msi[unit];
-        hiveAccessorState(pool->alias_running, thread, true);
-        if(avail) hiveAccessorState(pool->alias_avail, thread, true);
+        msi_t * pool = &_arts_tMT_msi[unit];
+        artsAccessorState(pool->alias_running, thread, true);
+        if(avail) artsAccessorState(pool->alias_avail, thread, true);
 
     #ifdef PT_CONTEXTS
         if(sem_wait(&pool->sem[thread]) == -1) {
@@ -114,7 +114,7 @@ static inline void hivePutToSleep(unsigned int rank, unsigned int unit, unsigned
     }
 }
 
-static void* aliasThreadLoop(void* arg) 
+static void* artsAliasThreadLoop(void* arg) 
 {
     
     
@@ -129,7 +129,7 @@ static void* aliasThreadLoop(void* arg)
     DPRINTF("Setting: %u\n", unitId*(numAT-1)+(aliasId-1));
     artsNodeInfo.tMTLocalSpin[unitId*(numAT-1)+(aliasId-1)] = &artsThreadInfo.alive;
     
-    localPool = &_hive_tMT_msi[artsThreadInfo.groupId];
+    localPool = &_arts_tMT_msi[artsThreadInfo.groupId];
 
     if(tArgs->unit->pin)
     {
@@ -137,8 +137,8 @@ static void* aliasThreadLoop(void* arg)
 //        artsAbstractMachineModelPinThread(tArgs->unit->coreInfo);
     }
 
-    hiveAccessorState(localPool->alias_running, aliasId, true);
-    hiveAccessorState(localPool->alias_avail, aliasId, true);
+    artsAccessorState(localPool->alias_running, aliasId, true);
+    artsAccessorState(localPool->alias_avail, aliasId, true);
     
     if(sem_post(&localPool->sem[0]) == -1) {// finished  mask copy
         PRINTF("FAILED SEMI INIT POST %u %u\n", artsThreadInfo.groupId, aliasId);
@@ -147,7 +147,7 @@ static void* aliasThreadLoop(void* arg)
     
     artsAtomicSub(&localPool->startUpCount, 1);
 
-    hivePutToSleep(artsGlobalRankId, artsThreadInfo.groupId, aliasId, true); //Toggle availability
+    artsPutToSleep(artsGlobalRankId, artsThreadInfo.groupId, aliasId, true); //Toggle availability
     ONLY_ONE_THREAD;
     
     artsRuntimeLoop();
@@ -156,7 +156,7 @@ static void* aliasThreadLoop(void* arg)
     artsAtomicSub(&localPool->shutDownCount, 1);
 }
 
-static inline void CreateContexts(struct threadMask * mask, struct artsRuntimePrivate * semiPrivate) 
+static inline void artsCreateContexts(struct threadMask * mask, struct artsRuntimePrivate * semiPrivate) 
 {
 #ifdef PT_CONTEXTS
     tmask_t tmask;
@@ -182,7 +182,7 @@ static inline void CreateContexts(struct threadMask * mask, struct artsRuntimePr
     for(int i = 1; i < numAT; ++i) 
     {
         tmask.aliasId = i;
-        if(pthread_create(&localPool->aliasThreads[i-1], &attr, &aliasThreadLoop, &tmask)) {
+        if(pthread_create(&localPool->aliasThreads[i-1], &attr, &artsAliasThreadLoop, &tmask)) {
             PRINTF("FAILED ALIAS THREAD CREATION %u %u\n", artsThreadInfo.groupId, i);
 //            exit(EXIT_FAILURE);
         }
@@ -195,7 +195,7 @@ static inline void CreateContexts(struct threadMask * mask, struct artsRuntimePr
 #endif
 }
 
-static inline void DestroyContexts() {
+static inline void artsDestroyContexts() {
 #ifdef PT_CONTEXTS
     unsigned int numAT = artsNodeInfo.tMT;
     DPRINTF("SHUTDOWN ALIAS %u: %u\n", artsThreadInfo.groupId, localPool->shutDownCount);
@@ -217,7 +217,7 @@ static inline void DestroyContexts() {
 
 // RT visible functions
 // COMMENT: MasterThread (MT) is the original thread
-void hive_tMT_NodeInit(unsigned int numThreads)
+void artsTMTNodeInit(unsigned int numThreads)
 {
     if(artsNodeInfo.tMT == 1)
     {
@@ -233,15 +233,15 @@ void hive_tMT_NodeInit(unsigned int numThreads)
     
     if(artsNodeInfo.tMT)
     {
-        _hive_tMT_msi = (msi_t *) artsCalloc(numThreads * sizeof(msi_t));
+        _arts_tMT_msi = (msi_t *) artsCalloc(numThreads * sizeof(msi_t));
         artsNodeInfo.tMTLocalSpin = (volatile bool**) artsCalloc(sizeof(bool*) * numThreads * (artsNodeInfo.tMT-1));
     }
 }
 
-void hive_tMT_RuntimePrivateInit(struct threadMask* unit, struct artsRuntimePrivate * semiPrivate) 
+void artsTMTRuntimePrivateInit(struct threadMask* unit, struct artsRuntimePrivate * semiPrivate) 
 {
     unsigned int numAT = artsNodeInfo.tMT;
-    localPool = &_hive_tMT_msi[artsThreadInfo.groupId];
+    localPool = &_arts_tMT_msi[artsThreadInfo.groupId];
     localPool->aliasThreads = (pthread_t*) artsMalloc(sizeof (pthread_t) * (numAT-1));
     
     // FIXME: for now, we'll live with an bitmap array structure...
@@ -261,13 +261,13 @@ void hive_tMT_RuntimePrivateInit(struct threadMask* unit, struct artsRuntimePriv
     localPool->sem = (sem_t*) artsMalloc(sizeof (sem_t) * (numAT));
     
     localPool->startUpCount = localPool->shutDownCount = numAT-1;
-    CreateContexts(unit, semiPrivate);
+    artsCreateContexts(unit, semiPrivate);
     
     while(localPool->startUpCount);
     ONLY_ONE_THREAD;
 }
 
-void hive_tMTRuntimeStop()
+void artsTMTRuntimeStop()
 {
     if(artsNodeInfo.tMT)
     {
@@ -276,10 +276,10 @@ void hive_tMTRuntimeStop()
     }
 }
 
-void hive_tMTRuntimePrivateCleanup()
+void artsTMTRuntimePrivateCleanup()
 {
     if(artsNodeInfo.tMT)
-        DestroyContexts();
+        artsDestroyContexts();
 }
 
 void artsNextContext() 
@@ -292,15 +292,15 @@ void artsNextContext()
         if(cand)
         {
             cand--;
-            hivePutToWork(artsGlobalRankId, artsThreadInfo.groupId, cand, false); //already blocked don't flip
+            artsPutToWork(artsGlobalRankId, artsThreadInfo.groupId, cand, false); //already blocked don't flip
         }
         else
         {
             cand = (aliasId + 1) % artsNodeInfo.tMT;
-            hivePutToWork(artsGlobalRankId, artsThreadInfo.groupId, cand, true);  //available so flip
+            artsPutToWork(artsGlobalRankId, artsThreadInfo.groupId, cand, true);  //available so flip
         }
 
-        hivePutToSleep(artsGlobalRankId, artsThreadInfo.groupId, aliasId, true);
+        artsPutToSleep(artsGlobalRankId, artsThreadInfo.groupId, aliasId, true);
         ONLY_ONE_THREAD;
     }
 }
@@ -315,8 +315,8 @@ void artsWakeUpContext()
         if(cand)
         {
             cand--;
-            hivePutToWork( artsGlobalRankId, artsThreadInfo.groupId, cand,    false);
-            hivePutToSleep(artsGlobalRankId, artsThreadInfo.groupId, aliasId, true);
+            artsPutToWork( artsGlobalRankId, artsThreadInfo.groupId, cand,    false);
+            artsPutToSleep(artsGlobalRankId, artsThreadInfo.groupId, aliasId, true);
             ONLY_ONE_THREAD;
         }
     }
@@ -325,7 +325,7 @@ void artsWakeUpContext()
 
 bool artsContextSwitch(unsigned int waitCount) 
 {
-    PRINTF("CONTEXT SWITCH\n");
+    DPRINTF("CONTEXT SWITCH\n");
     if(artsNodeInfo.tMT && artsThreadInfo.alive)
     {
         volatile unsigned int * waitFlag = &localPool->ticket_counter[aliasId];
@@ -336,14 +336,14 @@ bool artsContextSwitch(unsigned int waitCount)
             if(!cand)
                 cand = dequeue(localPool->wakeQueue);
             if(!cand)
-                cand = hiveNextCandidate(localPool->alias_avail);
+                cand = artsNextCandidate(localPool->alias_avail);
             if(cand)
                 cand--;
             else {
                 cand = (aliasId + 1) % artsNodeInfo.tMT;
             }
-            hivePutToWork( artsGlobalRankId, artsThreadInfo.groupId, cand,    true);
-            hivePutToSleep(artsGlobalRankId, artsThreadInfo.groupId, aliasId, false); // do not change availability
+            artsPutToWork( artsGlobalRankId, artsThreadInfo.groupId, cand,    true);
+            artsPutToSleep(artsGlobalRankId, artsThreadInfo.groupId, aliasId, false); // do not change availability
             ONLY_ONE_THREAD;
         }
         return true;
@@ -353,7 +353,7 @@ bool artsContextSwitch(unsigned int waitCount)
 
 bool artsSignalContext(artsTicket_t waitTicket)
 {
-    PRINTF("SIGNAL CONTEXT\n");
+    DPRINTF("SIGNAL CONTEXT\n");
     artsTicket ticket = (artsTicket) waitTicket;
     unsigned int rank   = (unsigned int)ticket.fields.rank;
     unsigned int unit   = (unsigned int)ticket.fields.unit;
@@ -365,11 +365,11 @@ bool artsSignalContext(artsTicket_t waitTicket)
         {
             if(rank == artsGlobalRankId)
             {
-                if(!artsAtomicSub(&_hive_tMT_msi[unit].ticket_counter[thread], 1))
+                if(!artsAtomicSub(&_arts_tMT_msi[unit].ticket_counter[thread], 1))
                 {
                     unsigned int alias = thread + 1;
-                    if(artsAtomicCswap(&_hive_tMT_msi[unit].wakeUpNext, 0, alias) != 0)
-                        enqueue(alias, _hive_tMT_msi[unit].wakeQueue);
+                    if(artsAtomicCswap(&_arts_tMT_msi[unit].wakeUpNext, 0, alias) != 0)
+                        enqueue(alias, _arts_tMT_msi[unit].wakeQueue);
                 }
             }
             else
@@ -386,7 +386,7 @@ bool artsAvailContext()
 {
     if(artsNodeInfo.tMT)
     {
-        unsigned int cand = hiveNextCandidate(localPool->alias_avail);
+        unsigned int cand = artsNextCandidate(localPool->alias_avail);
         DPRINTF("R: %p A: %p Cand: %u\n", localPool->alias_running, localPool->alias_avail, cand);
         return cand != 0;
     }

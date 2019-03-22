@@ -9,7 +9,7 @@
 #include "artsGlobals.h"
 #include "artsCounter.h"
 #include "artsThreads.h"
-#include "hive_tMT.h"
+#include "artsTMT.h"
 #include <unistd.h>
 
 unsigned int artsGlobalRankId;

@@ -33,7 +33,7 @@
 #include "artsDebug.h"
 #include "artsCounter.h"
 #include "artsIntrospection.h"
-#include "hive_tMT.h"
+#include "artsTMT.h"
 
 #define DPRINTF( ... )
 #define PACKET_SIZE 4096
@@ -94,7 +94,7 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.tMTLocalSpin = NULL;
     artsNodeInfo.keys = artsCalloc(sizeof(uint64_t*) * totalThreads);
     artsNodeInfo.globalGuidThreadId = artsCalloc(sizeof(uint64_t) * totalThreads);
-    hive_tMT_NodeInit(workerThreads);
+    artsTMTNodeInit(workerThreads);
     artsInitIntrospector(config);
 }
 
@@ -211,7 +211,7 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
     {
         tMT = true;
         DPRINTF("tMT: PthreadLayer: preparing aliasing for master thread %d\n", unit->id);
-        hive_tMT_RuntimePrivateInit(unit, &artsThreadInfo);
+        artsTMTRuntimePrivateInit(unit, &artsThreadInfo);
     }
     
     artsAtomicSub(&artsNodeInfo.readyToPush, 1U);
@@ -240,7 +240,7 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
 
 void artsRuntimePrivateCleanup()
 {
-    hive_tMTRuntimePrivateCleanup();
+    artsTMTRuntimePrivateCleanup();
     artsAtomicSub(&artsNodeInfo.readyToClean, 1U);
     while(artsNodeInfo.readyToClean){ };
     if(artsThreadInfo.myDeque)
@@ -261,7 +261,7 @@ void artsRuntimeStop()
         while(!artsNodeInfo.localSpin[i]);
         (*artsNodeInfo.localSpin[i]) = false;
     }
-    hive_tMTRuntimeStop();
+    artsTMTRuntimeStop();
     artsStopInspector();
 }
 

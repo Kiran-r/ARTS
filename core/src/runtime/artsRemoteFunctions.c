@@ -32,7 +32,7 @@
 #include "artsArrayDb.h"
 #include "artsCounter.h"
 #include "artsIntrospection.h"
-#include "hive_tMT.h"
+#include "artsTMT.h"
 
 #define DPRINTF( ... )
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )

@@ -281,6 +281,17 @@ bool artsWaitOnHandle(artsGuid_t epochGuid);
 //Block current execution and runs another round of scheduling.
 void artsYield();
 
+//Creates a context ticket for artsSignalContext to signal when waiting using artsContextSwitch
+artsTicket_t artsGetContextTicket();
+
+//Context switch between threads.  The waitCount is how many signals are required
+//Before we can wake this context up.  This must have tMT set in the config file.
+bool artsContextSwitch(unsigned int waitCount);
+
+//Used to wake up a context asleep from a context switch
+bool artsSignalContext(artsTicket_t ticket);
+
+
 /*ArrayDb************************************************************************/
 
 //ArrayDb is an array that spans all the nodes of the execution.  This returns a guid for accessing the arrayDb which can be used anywhere in the system.

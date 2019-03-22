@@ -26,7 +26,7 @@
 #include "artsRouteTable.h"
 #include "artsArrayList.h"
 #include "artsDebug.h"
-#include "hive_tMT.h"
+#include "artsTMT.h"
 
 #define DPRINTF( ... )
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )

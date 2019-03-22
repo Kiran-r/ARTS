@@ -13,14 +13,12 @@ endif()
 add_executable(fib fib.c)
 target_link_libraries(fib ${LIBS})
 
-add_executable(fib_yield fib_yield.c)
-target_link_libraries(fib_yield ${LIBS})
+add_executable(fibYield fibYield.c)
+target_link_libraries(fibYield ${LIBS})
 
-add_executable(fib_futures_iter fib_futures_iter.c)
-target_link_libraries(fib_futures_iter ${LIBS})
 
-add_executable(fib_futures_rec fib_futures_rec.c)
-target_link_libraries(fib_futures_rec ${LIBS})
+add_executable(fibContextSwitch fibContextSwitch.c)
+target_link_libraries(fibContextSwitch ${LIBS})
 
 add_executable(simpleReduction simpleReduction.c)
 target_link_libraries(simpleReduction ${LIBS})
@@ -28,13 +26,13 @@ target_link_libraries(simpleReduction ${LIBS})
 add_executable(bfs bfs.c)
 target_link_libraries(bfs arts-graph ${LIBS})
 
-add_executable(graph_search graph_search.c)
-target_link_libraries(graph_search arts-graph ${LIBS})
+add_executable(graphSearch graphSearch.c)
+target_link_libraries(graphSearch arts-graph ${LIBS})
 
 #SET(CMAKE_C_COMPILER ${CMAKE_CXX_COMPILER})
 
-add_executable(scan_statistics scan_statistics.cpp)
-target_link_libraries(scan_statistics arts-graph ${LIBS})
+add_executable(scanStatistics scanStatistics.cpp)
+target_link_libraries(scanStatistics arts-graph ${LIBS})
 
 add_executable(triangleCount triangleCount.c)
 target_link_libraries(triangleCount arts-graph ${LIBS})

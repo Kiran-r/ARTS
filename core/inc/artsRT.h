@@ -43,6 +43,9 @@ typedef uint8_t bool;
 typedef intptr_t artsGuid_t; /**< GUID type */    
 #define NULL_GUID ((artsGuid_t)0x0)
 
+//This is the ticker for context switching
+typedef uint64_t artsTicket_t;
+
 typedef enum
 {
     ARTS_NULL = 0,
@@ -90,13 +93,13 @@ typedef struct
 } artsEdtDep_t;
 
 //Signature of an EDT
-typedef void (*artsEdt_t)      (uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
+typedef void (*artsEdt_t) (uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
 
 //Signature of an event callback.  The data parameter is the value of the dataGuid used to satisfy the event.
 typedef void (*eventCallback_t)(artsEdtDep_t data);
 
 //Signature of the send handler used by artsRemoteSend.
-typedef void (*sendHandler_t)  (void * args);
+typedef void (*sendHandler_t) (void * args);
 
 typedef enum
 {

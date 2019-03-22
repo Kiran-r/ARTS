@@ -17,8 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "arts.h"
-#include "artsAtomics.h"
-#include "hive_tMT.h"
+
 uint64_t start = 0;
 
 void fib(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])

@@ -13,7 +13,7 @@ set(system_src
     artsPrintf.c
     artsTimer.c
     artsPthreadLayer.c
-    hive_tMT.c
+    artsTMT.c
 )
 
 add_library(system OBJECT ${system_src} )

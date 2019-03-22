@@ -19,7 +19,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "graph_defs.h"
+#include "graphDefs.h"
 
 #define EDGE_VEC_SZ 10000
 

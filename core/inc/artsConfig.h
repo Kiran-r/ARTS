@@ -68,7 +68,6 @@ struct artsConfig
     char * suffix;
     bool ibNames;
     bool masterBoot;
-    bool remoteWorkStealing;
     bool coreDump;
     unsigned int pinStride;
     bool printTopology;

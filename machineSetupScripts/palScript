@@ -1,8 +1,0 @@
-#PAL Source Me
-export CMAKE_INCLUDE_PATH=/share/apps/intel/2013.1.046/composer_xe_2013_sp1.2.144/mkl/include:/share/apps/librdmacm/1.0.18/include
-export CMAKE_LIBRARY_PATH=/share/apps/intel/2013.1.046/composer_xe_2013_sp1.2.144/mkl/lib/intel64:/share/apps/librdmacm/1.0.18/lib
-module load cmake/3.0.0
-module load gdb/7.7
-module load gcc/4.8.2
-export CC=gcc
-export CXX=g++

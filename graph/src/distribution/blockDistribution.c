@@ -14,7 +14,7 @@
 //SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 //===----------------------------------------------------------------------===//
-#include "block_distribution.h"
+#include "blockDistribution.h"
 #include <string.h>
 #include <assert.h>
 #include <inttypes.h>

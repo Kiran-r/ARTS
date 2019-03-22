@@ -19,7 +19,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "graph_defs.h"
+#include "graphDefs.h"
 
 struct artsBlockDistribution {
   graph_sz_t num_vertices; // the complete number of vertices

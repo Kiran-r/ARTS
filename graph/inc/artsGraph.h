@@ -20,8 +20,8 @@
 extern "C" {
 #endif
 
-#include "graph_defs.h"
-#include "block_distribution.h"
+#include "graphDefs.h"
+#include "blockDistribution.h"
 #include "artsEdgeVector.h"
 #include "csr.h"
 #ifdef __cplusplus

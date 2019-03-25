@@ -52,7 +52,7 @@ void fibFork(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t dep
 void fibDone(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     uint64_t time = artsGetTimeStamp() - start;
-    PRINTF("Fib %u: %u %lu\n", paramv[0], depv[0].guid, time);
+    PRINTF("Fib %u: %u time: %lu nodes: %u workers: %u\n", paramv[0], depv[0].guid, time, artsGetTotalNodes(), artsGetTotalWorkers());
     artsShutdown();
 }
 

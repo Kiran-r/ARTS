@@ -1,6 +1,7 @@
 #include "artsAbstractMachineModel.h"
 #include "artsRuntime.h"
 #include "artsGlobals.h"
+#include "artsThreads.h"
 
 unsigned int numNumaDomains = 1;
 
@@ -354,8 +355,7 @@ struct artsCoreInfo
 
 void artsAbstractMachineModelPinThread(struct artsCoreInfo * coreInfo )
 {
-    //For now this will not pin anything if there is no hwloc library
-//    PRINTF("NO BINDING\n");
+    artsPthreadAffinity(coreInfo->cpuId);
 }
 
 void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, unsigned int numberOfReceivers, struct unitMask * flat, unsigned int numCores,  struct artsConfig * config)

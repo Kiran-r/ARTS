@@ -25,6 +25,8 @@ extern "C" {
 void artsThreadInit(struct artsConfig * config);
 void artsThreadMainJoin();
 void artsThreadSetOsThreadCount(unsigned int threads);
+void artsPthreadAffinity(unsigned int cpuCoreId);
+
 #ifdef __cplusplus
 }
 #endif

@@ -97,5 +97,36 @@ void artsPthreadAffinity(unsigned int cpuCoreId) {
     CPU_ZERO(&cpuset);
     CPU_SET(cpuCoreId, &cpuset);
     if(pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset))
-        PRINTF("Failed to set affinity\n");
+        PRINTF("Failed to set affinity %u\n", cpuCoreId);  
+    
+//    if (!pthread_getaffinity_np(thread, sizeof (cpu_set_t), &cpuset)) {
+//        for (int i = 0; i < CPU_SETSIZE; i++) {
+//            if (CPU_ISSET(i, &cpuset)) {
+//                printf("%d ", i);
+//            }
+//        }
+//    }
+//    printf("\n");
+}
+
+int artsCheckAffinity() {
+    cpu_set_t cpuset;
+    pthread_t thread;
+    thread = pthread_self();
+
+    int count = 0;
+    int res = -1;
+    bool flag = false;
+    if (!pthread_getaffinity_np(thread, sizeof (cpu_set_t), &cpuset)) {
+        for (int i = 0; i < CPU_SETSIZE; i++) {
+            if (CPU_ISSET(i, &cpuset)) {
+                res = i;
+                count++;
+            }
+        }
+    }
+    
+    if(count == 1)
+        return res;
+    return -1;
 }

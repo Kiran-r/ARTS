@@ -26,7 +26,8 @@ void artsThreadInit(struct artsConfig * config);
 void artsThreadMainJoin();
 void artsThreadSetOsThreadCount(unsigned int threads);
 void artsPthreadAffinity(unsigned int cpuCoreId);
-
+void artsPthreadCheckAffinity(unsigned int threadId, unsigned int cpuCoreId);
+int artsCheckAffinity();
 #ifdef __cplusplus
 }
 #endif

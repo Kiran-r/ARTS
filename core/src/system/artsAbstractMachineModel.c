@@ -457,7 +457,7 @@ struct threadMask * getThreadMask(struct artsConfig * config)
     struct unitMask * unit;
     struct threadMask * flat;
 
-    unsigned int coreCount = sysconf(_SC_NPROCESSORS_ONLN);
+    unsigned int coreCount = (config->coreCount) ? config->coreCount : sysconf(_SC_NPROCESSORS_ONLN);
 
     unit = artsCalloc(sizeof(struct unitMask) * coreCount);
     defaultPolicy(workerThreads, config->senderCount, config->recieverCount, unit, coreCount, config);

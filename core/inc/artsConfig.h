@@ -48,6 +48,7 @@ struct artsConfig
     unsigned int ports;
     unsigned int osThreadCount;
     unsigned int threadCount;
+    unsigned int coreCount;
     unsigned int recieverCount;
     unsigned int senderCount;
     unsigned int socketCount;

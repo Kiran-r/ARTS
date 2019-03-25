@@ -992,6 +992,11 @@ struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
     else
         config->tMT = 0;
     
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"coreCount")) != NULL)
+        config->coreCount = strtol( foundVariable->value, &end , 10);
+    else
+        config->coreCount = 0;
+    
     //WARNING: Slurm Launcher Set!  
     if(strncmp(config->launcher, "slurm", 5 )==0)
     {

@@ -358,14 +358,47 @@ void artsAbstractMachineModelPinThread(struct artsCoreInfo * coreInfo )
     artsPthreadAffinity(coreInfo->cpuId);
 }
 
+int artsAffinityFromPthreadValid(unsigned int i, int * validCpus, unsigned int validCpuCount, unsigned int numCores, unsigned int stride)
+{
+    static unsigned int index = 0;
+    static unsigned int offset = 0;
+    static unsigned int strideLoop = 0;
+    static unsigned int count = 0;
+    int res = -1;
+    
+    if(validCpuCount) {
+        if(count == validCpuCount) {
+            index = 0;
+            offset = 0;
+            strideLoop = 0;
+            count = 0;
+        }
+        
+        do {
+            res = validCpus[index];
+            index+=stride;
+            if(index >= numCores && stride > 1)
+            {
+                strideLoop++;
+                offset++;
+                if(strideLoop == stride)
+                {
+                    offset=strideLoop=0;
+                }
+                index=offset;
+            }
+        } while(res == -1);
+        count++;
+    }
+    else
+        PRINTF("Valid set of processors is empty\n");
+    return res;
+}
+
 void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, unsigned int numberOfReceivers, struct unitMask * flat, unsigned int numCores,  struct artsConfig * config)
 {
     unsigned int validCpuCount = 0;
     int * validCpus = artsValidPthreadAffinity(&validCpuCount);
-    bool affinityFlag = (validCpuCount == numCores);
-    if(affinityFlag) {
-        PRINTF("Not enough cores to pin %u vs %u\n", validCpuCount, numCores);
-    }
     
     unsigned int totalThreads=0;
     unsigned int stride = config->pinStride;
@@ -379,8 +412,7 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
     {
         flat[i%numCores].on = 1;
         flat[i%numCores].coreInfo = artsMalloc(sizeof(struct artsCoreInfo));
-        flat[i%numCores].coreId = flat[i%numCores].coreInfo->cpuId = (affinityFlag) ? validCpus[i%numCores] : i % numCores;
-
+        flat[i%numCores].coreId = flat[i%numCores].coreInfo->cpuId =  artsAffinityFromPthreadValid(i, validCpus, validCpuCount, numCores, stride); //i % numCores;
         if( totalThreads < numberOfWorkers)
         {
             addAThread(&flat[i%numCores], 1, 0, 0, abstractWorker, workerThreadId++, config->pinThreads);

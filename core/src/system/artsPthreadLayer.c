@@ -98,69 +98,26 @@ void artsPthreadAffinity(unsigned int cpuCoreId) {
     CPU_SET(cpuCoreId, &cpuset);
     if(pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset))
         PRINTF("Failed to set affinity %u\n", cpuCoreId);  
-    
-//    if (!pthread_getaffinity_np(thread, sizeof (cpu_set_t), &cpuset)) {
-//        for (int i = 0; i < CPU_SETSIZE; i++) {
-//            if (CPU_ISSET(i, &cpuset)) {
-//                printf("%d ", i);
-//            }
-//        }
-//    }
-//    printf("\n");
-}
-
-int artsCheckAffinity() {
-    cpu_set_t cpuset;
-    pthread_t thread;
-    thread = pthread_self();
-
-    int count = 0;
-    int res = -1;
-    bool flag = false;
-    if (!pthread_getaffinity_np(thread, sizeof (cpu_set_t), &cpuset)) {
-        for (int i = 0; i < CPU_SETSIZE; i++) {
-            if (CPU_ISSET(i, &cpuset)) {
-                res = i;
-                count++;
-            }
-        }
-    }
-    
-    if(count == 1)
-        return res;
-    return -1;
-}
-
-cpu_set_t cpuset;
-
-void * artsValidThreadAffinity(void * arg) {
-    pthread_t thread = pthread_self();
-    for(unsigned int i=0; i<CPU_SETSIZE; i++) {
-        CPU_SET(i, &cpuset);
-        if(!pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset))
-            CPU_CLR(i, &cpuset);
-    }
-    pthread_exit(NULL);
 }
 
 int * artsValidPthreadAffinity(unsigned int * size)
 {
-    CPU_ZERO(&cpuset);
-    
-    void * res;
-    pthread_t thread;
-    if(!pthread_create(&thread, NULL, artsValidThreadAffinity, NULL)) {
-        *size = 0;
-        return NULL;
-    }
-    pthread_join(thread, &res);
-    
-    *size = CPU_COUNT(&cpuset);
-    int * affin = (int*) artsMalloc(sizeof(int) * (*size));
     unsigned int count = 0;
+    cpu_set_t cpuset;
+    pthread_t thread = pthread_self();
+    
+    int * affin = (int*) artsMalloc(sizeof(int) * CPU_SETSIZE);
     for(int i=0; i<CPU_SETSIZE; i++) {
-        if(CPU_ISSET(i, &cpuset))
-            affin[count++] = i;
+        CPU_ZERO(&cpuset);
+        CPU_SET(i, &cpuset);
+        if(pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset))
+            affin[i] = -1;
+        else {
+            affin[i] = i;
+            count++;
+        }
+        
     }
+    *size = count;
     return affin;
 }

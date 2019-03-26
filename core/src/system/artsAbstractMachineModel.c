@@ -360,6 +360,13 @@ void artsAbstractMachineModelPinThread(struct artsCoreInfo * coreInfo )
 
 void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, unsigned int numberOfReceivers, struct unitMask * flat, unsigned int numCores,  struct artsConfig * config)
 {
+    unsigned int validCpuCount = 0;
+    int * validCpus = artsValidPthreadAffinity(&validCpuCount);
+    bool affinityFlag = (validCpuCount == numCores);
+    if(affinityFlag) {
+        PRINTF("Not enough cores to pin %u vs %u\n", validCpuCount, numCores);
+    }
+    
     unsigned int totalThreads=0;
     unsigned int stride = config->pinStride;
     unsigned int strideLoop =0;
@@ -372,7 +379,7 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
     {
         flat[i%numCores].on = 1;
         flat[i%numCores].coreInfo = artsMalloc(sizeof(struct artsCoreInfo));
-        flat[i%numCores].coreId = flat[i%numCores].coreInfo->cpuId = i%numCores;
+        flat[i%numCores].coreId = flat[i%numCores].coreInfo->cpuId = (affinityFlag) ? validCpus[i%numCores] : i % numCores;
 
         if( totalThreads < numberOfWorkers)
         {
@@ -403,7 +410,10 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
             i=offset;
         }
     }
+    if(validCpus)
+        artsFree(validCpus);
 }
+
 unsigned int flattenMask(struct artsConfig * config, unsigned int numCores, struct unitMask * unit, struct threadMask ** flat)
 {
     unsigned int maskSize=0;

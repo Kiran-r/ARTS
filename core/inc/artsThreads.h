@@ -28,6 +28,7 @@ void artsThreadSetOsThreadCount(unsigned int threads);
 void artsPthreadAffinity(unsigned int cpuCoreId);
 void artsPthreadCheckAffinity(unsigned int threadId, unsigned int cpuCoreId);
 int artsCheckAffinity();
+int * artsValidPthreadAffinity(unsigned int * size);
 #ifdef __cplusplus
 }
 #endif

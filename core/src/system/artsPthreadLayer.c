@@ -130,3 +130,32 @@ int artsCheckAffinity() {
         return res;
     return -1;
 }
+
+int * artsValidPthreadAffinity(unsigned int * size) {
+    cpu_set_t cpuset;
+    pthread_t thread;
+    thread = pthread_self();
+    
+    int * affin = (int*) artsMalloc(sizeof(int) * CPU_SETSIZE);
+    for(unsigned int i=0; i<CPU_SETSIZE; i++)
+        affin[i] = -1;
+    
+    int count = 0;
+    if (!pthread_getaffinity_np(thread, sizeof (cpu_set_t), &cpuset)) {
+        for (int i = 0; i < CPU_SETSIZE; i++) {
+            if (CPU_ISSET(i, &cpuset)) {
+                affin[count++] = i;
+            }
+        }
+    }
+    
+    if(count) {
+        *size = count;
+        return affin;
+    }
+    
+    if(affin)
+        artsFree(affin);
+    *size = 0;
+    return NULL;
+}

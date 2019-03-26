@@ -131,30 +131,36 @@ int artsCheckAffinity() {
     return -1;
 }
 
-int * artsValidPthreadAffinity(unsigned int * size) {
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    pthread_t thread;
-    thread = pthread_self();
-    
+cpu_set_t cpuset;
+
+void * artsValidThreadAffinity(void * arg) {
+    pthread_t thread = pthread_self();
     for(unsigned int i=0; i<CPU_SETSIZE; i++) {
         CPU_SET(i, &cpuset);
-        if(pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset))
+        if(!pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset))
             CPU_CLR(i, &cpuset);
     }
+    pthread_exit(NULL);
+}
+
+int * artsValidPthreadAffinity(unsigned int * size)
+{
+    CPU_ZERO(&cpuset);
+    
+    void * res;
+    pthread_t thread;
+    if(!pthread_create(&thread, NULL, artsValidThreadAffinity, NULL)) {
+        *size = 0;
+        return NULL;
+    }
+    pthread_join(thread, &res);
     
     *size = CPU_COUNT(&cpuset);
     int * affin = (int*) artsMalloc(sizeof(int) * (*size));
-    if(*size) {
-        unsigned int count = 0;
-        for (int i = 0; i < CPU_SETSIZE; i++) {
-            if (CPU_ISSET(i, &cpuset)) {
-                affin[count++] = i;
-            }
-        }
-        return affin;
+    unsigned int count = 0;
+    for(int i=0; i<CPU_SETSIZE; i++) {
+        if(CPU_ISSET(i, &cpuset))
+            affin[count++] = i;
     }
-
-    *size = 0;
-    return NULL;
+    return affin;
 }

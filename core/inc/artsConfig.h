@@ -82,6 +82,7 @@ struct artsConfig
     char * counterFolder;
     unsigned int tableLength;
     unsigned int tMT;  // @awmm temporal MT; # of MT aliases per core thread; 0 if disabled
+    unsigned int coresPerNetworkThread;
     struct artsConfigTable * table;
 };
 

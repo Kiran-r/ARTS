@@ -29,8 +29,9 @@ void fibJoin(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t dep
 
 void fibFork(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    unsigned int next = 0; //(artsGetCurrentNode() + 1) % artsGetTotalNodes();
+    unsigned int next = (artsGetCurrentNode() + 1) % artsGetTotalNodes();
 //    PRINTF("NODE: %u WORKER: %u NEXT: %u\n", artsGetCurrentNode(), artsGetCurrentWorker(), next);
+    
     artsGuid_t guid = paramv[0];
     unsigned int slot = paramv[1];
     unsigned int num = paramv[2];
@@ -38,7 +39,7 @@ void fibFork(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t dep
         artsSignalEdtValue(guid, slot, num);
     else
     {
-        artsGuid_t joinGuid = artsEdtCreate(fibJoin, 0, paramc-1, paramv, 2);
+        artsGuid_t joinGuid = artsEdtCreate(fibJoin, artsGetCurrentNode(), paramc-1, paramv, 2);
         
         uint64_t args[3] = {joinGuid, 0, num-1};
         artsEdtCreate(fibFork, next, 3, args, 0);

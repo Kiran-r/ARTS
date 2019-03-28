@@ -375,7 +375,7 @@ int artsAffinityFromPthreadValid(unsigned int i, int * validCpus, unsigned int v
         }
         
         do {
-            res = validCpus[index];
+            res = validCpus[index%numCores];
             index+=stride;
             if(index >= numCores && stride > 1)
             {
@@ -405,33 +405,24 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
     unsigned int strideLoop =0;
     unsigned int i=0, offset = 0;
     unsigned int networkThreads = (artsGlobalRankCount>1)*(numberOfReceivers+numberOfSenders);
+    unsigned int networkCores = networkThreads * config->coresPerNetworkThread;
     unsigned int workerThreadId = 0;
     unsigned int networkOutThreadId = 0;
     unsigned int networkInThreadId = 0;
-    while(totalThreads < numberOfWorkers+networkThreads)
+    
+    if(numCores <= networkCores || validCpuCount <= networkCores)
+        PRINTF("Not enough cores. Required cores: %u Total cores: %u validCpuCount: %u\n", networkCores, numCores, validCpuCount);
+    unsigned int workerCores = numCores - networkCores;
+    while(totalThreads < numberOfWorkers)
     {
-        flat[i%numCores].on = 1;
-        flat[i%numCores].coreInfo = artsMalloc(sizeof(struct artsCoreInfo));
-        flat[i%numCores].coreId = flat[i%numCores].coreInfo->cpuId =  artsAffinityFromPthreadValid(i, validCpus, validCpuCount, numCores, stride); //i % numCores;
-        if( totalThreads < numberOfWorkers)
-        {
-            addAThread(&flat[i%numCores], 1, 0, 0, abstractWorker, workerThreadId++, config->pinThreads);
-        }
-        else
-        {
-            if(totalThreads < numberOfWorkers + numberOfSenders)
-            {
-                addAThread(&flat[i%numCores], 0, 1, 0, abstractOutbound, networkOutThreadId++, config->pinThreads);
-            }
-            else if(totalThreads < numberOfWorkers+numberOfReceivers+numberOfSenders)
-            {
-                addAThread(&flat[i%numCores], 0, 0, 1, abstractInbound, networkInThreadId++, config->pinThreads);
-            }
-        }
+        flat[i%workerCores].on = 1;
+        flat[i%workerCores].coreInfo = artsMalloc(sizeof(struct artsCoreInfo));
+        flat[i%workerCores].coreId = flat[i%workerCores].coreInfo->cpuId =  artsAffinityFromPthreadValid(i, validCpus, validCpuCount-networkCores, workerCores, stride); //i % numCores;
+        addAThread(&flat[i%workerCores], 1, 0, 0, abstractWorker, workerThreadId++, config->pinThreads);
         totalThreads++;
-
+//        PRINTF("i: %u -> %u -> %u\n", i, i%workerCores, flat[i%workerCores].coreId);
         i+=stride;
-        if(i >= numCores && stride > 1)
+        if(i >= workerCores && stride > 1)
         {
             strideLoop++;
             offset++;
@@ -441,6 +432,32 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
             }
             i=offset;
         }
+        
+    }
+    unsigned int next = (totalThreads < workerCores) ? totalThreads : workerCores;
+    for(unsigned int i=0; i<numberOfSenders; i++)
+    {
+        for(; next<numCores; next++)
+        {
+            if(validCpus[next] > -1)
+                break;
+        }
+        flat[i+workerCores].on = 1;
+        flat[i+workerCores].coreInfo = artsMalloc(sizeof(struct artsCoreInfo));
+        flat[i+workerCores].coreId = flat[i+workerCores].coreInfo->cpuId =  validCpus[next++];
+        addAThread(&flat[i+workerCores], 0, 1, 0, abstractOutbound, networkOutThreadId++, config->pinThreads);
+    }
+    for(unsigned int i=0; i<numberOfReceivers; i++)
+    {
+        for(; next<numCores; next++)
+        {
+            if(validCpus[next] > -1)
+                break;
+        }
+        flat[i+workerCores+numberOfSenders].on = 1;
+        flat[i+workerCores+numberOfSenders].coreInfo = artsMalloc(sizeof(struct artsCoreInfo));
+        flat[i+workerCores+numberOfSenders].coreId = flat[i+workerCores+numberOfSenders].coreInfo->cpuId =  validCpus[next++];
+        addAThread(&flat[i+workerCores+numberOfSenders], 0, 0, 1, abstractInbound, networkInThreadId++, config->pinThreads);
     }
     if(validCpus)
         artsFree(validCpus);

@@ -24,7 +24,7 @@
 #define DPRINTF(...)
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
 
-struct artsConfigVariable * artsConfigFindVariable( struct artsConfigVariable ** head, char * string  )
+struct artsConfigVariable * artsConfigFindVariable(struct artsConfigVariable ** head, char * string)
 {
     struct artsConfigVariable * found = NULL;
     struct artsConfigVariable * last = NULL;
@@ -42,40 +42,34 @@ struct artsConfigVariable * artsConfigFindVariable( struct artsConfigVariable **
     }
     
     char * overide = getenv(string);
-
-    //if(found)
+    if(overide)
     {
-        if(overide)
-        {
-            unsigned int size = strlen(overide);
-            struct artsConfigVariable * newVar = artsMalloc(sizeof(struct artsConfigVariable) + size);
-            
-            newVar->size = size;
-            strcpy(newVar->variable, string);
-            strcpy(newVar->value, overide);
-            
-            if(last)
-                last->next = newVar;
-            else
-            {
-                newVar->next = *head;
-                *head = newVar;
-            }
+        unsigned int size = strlen(overide);
+        struct artsConfigVariable * newVar = artsMalloc(sizeof(struct artsConfigVariable) + size);
 
-            if(next)
-            {
-                newVar->next = next->next;
-                artsFree(next);
-            }
-            return newVar;
+        newVar->size = size;
+        strcpy(newVar->variable, string);
+        strcpy(newVar->value, overide);
+
+        if(last)
+            last->next = newVar;
+        else
+        {
+            newVar->next = *head;
+            *head = newVar;
         }
-        
+
+        if(next)
+        {
+            newVar->next = next->next;
+            artsFree(next);
+        }
+        return newVar;
     }
-    
     return found;
 }
 
-char * artsConfigFindVariableChar( struct artsConfigVariable * head, char * string  )
+char * artsConfigFindVariableChar(struct artsConfigVariable * head, char * string)
 {
     struct artsConfigVariable * found = NULL;
     char * overide = getenv(string);
@@ -99,7 +93,7 @@ char * artsConfigFindVariableChar( struct artsConfigVariable * head, char * stri
     return NULL;
 }
 
-unsigned int artsConfigGetVariable( FILE * config, char * lookForMe  )
+unsigned int artsConfigGetVariable(FILE * config, char * lookForMe)
 {
     char * line;
     size_t len=0;
@@ -112,9 +106,6 @@ unsigned int artsConfigGetVariable( FILE * config, char * lookForMe  )
 
     while ((read = getline(&line, &len, config)) != -1)
     {
-        //printf("Retrieved line of length %zu :\n", read);
-        //printf("%s", line);
-
         var = strtok(line, "=");
         val = strtok(NULL, "=");
 
@@ -126,27 +117,10 @@ unsigned int artsConfigGetVariable( FILE * config, char * lookForMe  )
 
             if(val[size-1]=='\n')
                 val[size-1]='\0';
-            
-            
+                        
             return strtol(val, NULL, 10); 
-
-            //cVar = artsMalloc( sizeof( struct artsConfigVariable ) + size );
-
-
-            //cVar->size = size;
-
-            //strncpy(cVar->variable, var, 255);
-            //strcpy(cVar->value, val);
-            //cVar->next=NULL;
-
-            //if(next!=NULL)
-            //    next->next= cVar;
-            //else
-            //    head=cVar;
-            //next=cVar;
         }
     }
-
     return 4;
 }
 
@@ -159,7 +133,7 @@ void removeWhiteSpaces(char * str)
     } while (*read++);
 }
 
-struct artsConfigVariable * artsConfigGetVariables( FILE * config )
+struct artsConfigVariable * artsConfigGetVariables(FILE * config)
 {
     char * line = NULL;
     size_t len=0;
@@ -172,9 +146,6 @@ struct artsConfigVariable * artsConfigGetVariables( FILE * config )
 
     while ((read = getline(&line, &len, config)) != -1)
     {
-        //printf("Retrieved line of length %zu :\n", read);
-        //printf("%s", line);
-
         var = strtok(line, "=");
         val = strtok(NULL, "=");
 
@@ -186,8 +157,6 @@ struct artsConfigVariable * artsConfigGetVariables( FILE * config )
                 val[size-1]='\0';
 
             cVar = artsMalloc( sizeof( struct artsConfigVariable ) + size );
-
-
             cVar->size = size;
 
             strncpy(cVar->variable, var, 255);
@@ -205,17 +174,15 @@ struct artsConfigVariable * artsConfigGetVariables( FILE * config )
             next=cVar;
         }
     }
-
     return head;
 }
 
-
-char * artsConfigMakeNewVar( char * var  )
+char * artsConfigMakeNewVar(char * var)
 {
     char * newVar;
     unsigned int size;
     size = strlen(var);
-    newVar = artsMalloc( size+1 );
+    newVar = artsMalloc(size+1);
     strncpy(newVar, var, size);
     newVar[size] = '\0';
     DPRINTF("%s l\n", newVar);
@@ -224,16 +191,14 @@ char * artsConfigMakeNewVar( char * var  )
 
 unsigned int artsConfigGetValue(char * start, char * stop)
 {
-    int i, value, size = stop - start;
-
-    for(i=0; i<size; i++)
+    int value, size = stop - start;
+    for(int i=0; i<size; i++)
     {
         if(isdigit(start[i]))
         {
             if(*stop==':')
             {
                 *stop='\0';
-
                 value = strtol(start+i,NULL, 10);
                 *stop = ':';
             }
@@ -242,54 +207,41 @@ unsigned int artsConfigGetValue(char * start, char * stop)
             break;
         }
     }
-
     return value;
 }
 
 char * artsConfigGetNodeName(char * start, char * stop)
 {
-    int i, value, size = stop - start;
-
+    int value, size = stop - start;
     char * name;
 
-    for(i=0; i<size; i++)
+    for(int i=0; i<size; i++)
     {
         if(isdigit(start[i]))
         {
-
             name = artsMalloc( (stop-start) );
-
             strncpy(name, start, stop-start);
-
-            //name[i] = '\0';
-
             break;
         }
     }
-
     return name;
 }
 char * artsConfigGetHostname( char * name, unsigned int value )
 {
     unsigned int length = strlen(name);
-    unsigned int i, j;
     unsigned int digits=1;
     unsigned int temp = value;
     unsigned int stop;
     char * outName = artsMalloc(length);
 
-
     while(temp>9)
     {
         temp /= 10;
-
         digits++;
     }
 
-
     temp = value;
-
-    for(i=0; i<length; i++)
+    for(unsigned int i=0; i<length; i++)
     {
         if(isdigit(name[i]))
         {
@@ -303,7 +255,7 @@ char * artsConfigGetHostname( char * name, unsigned int value )
                 stop++;
             }
 
-            for(j=stop-1; j>(stop-1) - digits; j--)
+            for(unsigned int j=stop-1; j>(stop-1) - digits; j--)
             {
                 //name[j]= itoa( value%10 );
                 //sprintf(name+j,"%d",value%10);
@@ -311,18 +263,14 @@ char * artsConfigGetHostname( char * name, unsigned int value )
                 value /=10;
             }
 
-            for(j=(stop-1) - digits; j>=i; j--)
+            for(unsigned int j=(stop-1) - digits; j>=i; j--)
             {
                 name[j]='0';
             }
-
-
             break;
         }
     }
-
     strncpy(outName, name, length);
-
     return outName;
 }
 
@@ -330,7 +278,6 @@ char * artsConfigGetSlurmHostname( char * name, char * digitSample, unsigned int
 {
     unsigned int length = strlen(name);
     unsigned int digitLength = strlen(digitSample);
-    unsigned int i, j;
     unsigned int suffixLength = 0;
     unsigned int prefixLength = 0;
     unsigned int nameLength;
@@ -341,14 +288,7 @@ char * artsConfigGetSlurmHostname( char * name, char * digitSample, unsigned int
     if(prefix!=NULL)
         prefixLength = strlen(prefix);
 
-    //if(ib)
-    //    nameLength = length + digitLength + 4;
-    //else
     nameLength = length + digitLength+1+prefixLength+suffixLength;
-   
-    //RINTF("%d\n", nameLength);
-
-
     char * outName = artsMalloc(nameLength);
 
     if(prefix!=NULL)
@@ -359,15 +299,12 @@ char * artsConfigGetSlurmHostname( char * name, char * digitSample, unsigned int
     else
         strncpy(outName, name, length );
 
-    for(i=digitLength; i>0; i--)
+    for(unsigned int i=digitLength; i>0; i--)
     {
         outName[prefixLength+length+i-1]= ((int)'0')+value%10;
         value /=10;
     }
-    
-    //if(ib)
-    //    strncpy(outName+digitLength+length,"-ib\0",4);
-    //else
+
     if(suffix!= NULL)
     {
         strncpy(outName+prefixLength+digitLength+length,suffix,suffixLength);
@@ -375,40 +312,34 @@ char * artsConfigGetSlurmHostname( char * name, char * digitSample, unsigned int
     }
     else
         strncpy(outName+prefixLength+digitLength+length,"\0",1);
-
-    //PRINTF("%s\n",outName);
-
     return outName;
 }
 
 unsigned int artsConfigCountNodes( char * nodeList )
 {
-    unsigned int i,j, length = strlen(nodeList);
-
+    unsigned int length = strlen(nodeList);
     unsigned int rangeCount=0;
     unsigned int nodes = 0;
 
-    for(i=0; i< length; i++)
+    for(unsigned int i=0; i<length; i++)
         if(nodeList[i] == ',')
             nodes++;
-
     nodes++;
 
     char * begin, * end, * search;
     begin = nodeList;
 
-    for(i=0; i< length; i++)
+    for(unsigned int i=0; i<length; i++)
     {
         if(nodeList[i] == ',')
             begin = nodeList + i;
         else if(nodeList[i] == ':')
         {
-
             nodes--;
             search = nodeList+i;
             end = nodeList+length;
 
-            for(j=0; j < end - search; j++)
+            for(unsigned int j=0; j < end - search; j++)
             {
                 if(nodeList[i+j] == ',')
                 {
@@ -417,98 +348,59 @@ unsigned int artsConfigCountNodes( char * nodeList )
             }
 
             unsigned int front = artsConfigGetValue(begin,nodeList+i);
-
             unsigned int back = artsConfigGetValue(nodeList+i+1,end);
-
             if(front>back)
                 nodes+=(front-back)+1;
             else
                 nodes+=(back-front)+1;
-
         }
     }
-
     return nodes;
 }
 
-unsigned int artsConfigCountSlurmNodes( char * nodeList )
+char * artsGetNextPartition(char ** remainder)
 {
-    unsigned int i,j, length = strlen(nodeList);
-
-    unsigned int rangeCount=0;
-    unsigned int nodes = 0;
-
-    for(i=0; i< length; i++)
-        if(nodeList[i] == ',')
-            nodes++;
-
-    nodes++;
-
-    char * begin, * end, * search;
-    begin = nodeList;
-
-    for(i=0; i< length; i++)
+    char * input = (*remainder);
+    (*remainder) = NULL;
+    if(input) 
     {
-        if(nodeList[i] == ',')
-            begin = nodeList + i+1;
-        else if(nodeList[i] == '-')
+        unsigned int length = strlen(input);
+        if(length)
         {
-
-            nodes--;
-            search = nodeList+i;
-            end = nodeList+length;
-
-            for(j=0; j < end - search; j++)
+            bool flag = false;
+            bool found = false;
+            for(unsigned int i=0; i<=length; i++)
             {
-                if(nodeList[i+j] == ',')
+                if(input[i] == '[')
+                    flag = true;
+                else if(input[i] == ']')
+                    flag = false;
+                else if(!flag && input[i] == ',')
                 {
-                    end = nodeList+i+j;
+                    input[i] = '\0';
+                    (*remainder) = &input[i+1];
+                    found = true;
+                    break;
                 }
             }
-
-            *(nodeList+i) = '\0'; 
-            //PRINTF("aas %s\n", begin);
-            unsigned int front =strtol(begin,NULL, 10);
-            *(nodeList+i) = '-'; 
-    
-            *(end) = '\0'; 
-            //PRINTF("aas2 %s\n", nodeList+i+1);
-            unsigned int back = strtol(nodeList+i+1,NULL,10);
-            *(end) = ','; 
-
-            if(front>back)
-                nodes+=(front-back)+1;
-            else
-                nodes+=(back-front)+1;
-
+            return input;
         }
     }
-    //PRINTF("kldkld %d\n",nodes);
-    return nodes;
+    return NULL;
 }
 
-void artsConfigCreateRoutingTable( struct artsConfig ** config, char* nodeList )
+void artsConfigCreateRoutingTable( struct artsConfig ** config, char* nodeList)
 {
     unsigned int nodeCount;
-
     struct artsConfigTable * table;
-
     unsigned int currentNode = 0, strLength;
-
-    char * nodeBegin;
-    char * nodeEnd, * temp, * nodeNext, *next;
-
+    char * temp, * next;
     unsigned int start;
     unsigned int stop;
     unsigned int direction, listLength;
 
-    nodeBegin = nodeList;
-    listLength  =strlen(nodeList);
+    listLength = strlen(nodeList);
 
-    bool done = false;
-    nodeBegin = strtok(nodeBegin, "[");
-    next  = strtok(NULL, "[");
-    
     unsigned int suffixLength = 0;
     unsigned int prefixLength = 0;
     unsigned int totalLength = 0;
@@ -518,218 +410,158 @@ void artsConfigCreateRoutingTable( struct artsConfig ** config, char* nodeList )
 
     if(suffix!= NULL)
         suffixLength = strlen(suffix);
-    
     if(prefix!=NULL)
         prefixLength = strlen(prefix);
-    //PRINTF("kkkkkk Here %d %s\n", (*config)->masterBoot, next);
-
-    if(next != NULL || !(*config)->masterBoot )
+    
+    nodeCount = (*config)->nodes;
+    (*config)->tableLength = nodeCount;
+    table = artsMalloc(sizeof(struct artsConfigTable) * nodeCount);
+    
+    if(!(*config)->masterBoot)
     {
-        char * name = nodeBegin;
-        if(next != NULL)
+        char * part;
+        while((part = artsGetNextPartition(&nodeList)))
         {
-            DPRINTF("kkk Here %d %s\n", nodeCount, nodeBegin);
-            nodeCount = artsConfigCountSlurmNodes( next );
-            nodeBegin = nodeBegin+strlen(nodeBegin)+1;
-            (*config)->tableLength = nodeCount;
-
-            table = artsMalloc( sizeof( struct artsConfigTable ) * nodeCount );
-        }
-        else
-        {
-            //Single Node
-            DPRINTF("Here %d %s\n", nodeCount, nodeBegin);
-            nodeCount = artsConfigCountSlurmNodes( nodeBegin );
-            table = artsMalloc( sizeof( struct artsConfigTable ) * nodeCount );
-            (*config)->tableLength = nodeCount;
-            
-            table[currentNode].rank = currentNode;
-            
-            strLength = strlen(nodeBegin);
-            totalLength = strLength+1+prefixLength+suffixLength;
-
-            temp = artsMalloc(totalLength);
-
-            if(prefix!=NULL)
-                strncpy(temp, prefix, prefixLength);
-            
-            strncpy(temp+prefixLength, nodeBegin, strLength);
-            
-            if(suffix!=NULL)
-                strncpy(temp+prefixLength+strLength, suffix, suffixLength);
-            
-            strncpy(temp+totalLength-1, "\0", 1);
-
-            table[currentNode].ipAddress = temp;
-            DPRINTF("Here %s\n", temp );
-            currentNode++;
-        }
-        //PRINTF("Here %d %s %s\n", nodeCount, nodeBegin, next);
-        //PRINTF("%s\n", name);
-        //PRINTF("%s\n", nodeBegin);
-        
-        if(next != NULL)
-        {
-        do
-        {
-            nodeBegin = strtok(nodeBegin, ",");
-            next = nodeBegin+strlen(nodeBegin)+1;
-            DPRINTF("%s\n", nodeBegin);
-            if ( nodeBegin != NULL )
+            char * nodeBegin = strtok(part, "[");
+            char * next  = strtok(NULL, "[");
+            if(next)
             {
-                nodeBegin = strtok(nodeBegin, "-");
-                nodeEnd = strtok(NULL, "-");
-                
-                if(nodeEnd!= NULL)
+                bool done = false;
+                char * name = nodeBegin;
+                nodeBegin = nodeBegin + strlen(nodeBegin) + 1;
+                do 
                 {
-                    if(nodeEnd[strlen(nodeEnd)-1]==']')
+                    nodeBegin = strtok(nodeBegin, ",");
+                    next = nodeBegin + strlen(nodeBegin) + 1;
+                    if (nodeBegin) 
                     {
-                        nodeEnd[strlen(nodeEnd)-1]='\0';
-                        done = true;
+                        nodeBegin = strtok(nodeBegin, "-");
+                        char * nodeEnd = strtok(NULL, "-");
+
+                        if (nodeEnd) 
+                        {
+                            if (nodeEnd[strlen(nodeEnd) - 1] == ']') 
+                            {
+                                nodeEnd[strlen(nodeEnd) - 1] = '\0';
+                                done = true;
+                            }
+                            
+                            start = strtol(nodeBegin, NULL, 10);
+                            stop = strtol(nodeEnd, NULL, 10);
+
+                            if (start < stop)
+                                direction = 1;
+                            else
+                                direction = -1;
+
+                            while (start != stop + 1) 
+                            {
+                                table[currentNode].rank = currentNode;
+                                table[currentNode].ipAddress = artsConfigGetSlurmHostname(name, nodeBegin, start, (*config)->ibNames, (*config)->prefix, (*config)->suffix);
+                                start += direction;
+                                currentNode++;
+                            }
+                        } 
+                        else 
+                        {
+                            if (nodeBegin[strlen(nodeBegin) - 1] == ']') 
+                            {
+                                nodeBegin[strlen(nodeBegin) - 1] = '\0';
+                                done = true;
+                            }
+
+                            unsigned int nameLength = strlen(name);
+                            strLength = strlen(nodeBegin) + nameLength;
+                            totalLength = strLength + 1 + prefixLength + suffixLength;
+                            temp = artsMalloc(totalLength);
+
+                            if (prefix != NULL)
+                                strncpy(temp, prefix, prefixLength);
+                            strncpy(temp + prefixLength, name, nameLength);
+
+                            strncpy(temp + prefixLength + nameLength, nodeBegin, strlen(nodeBegin));
+
+                            if (suffix != NULL)
+                                strncpy(temp + prefixLength + strLength, suffix, suffixLength);
+                            strncpy(temp + totalLength - 1, "\0", 1);
+
+                            table[currentNode].rank = currentNode;
+                            table[currentNode].ipAddress = temp;
+                            currentNode++;
+                        }
                     }
-                    DPRINTF("%s\n", nodeBegin);
-                    DPRINTF("%s\n", nodeEnd);
-
-                    start = strtol(nodeBegin,NULL, 10);
-                    stop = strtol(nodeEnd,NULL, 10);
-                    
-                    if(start < stop)
-                        direction = 1;
-                    else
-                        direction = -1;
-                    
-                    while(start != stop+1)
-                    {
-                        table[currentNode].rank = currentNode;
-                        
-                        //PRINTF("%s\n", name);
-                        table[currentNode].ipAddress = artsConfigGetSlurmHostname( name, nodeBegin, start, (*config)->ibNames, (*config)->prefix, (*config)->suffix);
-                        DPRINTF("%s\n", table[currentNode].ipAddress );
-                        start += direction;
-                        currentNode++;
-
-                    }
-                }
-                else
-                {
-                    if(nodeBegin[strlen(nodeBegin)-1]==']')
-                    {
-                        nodeBegin[strlen(nodeBegin)-1]='\0';
-                        done = true;
-                    }
-                    DPRINTF("cc %s\n", nodeBegin);
-                    table[currentNode].rank = currentNode;
-
-                    unsigned int nameLength = strlen(name);
-
-                    strLength = strlen(nodeBegin)+nameLength;
-                    totalLength = strLength+1+prefixLength+suffixLength;
-                    temp = artsMalloc(totalLength);
-                    if(prefix!=NULL)
-                        strncpy(temp, prefix, prefixLength);
-                    
-                    //PRINTF("totalLength %d %d %d %s %s\n", totalLength, prefixLength+nameLength, strLength, name, nodeBegin);
-
-                    strncpy(temp+prefixLength, name, nameLength);
-                    
-                    strncpy(temp+prefixLength+nameLength, nodeBegin, strlen(nodeBegin) );
-                    
-                    if(suffix!=NULL)
-                        strncpy(temp+prefixLength+strLength, suffix, suffixLength);
-                   
-                    strncpy(temp+totalLength-1, "\0", 1);
-
-
-                    DPRINTF("%s\n", temp);
-                    table[currentNode].ipAddress = temp;
-                    currentNode++;
-                }
-
-            }
-
-            nodeBegin = next;
-
-        }while(!done);
-        }
-
-        //exit(0);
-
-    }
-    else
-    {
-        nodeCount = artsConfigCountNodes( nodeList );
-        (*config)->tableLength = nodeCount;
-        table = artsMalloc( sizeof( struct artsConfigTable ) * nodeCount );
-        nodeBegin = nodeList;
-    do
-    {
-        //exit(0);
-        nodeBegin = strtok(nodeBegin, ",");
-        
-        next= nodeBegin+strlen(nodeBegin)+1;
-        //nodeNext = strtok(NULL, ",");
-
-        if ( nodeBegin != NULL )
-        {
-            nodeBegin = strtok(nodeBegin, ":");
-            nodeEnd = strtok(NULL, ":");
-
-            if(nodeBegin[strlen(nodeBegin)-1]=='\n')
-                nodeBegin[strlen(nodeBegin)-1]='\0';
-
-
-            if(nodeEnd != NULL)
-            {
-                start = artsConfigGetValue(nodeBegin, nodeEnd-1);
-                stop = artsConfigGetValue(nodeEnd, nodeEnd+strlen(nodeEnd));
-
-                char * name = artsConfigGetNodeName(nodeBegin, nodeEnd);
-
-                //if(nodeBegin < nodeEnd)
-                if(start < stop)
-                    direction = 1;
-                else
-                    direction = -1;
-
-                strLength = strlen(nodeBegin);
-                while(start != stop+1)
-                {
-                    table[currentNode].rank = currentNode;
-
-                    table[currentNode].ipAddress = artsConfigGetHostname( name, start );
-                    start += direction;
-                    currentNode++;
-
-                }
+                    nodeBegin = next;
+                } while (!done);
             }
             else
             {
-                table[currentNode].rank = currentNode;
-
+                //Single node
                 strLength = strlen(nodeBegin);
-                
-                temp = artsMalloc(strLength+1);
+                totalLength = strLength + 1 + prefixLength + suffixLength;
+                temp = artsMalloc(totalLength);
 
+                if(prefix != NULL)
+                    strncpy(temp, prefix, prefixLength);
+                strncpy(temp + prefixLength, nodeBegin, strLength);
 
-                strncpy(temp, nodeBegin, strLength+1);
-                
-                DPRINTF("%s a\n", temp);
+                if(suffix != NULL)
+                    strncpy(temp + prefixLength + strLength, suffix, suffixLength);
+                strncpy(temp + totalLength - 1, "\0", 1);
 
+                table[currentNode].rank = currentNode;
                 table[currentNode].ipAddress = temp;
                 currentNode++;
-            }
-            //nodeBegin = nodeEnd;
+            }            
         }
-        nodeBegin = next;
     }
-    while(nodeBegin < nodeList+listLength);
+    else {
+        //This is the ssh path...
+        char * nodeBegin = nodeList;
+        char * next;
+        do {
+            nodeBegin = strtok(nodeBegin, ",");
+            next = nodeBegin + strlen(nodeBegin) + 1;
 
+            if (nodeBegin != NULL) {
+                nodeBegin = strtok(nodeBegin, ":");
+                char * nodeEnd = strtok(NULL, ":");
+
+                if (nodeBegin[strlen(nodeBegin) - 1] == '\n')
+                    nodeBegin[strlen(nodeBegin) - 1] = '\0';
+
+                if (nodeEnd != NULL) {
+                    start = artsConfigGetValue(nodeBegin, nodeEnd - 1);
+                    stop = artsConfigGetValue(nodeEnd, nodeEnd + strlen(nodeEnd));
+
+                    char * name = artsConfigGetNodeName(nodeBegin, nodeEnd);
+
+                    if (start < stop)
+                        direction = 1;
+                    else
+                        direction = -1;
+
+                    strLength = strlen(nodeBegin);
+                    while (start != stop + 1) {
+                        table[currentNode].rank = currentNode;
+                        table[currentNode].ipAddress = artsConfigGetHostname(name, start);
+                        start += direction;
+                        currentNode++;
+                    }
+                } 
+                else
+                {
+                    table[currentNode].rank = currentNode;
+                    strLength = strlen(nodeBegin);
+                    temp = artsMalloc(strLength + 1);
+                    strncpy(temp, nodeBegin, strLength + 1);
+                    table[currentNode].ipAddress = temp;
+                    currentNode++;
+                }
+            }
+            nodeBegin = next;
+        } while (nodeBegin < nodeList + listLength);
     }
 
-    //if(((*config)-> nodes != 0 || (*config)->nodes <= nodeCount) && (*config)->masterBoot )
-    if(((*config)-> nodes != 0 || (*config)->nodes <= nodeCount))
-        (*config)->tableLength = (*config)-> nodes;
-    
     (*config)->table = table;
 }
 
@@ -748,8 +580,6 @@ unsigned int artsConfigGetNumberOfThreads(char * location)
 
     return artsConfigGetVariable( configFile, "threads");
 }
-
-
 
 struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
 {
@@ -780,16 +610,16 @@ struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
         configVariables = NULL;
     }
     else
-        configVariables = artsConfigGetVariables( configFile );
+        configVariables = artsConfigGetVariables(configFile);
 
-    char *isSlurm = getenv("SLURM_NNODES");
     foundVariable = artsConfigFindVariable(&configVariables, "launcher");
-    if (isSlurm) {
-      // ONCE_PRINTF("Reading nodes for slurm...\n");
-        config->launcher = artsConfigMakeNewVar("slurm");
-    } else if (strncmp(foundVariable->value, "local", 5) == 0) {
+    if (strncmp(foundVariable->value, "slurm", 5) == 0)
+        config->launcher = artsConfigMakeNewVar("slurm"); 
+    else if(strncmp(foundVariable->value, "lsf", 5) == 0)
+        config->launcher = artsConfigMakeNewVar("lsf");
+    else if (strncmp(foundVariable->value, "local", 5) == 0)
         config->launcher = artsConfigMakeNewVar("local");
-    } else
+    else
         config->launcher = artsConfigMakeNewVar("ssh");
 
     char * killSet = getenv("killMode");
@@ -854,6 +684,13 @@ struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
     else
     {
         config->osThreadCount = 0;
+    }
+    
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"coresPerNetworkThread")) != NULL)
+        config->coresPerNetworkThread = strtol( foundVariable->value, &end , 10);
+    else
+    {
+        config->coresPerNetworkThread = 1;
     }
     
     if( (foundVariable = artsConfigFindVariable(&configVariables,"ports")) != NULL)
@@ -998,102 +835,139 @@ struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
         config->coreCount = 0;
     
     //WARNING: Slurm Launcher Set!  
-    if(strncmp(config->launcher, "slurm", 5 )==0)
+    if (strncmp(config->launcher, "slurm", 5) == 0) 
     {
-      ONCE_PRINTF("Using Slurm\n");
+        ONCE_PRINTF("Using Slurm\n");
+        config->masterBoot = false;
+        
+        char *threadsTemp = getenv("SLURM_CPUS_PER_TASK");
+        if (threadsTemp != NULL)
+            config->threadCount = strtol(threadsTemp, &end, 10);
 
-      config->masterBoot = false;
-      char *threadsTemp = getenv("SLURM_CPUS_PER_TASK");
-      if (threadsTemp != NULL)
-        config->threadCount = strtol(threadsTemp, &end, 10);
+        char *slurmNodes;
+        slurmNodes = getenv("SLURM_NNODES");
+        config->nodes = strtol(slurmNodes, &end, 10);
+        
+        char *nodeList = getenv("SLURM_STEP_NODELIST");
+        artsConfigCreateRoutingTable(&config, nodeList);
 
-      char *slurmNodes;
-
-      slurmNodes = getenv("SLURM_NNODES");
-
-      config->nodes = strtol(slurmNodes, &end, 10);
-
-      char *nodeList = getenv("SLURM_STEP_NODELIST");
-      DPRINTF("nodes: %s\n", nodeList);
-
-      artsConfigCreateRoutingTable(&config, nodeList);
-
-      // if(config->masterNode == NULL)
-      {
         unsigned int length = strlen(config->table[0].ipAddress) + 1;
-        config->masterNode = artsMalloc(sizeof(char) * length);
-
+        config->masterNode = artsMalloc(sizeof (char) * length);
         strncpy(config->masterNode, config->table[0].ipAddress, length);
-        }
-        int i;
-        for(i=0; i<config->tableLength; i++)
+        
+        for (int i = 0; i < config->tableLength; i++) 
         {
-            config->table[i].rank=i;
-            if(strcmp(config->masterNode, config->table[i].ipAddress)==0)
+            config->table[i].rank = i;
+            if (strcmp(config->masterNode, config->table[i].ipAddress) == 0) 
             {
                 DPRINTF("%d %s\n", i, config->table[i].ipAddress);
-                config->masterRank=i;
+                config->masterRank = i;
             }
         }
-    }
-    else if(strncmp(config->launcher, "ssh", 5 )==0)
+    } 
+    else if (strncmp(config->launcher, "lsf", 5) == 0) 
     {
-      config->launcherData =
-          artsRemoteLauncherCreate(argc, argv, config, config->killMode,
-                                   artsRemoteLauncherSSHStartupProcesses,
-                                   artsRemoteLauncherSSHCleanupProcesses);
-      config->masterBoot = true;
+        ONCE_PRINTF("Using LSF\n");
+        config->masterBoot = false;
 
-      if ((foundVariable =
-               artsConfigFindVariable(&configVariables, "nodeCount")) != NULL)
-        config->nodes = strtol(foundVariable->value, &end, 10);
-      else {
-        config->nodes = 1;
+        char * lsfNodes;
+        char * resString;
+        char * last;
+        lsfNodes = getenv("LSB_HOSTS");
+//        PRINTF("lsfNodes %s\n", lsfNodes);
+        unsigned int nodesStrLen = strlen(lsfNodes) + 1;
+        char * nodeList = artsMalloc(sizeof (char)*nodesStrLen);
+        unsigned int count = 0;
+        unsigned int listStrLength = 0;
+
+        //Throw away the first since it is the batch sched
+        last = resString = strtok(lsfNodes, " ");
+        while (resString) 
+        {
+            resString = strtok(NULL, " ");
+            if (resString && strcmp(resString, last)) 
+            {
+                strcpy(&nodeList[listStrLength], resString);
+                listStrLength += strlen(resString);
+                nodeList[listStrLength++] = ',';
+                last = resString;
+                count++;
+            }
         }
-        char * nodeList=0;
-        if( (foundVariable = artsConfigFindVariable(&configVariables, "nodes")) != NULL)
+        nodeList[listStrLength-1] = '\0';
+        config->nodes = count;
+
+        artsConfigCreateRoutingTable(&config, nodeList);
+
+        unsigned int length = strlen(config->table[0].ipAddress) + 1;
+        config->masterNode = artsMalloc(sizeof (char) * length);
+
+        strncpy(config->masterNode, config->table[0].ipAddress, length);
+
+        for (int i = 0; i < config->tableLength; i++) {
+            config->table[i].rank = i;
+            if (strcmp(config->masterNode, config->table[i].ipAddress) == 0) {
+                DPRINTF("%d %s\n", i, config->table[i].ipAddress);
+                config->masterRank = i;
+            }
+        }
+    } 
+    else if (strncmp(config->launcher, "ssh", 5) == 0) 
+    {
+        config->launcherData =
+                artsRemoteLauncherCreate(argc, argv, config, config->killMode,
+                artsRemoteLauncherSSHStartupProcesses,
+                artsRemoteLauncherSSHCleanupProcesses);
+        config->masterBoot = true;
+
+        char * nodeList = 0;
+        if ((foundVariable = artsConfigFindVariable(&configVariables, "nodes")) != NULL) 
         {
             nodeList = foundVariable->value;
-        }
-        else
+            
+            if ((foundVariable = artsConfigFindVariable(&configVariables, "nodeCount")) != NULL)
+                config->nodes = strtol(foundVariable->value, &end, 10);
+            else 
+                config->nodes = artsConfigCountNodes(nodeList);
+        } 
+        else 
         {
             ONCE_PRINTF("No nodes given: defaulting to 1 node\n");
-        
-            nodeList = artsMalloc(sizeof(char)*strlen("localhost\0"));
-            
-            strncpy(nodeList, "localhost\0", strlen("localhost\0")+1 );
+            nodeList = artsMalloc(sizeof (char)*strlen("localhost\0"));
+            strncpy(nodeList, "localhost\0", strlen("localhost\0") + 1);
+            config->nodes = 1;
         }
-            DPRINTF("nodes: %s\n", nodeList);
-            artsConfigCreateRoutingTable( &config, nodeList );
 
-            if(config->masterNode == NULL)
-            {
-                unsigned int length = strlen(config->table[0].ipAddress)+1;
-                config->masterNode = artsMalloc(sizeof(char)*length);
+        DPRINTF("nodes: %s\n", nodeList);
+        artsConfigCreateRoutingTable(&config, nodeList);
 
-                strncpy( config->masterNode, config->table[0].ipAddress, length );
-            }
-            int i;
-            for(i=0; i<config->tableLength; i++)
+        if (config->masterNode == NULL) 
+        {
+            unsigned int length = strlen(config->table[0].ipAddress) + 1;
+            config->masterNode = artsMalloc(sizeof (char)*length);
+            strncpy(config->masterNode, config->table[0].ipAddress, length);
+        }
+        
+        for (int i = 0; i < config->tableLength; i++) 
+        {
+            config->table[i].rank = i;
+            if (strcmp(config->masterNode, config->table[i].ipAddress) == 0) 
             {
-                config->table[i].rank=i;
-                if(strcmp(config->masterNode, config->table[i].ipAddress)==0)
-                {
-                    DPRINTF("Here %d\n", config->tableLength);
-                    config->masterRank=i;
-                }
+                DPRINTF("Here %d\n", config->tableLength);
+                config->masterRank = i;
             }
-    }
-    else if(strncmp(config->launcher, "local",5) == 0)
+        }
+    } 
+    else if (strncmp(config->launcher, "local", 5) == 0) 
     {
         ONCE_PRINTF("Running in Local Mode.\n");
         config->masterBoot = false;
         config->masterNode = NULL;
         // OS Threads
         char * threadsOS = getenv("OS_THREAD_COUNT");
-        if(threadsOS != NULL)
+        if (threadsOS != NULL)
             config->osThreadCount = strtol(threadsOS, &end, 10);
-        else if(!config->osThreadCount)
+        else if (!config->osThreadCount)
             config->osThreadCount = 0; // Default to single thread.
         // OS Threads
         char *threadsUSER = getenv("USER_THREAD_COUNT");
@@ -1103,9 +977,9 @@ struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
             config->threadCount = 4; // Default to single thread.
         config->nodes = 1;
         config->tableLength = 1; // for GUID
-        config->masterRank = 0;    
-    }
-    else
+        config->masterRank = 0;
+    } 
+    else 
     {
         ONCE_PRINTF("Unknown launcher: %s\n", config->launcher);
         exit(1);

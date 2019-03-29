@@ -209,6 +209,7 @@ bool artsEdtCreateInternal(artsGuid_t * guid, unsigned int route, unsigned int c
             artsRemoteMemoryMove(route, *guid, (void*)edt, (unsigned int)edt->header.size, ARTS_REMOTE_EDT_MOVE_MSG, artsFree);
         else
         {
+            incOustandingEdts(1); //This is for debugging purposes...
             if(createdGuid) //this is a brand new edt
             {
                 artsRouteTableAddItem(edt, *guid, artsGlobalRankId, false);
@@ -506,4 +507,15 @@ void * artsGetBuffer(artsGuid_t bufferGuid)
         }
     }
     return buffer;
+}
+
+volatile uint64_t outstandingEdts = 0;
+void checkOutEdts(uint64_t threashold)
+{
+    static uint64_t count = 0;
+    if(artsAtomicFetchAddU64(&count, 1) + 1 == threashold)
+    {
+        fprintf(stderr, "Node: %u has no edts threashold: %lu\n", artsGlobalRankId, threashold);
+        artsAtomicFetchSubU64(&count, threashold);
+    }
 }

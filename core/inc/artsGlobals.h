@@ -132,6 +132,19 @@ extern uint64_t artsGuidMax;
 
 extern const char * const _artsTypeName[];
 
+extern volatile uint64_t outstandingEdts;
+void checkOutEdts(uint64_t threashold);
+
+#ifdef CHECK_NO_EDT
+#define incOustandingEdts(numEdts) artsAtomicFetchAddU64(&outstandingEdts, numEdts)
+#define decOustandingEdts(numEdts) artsAtomicFetchSubU64(&outstandingEdts, numEdts)
+#define checkOutstandingEdts(threashold) checkOutEdts(threashold)
+#else
+#define incOustandingEdts(numEdts)
+#define decOustandingEdts(numEdts)
+#define checkOutstandingEdts(threashold)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

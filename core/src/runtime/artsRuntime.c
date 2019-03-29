@@ -312,6 +312,7 @@ static inline void artsRunEdt(void *edtPacket)
     
     releaseDbs(depc, depv);
     artsEdtDelete(edtPacket);
+    decOustandingEdts(1); //This is for debugging purposes
 }
 
 inline unsigned int artsRuntimeStealAnyMultipleEdt( unsigned int amount, void ** returnList )
@@ -445,6 +446,7 @@ bool artsDefaultSchedulerLoop()
     }
     else
     {
+        checkOutstandingEdts(10000000);
         artsNextContext();
 //        usleep(1);
     }

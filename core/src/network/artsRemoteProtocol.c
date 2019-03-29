@@ -128,6 +128,7 @@ static inline void outInsertNode( struct outList * node, unsigned int length  )
     artsLinkListPushBack(list, node);
 #ifdef SEQUENCENUMBERS
     artsUnlock(&seqNumLock[listId]);
+    PRINTF("Send: %u -> %u = %lu\n", artsGlobalRankId, node->rank, packet->seqNum);
 #endif
 //    artsUpdatePerformanceMetric(artsNetworkQueuePush, artsThread, packet->size, false);
     artsUpdatePerformanceMetric(artsNetworkQueuePush, artsThread, 1, false);

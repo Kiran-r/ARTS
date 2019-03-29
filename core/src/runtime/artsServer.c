@@ -85,6 +85,8 @@ void artsServerProcessPacket(struct artsRemotePacket * packet)
     {
         PRINTF("MESSAGE RECIEVED OUT OF ORDER exp: %lu rec: %lu source: %u type: %d\n", expSeqNumber, packet->seqNum, packet->rank, packet->messageType);
     }
+    else
+        PRINTF("Recv: %lu -> %lu = %lu\n", packet->seqRank, artsGlobalRankId, packet->seqNum);
 #endif
     
     switch(packet->messageType)

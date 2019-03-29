@@ -184,7 +184,6 @@ bool artsRemoteAsyncSend()
                     return false;
                 else if(lengthRemaining)
                 {
-                    artsDebugGenerateSegFault();
                     partialSendStore(out,lengthRemaining);
                     outResend[i-threadStart] = out;
                 }

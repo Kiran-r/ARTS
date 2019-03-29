@@ -413,12 +413,15 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
     if(numCores <= networkCores || validCpuCount <= networkCores)
         PRINTF("Not enough cores. Required cores: %u Total cores: %u validCpuCount: %u\n", networkCores, numCores, validCpuCount);
     unsigned int workerCores = numCores - networkCores;
+    int max = -1;
     while(totalThreads < numberOfWorkers)
     {
         flat[i%workerCores].on = 1;
         flat[i%workerCores].coreInfo = artsMalloc(sizeof(struct artsCoreInfo));
-        flat[i%workerCores].coreId = flat[i%workerCores].coreInfo->cpuId =  artsAffinityFromPthreadValid(i, validCpus, validCpuCount-networkCores, workerCores, stride); //i % numCores;
+        int tempAffin = artsAffinityFromPthreadValid(i, validCpus, validCpuCount-networkCores, workerCores, stride); //i % numCores;
+        flat[i%workerCores].coreId = flat[i%workerCores].coreInfo->cpuId = tempAffin;
         addAThread(&flat[i%workerCores], 1, 0, 0, abstractWorker, workerThreadId++, config->pinThreads);
+        max = (tempAffin > max) ? tempAffin : max;
         totalThreads++;
 //        PRINTF("i: %u -> %u -> %u\n", i, i%workerCores, flat[i%workerCores].coreId);
         i+=stride;
@@ -434,30 +437,41 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
         }
         
     }
-    unsigned int next = (totalThreads < workerCores) ? totalThreads : workerCores;
+    
+    unsigned int next = (max - max%stride) + stride;
+    PRINTF("Max: %d Next: %d\n", max, next);
     for(unsigned int i=0; i<numberOfSenders; i++)
     {
-        for(; next<numCores; next++)
+        for(; next<numCores; next+=config->coresPerNetworkThread)
         {
             if(validCpus[next] > -1)
+            {
+                flat[i+workerCores].on = 1;
+                flat[i+workerCores].coreInfo = artsMalloc(sizeof(struct artsCoreInfo));
+                flat[i+workerCores].coreId = flat[i+workerCores].coreInfo->cpuId =  validCpus[next];
+                addAThread(&flat[i+workerCores], 0, 1, 0, abstractOutbound, networkOutThreadId++, config->pinThreads);
+                next+=config->coresPerNetworkThread;
                 break;
+            }
+                
         }
-        flat[i+workerCores].on = 1;
-        flat[i+workerCores].coreInfo = artsMalloc(sizeof(struct artsCoreInfo));
-        flat[i+workerCores].coreId = flat[i+workerCores].coreInfo->cpuId =  validCpus[next++];
-        addAThread(&flat[i+workerCores], 0, 1, 0, abstractOutbound, networkOutThreadId++, config->pinThreads);
+        
     }
     for(unsigned int i=0; i<numberOfReceivers; i++)
     {
-        for(; next<numCores; next++)
+        for(; next<numCores; next+=config->coresPerNetworkThread)
         {
             if(validCpus[next] > -1)
+            {
+                flat[i+workerCores+numberOfSenders].on = 1;
+                flat[i+workerCores+numberOfSenders].coreInfo = artsMalloc(sizeof(struct artsCoreInfo));
+                flat[i+workerCores+numberOfSenders].coreId = flat[i+workerCores+numberOfSenders].coreInfo->cpuId =  validCpus[next];
+                addAThread(&flat[i+workerCores+numberOfSenders], 0, 0, 1, abstractInbound, networkInThreadId++, config->pinThreads);
+                next+=config->coresPerNetworkThread;
                 break;
+            }
         }
-        flat[i+workerCores+numberOfSenders].on = 1;
-        flat[i+workerCores+numberOfSenders].coreInfo = artsMalloc(sizeof(struct artsCoreInfo));
-        flat[i+workerCores+numberOfSenders].coreId = flat[i+workerCores+numberOfSenders].coreInfo->cpuId =  validCpus[next++];
-        addAThread(&flat[i+workerCores+numberOfSenders], 0, 0, 1, abstractInbound, networkInThreadId++, config->pinThreads);
+        
     }
     if(validCpus)
         artsFree(validCpus);

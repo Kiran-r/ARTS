@@ -22,10 +22,8 @@ extern "C" {
 #include "arts.h"
 #include "artsConfig.h"
 
-void artsRemoteCheckProgress( int rank);
 void artsRemoteSetMessageTable( struct artsConfig * table );
 void artsRemoteStartProcesses( unsigned int argc, char ** argv );
-void artsRemoteCleanup( );
 void artsServerSetup(struct artsConfig * config);
 void artsRemoteSetupOutgoing();
 bool artsRemoteSetupIncoming();
@@ -42,7 +40,6 @@ void artsRemoteTryToBecomePrinter();
 void artsRemoteTryToClosePrinter();
 void artsServerPingPongTestRecieve(char * inBuffer, int inPacketSize);
 void artsRemotSetThreadInboundQueues(unsigned int start, unsigned int stop);
-void artsRemoteCleanup();
 void artsRemoteShutdownPing( unsigned int route);
 #ifdef __cplusplus
 }

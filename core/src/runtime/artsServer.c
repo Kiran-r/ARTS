@@ -55,21 +55,6 @@ void artsRemoteTryToClosePrinter()
     remove(".artsPrintLock");
 }
 
-bool artsServerEnd()
-{
-    //PRINTF("Here\n");
-    artsNodeInfo.shutdownStarted=true;
-    if(artsRemoteShutdownSend())
-    {
-        //PRINTF("Not here\n");
-        artsRuntimeStop();
-        return true;
-    }
-
-    artsNodeInfo.shutdownTimeout = artsGetTimeStamp()+500000000;
-    return false;
-}
-
 void artsRemoteShutdown()
 {
     artsLLServerShutdown();
@@ -79,7 +64,6 @@ void artsServerSetup( struct artsConfig * config)
 {
     //ASYNC Message Deque Init
     artsLLServerSetup(config);
-    artsLLServerSetRank(config);
     outInit(artsGlobalRankCount*config->ports);
     #ifdef SEQUENCENUMBERS
     recSeqNumbers = artsCalloc(sizeof(uint64_t)*artsGlobalRankCount);
@@ -107,8 +91,7 @@ void artsServerProcessPacket(struct artsRemotePacket * packet)
     {
         case ARTS_REMOTE_SHUTDOWN_MSG:
         {
-            DPRINTF("Remote Shutdown Request\n");
-            artsLLServerSyncEndRecv();           
+            DPRINTF("Remote Shutdown Request\n");           
             artsRuntimeStop();
             break;
         }

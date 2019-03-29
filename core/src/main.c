@@ -61,7 +61,6 @@ int artsRT(int argc, char **argv)
     artsThreadZeroNodeStart();
        
     artsThreadMainJoin();
-    artsRemoteCleanup();
 
     if(artsGlobalRankId == config->masterRank && config->masterBoot)
     {

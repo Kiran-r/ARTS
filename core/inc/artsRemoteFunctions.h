@@ -60,7 +60,6 @@ void artsRemotePutInDb(void * ptr, artsGuid_t edtGuid, artsGuid_t dbGuid, unsign
 void artsRemoteHandlePutInDb(void * pack);
 void artsRemoteSignalEdtWithPtr(artsGuid_t edtGuid, artsGuid_t dbGuid, void * ptr, unsigned int size, unsigned int slot);
 void artsRemoteHandleSignalEdtWithPtr(void * pack);
-bool artsRemoteShutdownSend();
 void artsRemoteMetricUpdate(int rank, int type, int level, uint64_t timeStamp, uint64_t toAdd, bool sub);
 void artsRemoteHandleSend(void * pack);
 void artsRemoteEpochInitSend(unsigned int rank, artsGuid_t epochGuid, artsGuid_t edtGuid, unsigned int slot);

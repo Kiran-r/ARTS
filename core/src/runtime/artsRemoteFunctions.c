@@ -243,7 +243,7 @@ void artsRemoteMemoryMove(unsigned int route, artsGuid_t guid, void * ptr, unsig
     struct artsRemoteMemoryMovePacket packet;
     artsFillPacketHeader(&packet.header, sizeof(packet)+memSize, messageType);
     packet.guid = guid;
-    artsRemoteSendRequestPayloadAsyncFree(route, (char *)&packet, sizeof(packet), ptr, 0, memSize, guid, freeMethod);
+    artsRemoteSendRequestPayloadAsyncFree(route, (char *)&packet, sizeof(packet), ptr, 0, memSize, freeMethod);
     artsRouteTableRemoveItem(guid);
 }
 
@@ -637,7 +637,7 @@ void artsRemotePutInDb(void * ptr, artsGuid_t edtGuid, artsGuid_t dbGuid, unsign
     int totalSize = sizeof(struct artsRemoteGetPutPacket)+size;
     artsFillPacketHeader(&packet.header, totalSize, ARTS_REMOTE_PUT_IN_DB_MSG);
 //    artsRemoteSendRequestPayloadAsync(rank, (char *)&packet, sizeof(packet), (char *)ptr, size);
-    artsRemoteSendRequestPayloadAsyncFree(rank, (char*)&packet, sizeof(packet), (char *)ptr, 0, size, NULL_GUID, artsFree);
+    artsRemoteSendRequestPayloadAsyncFree(rank, (char*)&packet, sizeof(packet), (char *)ptr, 0, size, artsFree);
 }
 
 void artsRemoteHandlePutInDb(void * pack)
@@ -670,15 +670,6 @@ void artsRemoteHandleSignalEdtWithPtr(void * pack)
     artsSignalEdtPtr(packet->edtGuid, packet->slot, dest, packet->size);
 }
 
-bool artsRemoteShutdownSend()
-{
-    struct artsRemotePacket shutdownPacket;
-    shutdownPacket.rank=artsGlobalRankId;
-    shutdownPacket.messageType = ARTS_REMOTE_SHUTDOWN_MSG;
-    shutdownPacket.size = sizeof(shutdownPacket);
-    return artsLLServerSyncEndSend( (char *)&shutdownPacket, sizeof(shutdownPacket));
-}
-
 void artsRemoteMetricUpdate(int rank, int type, int level, uint64_t timeStamp, uint64_t toAdd, bool sub)
 {
     DPRINTF("Remote Metric Update");
@@ -706,7 +697,7 @@ void artsRemoteSend(unsigned int rank, sendHandler_t funPtr, void * args, unsign
     artsFillPacketHeader(&packet.header, totalSize, ARTS_REMOTE_SEND_MSG);
     
     if(free)
-        artsRemoteSendRequestPayloadAsyncFree(rank, (char*)&packet, sizeof(packet), (char *)args, 0, size, NULL_GUID, artsFree);
+        artsRemoteSendRequestPayloadAsyncFree(rank, (char*)&packet, sizeof(packet), (char *)args, 0, size, artsFree);
     else
         artsRemoteSendRequestPayloadAsync(rank, (char *)&packet, sizeof(packet), (char *)args, size);
 }

@@ -39,8 +39,6 @@ struct outList
     unsigned int payloadSize;
     unsigned int offsetPayload;
     void (*freeMethod)(void *);
-    artsGuid_t nullMe;
-    bool end;
 };
 
 unsigned int nodeListSize;
@@ -52,7 +50,6 @@ __thread unsigned int threadStart;
 __thread unsigned int threadStop;
 
 __thread struct outList ** outResend;
-__thread void ** outResendFree;
 
 #ifdef SEQUENCENUMBERS
 unsigned int * seqNumLock = NULL;
@@ -98,7 +95,6 @@ void artsRemotSetThreadOutboundQueues(unsigned int start, unsigned int stop)
     
     unsigned int size = stop - start;
     outResend = artsCalloc(sizeof(struct outList *)*size);
-    outResendFree = artsCalloc(sizeof(void *)*size);
 }
 
 void outInit( unsigned int size )
@@ -129,7 +125,7 @@ static inline void outInsertNode( struct outList * node, unsigned int length  )
     packet->seqNum = artsAtomicFetchAddU64(&seqNumber[node->rank], 1U);
     packet->seqRank = artsGlobalRankId;
 #endif
-    artsLinkListPushBack(list, node, length);
+    artsLinkListPushBack(list, node);
 #ifdef SEQUENCENUMBERS
     artsUnlock(&seqNumLock[listId]);
 #endif
@@ -142,7 +138,7 @@ static inline struct outList * outPopNode( unsigned int threadId, void ** freeMe
     struct outList * out;
     struct artsLinkList * list;
     list = artsLinkListGet(outHead, threadId);
-    out = artsLinkListPopFront( list, freeMe );
+    out = artsLinkListPopFront(list, freeMe);
     if(out)
     {
         struct artsRemotePacket *packet = (struct artsRemotePacket *) (out + 1);
@@ -152,76 +148,45 @@ static inline struct outList * outPopNode( unsigned int threadId, void ** freeMe
     return out;
 }
 
-bool sendEnd = false;
-extern int lastRank;
-
 bool artsRemoteAsyncSend() 
 {
-    int i;
     bool success = false;
-    bool sent = true;
+    
     void * freeMe;
     unsigned int lengthRemaining;
-    struct outList * out; 
+    struct outList * out;
+    
+    bool sent = true;
     while (sent) 
     {
         sent = false;
-        for (i = threadStart; i < threadStop; i++) 
+        //Loop over our threads
+        for (int i = threadStart; i < threadStop; i++) 
         {
-            out = NULL;
-            lastRank =i;
-            artsRemoteCheckProgress(i);
-            if(outResend[i-threadStart])
-            {
+            out = NULL; //For looping purposes...
+            if(outResend[i-threadStart])//Checking failed sends?
                 out = outResend[i-threadStart];
-                freeMe = outResendFree[i-threadStart];
-            }
-            else
+            else //Look for new messages
+                out = outPopNode(i, &freeMe);
+            
+            if (out) 
             {
-                if(!sendEnd)
-                    out = outPopNode(i, &freeMe);
-                if(out && out->end)
-                {
-                    sendEnd = true;
-                }
-            }
-            if (out != NULL) 
-            {
-                DPRINTF("KSending %p %p %d\n", out, freeMe, out->rank);
-                if (out->rank == artsGlobalRankId) 
-                {
-                    struct artsRemotePacket *packet = (struct artsRemotePacket *) (out + 1);
-                    PRINTF("%d %d Self send error\n", artsGlobalRankId, packet->messageType);
-                }
-                if (out->payload == NULL) 
-                {
+                if (!out->payload) 
                     lengthRemaining = artsRemoteSendRequest(out->rank, i, ((char*) (out + 1))+out->offset, out->length);
-                } 
                 else 
                 {
                     lengthRemaining = artsRemoteSendPayloadRequest(out->rank, i, ((char*) (out + 1))+out->offset, out->length, ((char *)out->payload)+out->offsetPayload, out->payloadSize);
-                    
-                    //if (out->freeMethod)
                     if (out->freeMethod && !lengthRemaining)
-                    {
-                        DPRINTF("Null Me %ld\n", out->nullMe);
                         out->freeMethod(out->payload);
-                    }
                 }
-                DPRINTF("KSending Done %p %p %d\n", out, freeMe, out->rank);
                 
                 if(lengthRemaining == -1)
-                {
                     return false;
-                }
-
-                if(lengthRemaining)
+                else if(lengthRemaining)
                 {
-//                    PRINTF("Here %d\n", lengthRemaining);
-                    //outResend[i-threadStart] = NULL;
+                    artsDebugGenerateSegFault();
                     partialSendStore(out,lengthRemaining);
                     outResend[i-threadStart] = out;
-                    outResendFree[i-threadStart] = freeMe;
                 }
                 else
                 {
@@ -230,8 +195,9 @@ bool artsRemoteAsyncSend()
                         artsUpdatePerformanceMetric(artsNetworkSendBW, artsThread, packet->size, false);
                     
                     outResend[i-threadStart] = NULL;
-                    artsFree(freeMe);
+                    artsLinkListDeleteItem(out);
                 }
+                
                 sent = true;
                 success = true;
             }
@@ -260,103 +226,49 @@ static inline void sizeSendCheck( unsigned int size )
     }
 }
 
-static inline bool lockNetwork( volatile unsigned int * lock)
-{
-
-    if(*lock == 0U)
-    {
-        if(artsAtomicCswap( lock, 0U, artsThreadInfo.threadId+1U ) == 0U)
-            return true;
-    }
-    
-    return false;
-}
-
-static inline void unlockNetwork( volatile unsigned int * lock)
-{
-    //artsAtomicSwap( lock, 0U );
-    *lock=0U;
-}
-
-void artsRemoteSendRequestAsyncEnd( int rank, char * message, unsigned int length )
+void artsRemoteSendRequestAsync(int rank, char * message, unsigned int length)
 {
     selfSendCheck(rank); 
-    struct outList * next = artsLinkListNewItem( length + sizeof(struct outList) );
-    next->offset=0;
-    next->offsetPayload=0;
+    struct outList * next = artsLinkListNewItem(length + sizeof(struct outList));
+    next->offset = 0;
+    next->offsetPayload = 0;
     next->length = length;
     next->rank = rank;
     next->payload=NULL;
-    next->end=true;
-    memcpy( next+1, message, length );
-    DPRINTF("KAdding %p \n", next);
-    outInsertNode( next, length+sizeof(struct outList) );
+    memcpy(next+1, message, length);
+    outInsertNode(next, length+sizeof(struct outList));
 }
 
-void artsRemoteSendRequestAsync( int rank, char * message, unsigned int length )
+void artsRemoteSendRequestPayloadAsync(int rank, char * message, unsigned int length, char * payload, unsigned int size)
 {
     selfSendCheck(rank); 
-    struct outList * next = artsLinkListNewItem( length + sizeof(struct outList) );
-    next->offset=0;
-    next->offsetPayload=0;
+    sizeSendCheck(length);
+    sizeSendCheck(size);
+    struct outList * next = artsLinkListNewItem(length + sizeof(struct outList));
+    next->offset = 0;
+    next->offsetPayload = 0;
     next->length = length;
     next->rank = rank;
-    next->payload=NULL;
-    next->end=false;
-    memcpy( next+1, message, length );
-    DPRINTF("KAdding %p \n", next);
-    outInsertNode( next, length+sizeof(struct outList) );
-}
-
-void artsRemoteSendRequestPayloadAsync( int rank, char * message, unsigned int length, char * payload, unsigned int size )
-{
-    selfSendCheck(rank); 
-    sizeSendCheck( length );
-    sizeSendCheck( size);
-    struct outList * next = artsLinkListNewItem( length + sizeof(struct outList) );
-    next->offset=0;
-    next->offsetPayload=0;
-    next->length = length;
-    next->rank = rank;
-    next->payload=payload;
+    next->payload = payload;
     next->freeMethod = NULL;
-    next->payloadSize=size;
-    next->end=false;
-    memcpy( next+1, message, length );
-    outInsertNode( next, length+sizeof(struct outList) );
+    next->payloadSize = size;
+    memcpy(next+1, message, length);
+    outInsertNode(next, length+sizeof(struct outList));
 }
 
-void artsRemoteSendRequestPayloadAsyncFree(int rank, char * message, unsigned int length, char * payload, unsigned int offset, unsigned int size, artsGuid_t guid, void(*freeMethod)(void*))
+void artsRemoteSendRequestPayloadAsyncFree(int rank, char * message, unsigned int length, char * payload, unsigned int offset, unsigned int size, void(*freeMethod)(void*))
 {
     selfSendCheck(rank); 
-    sizeSendCheck( length );
-    sizeSendCheck( size);
-    struct outList * next = artsLinkListNewItem( length + sizeof(struct outList) );
-    next->offset=0;
-    next->offsetPayload=offset;
+    sizeSendCheck(length);
+    sizeSendCheck(size);
+    struct outList * next = artsLinkListNewItem(length + sizeof(struct outList));
+    next->offset = 0;
+    next->offsetPayload = offset;
     next->length = length;
     next->rank = rank;
-    next->payload=payload;
-    next->payloadSize=size;
+    next->payload = payload;
+    next->payloadSize = size;
     next->freeMethod = freeMethod;
-    next->nullMe = guid;
-    next->end=false;
-    memcpy( next+1, message, length );
-    outInsertNode( next, length+sizeof(struct outList) );
-}
-
-void artsRemoteSendRequestPayloadAsyncCopy( int rank, char * message, unsigned int length, char * payload, unsigned int size )
-{
-    selfSendCheck(rank); 
-    sizeSendCheck( length + size );
-    struct outList * next = artsLinkListNewItem( length + size + sizeof(struct outList) );
-    next->offset=0;
-    next->offsetPayload=0;
-    next->length = length+size;
-    next->rank = rank;
-    next->payload=NULL;
-    next->end=false;
-    memcpy( next+1, message, length );
-    memcpy( ((char *)(next+1))+length, payload, size );
-    outInsertNode( next, size+length+sizeof(struct outList) );
+    memcpy(next+1, message, length);
+    outInsertNode(next, length+sizeof(struct outList));
 }

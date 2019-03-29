@@ -77,13 +77,6 @@ struct pollfd * pollIncoming;
 
 char * ipList;
 
-int lastRank;
-
-void artsRemoteCheckProgress(int route)
-{
-    
-}
-
 void artsRemoteSetMessageTable( struct artsConfig * table )
 {
     artsGlobalMessageTable = table;
@@ -150,91 +143,59 @@ void artsRemoteFixNames( char * fix, unsigned int fixLength, bool isItPost, char
 
 }
 
-void artsServerFixIbNames(struct artsConfig * config )
-{
-    struct hostent * he;
-    
-    bool found=false;
-
-    char post[6][10] = {"-ib\0", "ib\0", ".ib\0","-ib.ib\0", ".ibnet\0", "\0"};
+void artsServerFixIbNames(struct artsConfig * config) {
+    char post[6][10] = {"-ib\0", "ib\0", ".ib\0", "-ib.ib\0", ".ibnet\0", "\0"};
     char pre[4][10] = {"ib-\0", "ib\0", "ib.\0", "\0"};
-   
+
     int curLength;
-    for(int j =0; j<config->tableLength; j++)
+    for (int j = 0; j < config->tableLength; j++) 
     {
-    char * testStr = artsGlobalMessageTable->table[j].ipAddress;
-    int testStrLength = strlen(testStr);
-    char * stringFixed = artsMalloc(testStrLength+50);
-    struct addrinfo* result;
-    bool found = false;
-    int i=0, error;
-    while(pre[i][0] != '\0' &&!found)
-    {
-        curLength = strlen(pre[i]);
-        
-        strncpy( stringFixed, pre[i], curLength ); 
-        strncpy( stringFixed+curLength, testStr, testStrLength );
-        *(stringFixed+curLength+testStrLength) = '\0';
-        
-        
+        char * testStr = artsGlobalMessageTable->table[j].ipAddress;
+        int testStrLength = strlen(testStr);
+        char * stringFixed = artsMalloc(testStrLength + 50);
+        struct addrinfo* result;
+        bool found = false;
+        int i = 0, error;
+        while (pre[i][0] != '\0' && !found) {
+            curLength = strlen(pre[i]);
+            strncpy(stringFixed, pre[i], curLength);
+            strncpy(stringFixed + curLength, testStr, testStrLength);
+            *(stringFixed + curLength + testStrLength) = '\0';
+            error = getaddrinfo(stringFixed, NULL, NULL, &result);
 
-        error = getaddrinfo(stringFixed, NULL, NULL, &result);
-
-        if(error == 0)
-        {
-            DPRINTF("%s\n",stringFixed);
-            artsRemoteFixNames(pre[i], curLength, false, &artsGlobalMessageTable->table[j].ipAddress); 
-            artsFree(stringFixed);
-            
-            freeaddrinfo(result); 
-            found = true;
+            if (error == 0) {
+                DPRINTF("%s\n", stringFixed);
+                artsRemoteFixNames(pre[i], curLength, false, &artsGlobalMessageTable->table[j].ipAddress);
+                artsFree(stringFixed);
+                freeaddrinfo(result);
+                found = true;
+            }
+            i++;
         }
 
-        i++;
-        
-    }
-    
-    i=0;
-    while(post[i][0] != '\0' && !found)
-    {
-        curLength = strlen(post[i]);
-        
-        strncpy( stringFixed, testStr, testStrLength );
-        strncpy( stringFixed+testStrLength, post[i], curLength ); 
-        *(stringFixed+curLength+testStrLength) = '\0';
-        
-        
-        
-        error = getaddrinfo(stringFixed, NULL, NULL, &result);
-
-        if(error == 0)
-        {
-            DPRINTF("%s\n",stringFixed);
-            artsRemoteFixNames(post[i], curLength, true, &artsGlobalMessageTable->table[j].ipAddress); 
-            artsFree(stringFixed);
-            
-            freeaddrinfo(result); 
-            found= true;
+        i = 0;
+        while (post[i][0] != '\0' && !found) {
+            curLength = strlen(post[i]);
+            strncpy(stringFixed, testStr, testStrLength);
+            strncpy(stringFixed + testStrLength, post[i], curLength);
+            *(stringFixed + curLength + testStrLength) = '\0';
+            error = getaddrinfo(stringFixed, NULL, NULL, &result);
+            if (error == 0) {
+                DPRINTF("%s\n", stringFixed);
+                artsRemoteFixNames(post[i], curLength, true, &artsGlobalMessageTable->table[j].ipAddress);
+                artsFree(stringFixed);
+                freeaddrinfo(result);
+                found = true;
+            }
+            i++;
         }
-
-        i++;
-        
     }
-    }
-
-}
-bool workAround = false;
-void artsLLServerSetRank( struct artsConfig * config)
-{
 }
 
 bool artsServerSetIP( struct artsConfig * config )
 {
-    
     ipList = artsMalloc(100*sizeof(char ) * config->tableLength);
-    
     bool result;
-
     for(int i =0; i<config->tableLength; i++)
     {
         result = hostnameToIp(config->table[i].ipAddress, ipList+100*i);
@@ -250,10 +211,9 @@ bool artsServerSetIP( struct artsConfig * config )
     int fd;
     struct ifreq ifr;
     char * connection = NULL;
-
     ifr.ifr_addr.sa_family = AF_INET;
+    
     bool found = false;
-
     //if(config->netInterface == NULL)
     {
          struct ifaddrs *ifap, *ifa;
@@ -264,7 +224,6 @@ bool artsServerSetIP( struct artsConfig * config )
          getifaddrs (&ifap);
          for (ifa = ifap; ifa && !found; ifa = ifa->ifa_next)
          {
-            
             if (ifa->ifa_addr->sa_family==AF_INET)
             {
                 sa = (struct sockaddr_in *) ifa->ifa_addr;
@@ -302,10 +261,7 @@ bool artsServerSetIP( struct artsConfig * config )
             }
          }
     }
-    if(found)
-        return true;
-    else
-        return false;
+    return found;
 }
 
 void artsLLServerSetup(struct artsConfig * config)
@@ -325,15 +281,10 @@ void artsLLServerSetup(struct artsConfig * config)
         PRINTF("Could not resolve ip to any device\n");
         exit(1);
     }
-
-
 }
-
 
 void artsLLServerShutdown()
 {
-    //artsDebugPrintStack();
-    //PRINTF("Here\n");
     int count = artsGlobalMessageTable->tableLength;
     for(int i=0; i<(count-1)*ports; i++)
     {
@@ -349,7 +300,6 @@ void artsLLServerShutdown()
 //            rclose(remoteSocketSendList[i]);
         }
     }
-
 }
 
 unsigned int artsRemoteGetMyRank()
@@ -358,7 +308,6 @@ unsigned int artsRemoteGetMyRank()
     return artsGlobalMessageTable->myRank;
 }
 
-bool set=false; 
 static inline bool artsRemoteConnect( int rank, unsigned int port )
 {
 
@@ -401,153 +350,67 @@ static inline bool artsRemoteConnect( int rank, unsigned int port )
     return true;
 }
 
-bool artsLLServerSyncEndSend( char * message, unsigned int length )
+inline int artsActualSend(char * message, unsigned int length, int rank, int port)
 {
-    return false;
+    int res = 0;
+    int total = 0;
+    while(length != 0 && res >= 0)
+    {
+        res = rsend(remoteSocketSendList[rank*ports+port], message+total, length, MSG_DONTWAIT );
+        if(res >= 0)
+        {
+            total+=res;
+            length-=res;
+        }
+    }
+
+    if(res < 0)
+    {
+        if (errno != EAGAIN)
+        {
+            struct artsRemotePacket * pk = (void *)message;
+            PRINTF("artsRemoteSendRequest %u Socket appears to be closed to rank %d:  %s\n", pk->messageType, rank, strerror(errno));
+            artsRuntimeStop();
+            return -1;
+        }
+    }
+    return length;
 }
 
-bool artsLLServerSyncEndRecv()
+unsigned int artsRemoteSendRequest(int rank, unsigned int queue, char * message, unsigned int length)
 {
-    return false;
-}
-
-unsigned int artsRemoteSendRequest( int rank, unsigned int queue, char * message, unsigned int length  )
-{
-    int res=0;
     int port = queue % ports;
     if(artsRemoteConnect(rank, port))
-    {
-        int backOff=1;
-        /*while( artsAtomicSwap( remoteSocketSendLockList+rank, 1U  ) != 0U )
-        {
-            usleep(backOff++);
-        }*/
-        DPRINTF("sent %d\n", rank);
-
-        int total=0;
-        int lastLength = length;
-        
+    {   
 #ifdef COUNT
         //struct artsRemotePacket * pk = (void *)message;
         //if(!pk->timeStamp)
         //    pk->timeStamp = artsExtGetTimeStamp();
 #endif
-        
-        
-
-        while(length!=0 && res >= 0)
-        {
-            res = rsend( remoteSocketSendList[rank*ports+port], message+total, length, MSG_DONTWAIT );
-            if(res >= 0)
-            {
-                lastLength = length;
-                total+=res;
-                length-=res;
-            }
-        }
-
-        if( res < 0 )
-        {
-            //PRINTF("Fail Send\n");
-            if (errno != EAGAIN)
-            {
-                struct artsRemotePacket * pk = (void *)message;
-                PRINTF("artsRemoteSendRequest %u Socket appears to be closed to rank %d:  %s\n", pk->messageType, rank, strerror(errno));
-                //exit(1);
-                artsRuntimeStop();
-                return -1;
-            }
-        }
-
-
-        //remoteSocketSendLockList[rank]=0U;
-        
+        return artsActualSend(message, length, rank, port);
     }
     return length;
-
 }
 
 unsigned int artsRemoteSendPayloadRequest( int rank, unsigned int queue, char * message, unsigned int length, char * payload, int length2 )
 {
     int res=0;
-    int lengthTemp = length2;
     int port = queue % ports;
     if(artsRemoteConnect(rank, port))
     {
-        DPRINTF("sent %d\n", rank);
-        int backOff=1;
-        /*while( artsAtomicSwap( remoteSocketSendLockList+rank, 1U  ) != 0U )
-        {
-            usleep(backOff++);
-        }*/
-
-        int total=0;
 #ifdef COUNT
         //struct artsRemotePacket * pk = (void *)message;
         //if(!pk->timeStamp)
         //    pk->timeStamp = artsExtGetTimeStamp();
 #endif
-        while(length!=0 && res >= 0)
-        {
-            res = rsend( remoteSocketSendList[rank*ports+port], message+total, length, MSG_DONTWAIT );
-            if(res >= 0)
-            {
-                total+=res;
-                length-=res;
-            }
-        }
+        int tempLength = artsActualSend(message, length, rank, port);
+        if(tempLength)
+            return tempLength + length2;
 
-        if( res < 0 )
-        {
-            //PRINTF("Fail Send payload 1 %d \n", length2+length );
-            if (errno != EAGAIN)
-            {
-                //PRINTF("error %s\n", strerror(errno));
-                //PRINTF("Send Failed to rank %d\n", rank);
-                struct artsRemotePacket * pk = (void *)message;
-                PRINTF("artsRemoteSendPayloadRequest %u 1 Socket appears to be closed to rank %d:  %s\n", pk->messageType, rank, strerror(errno));
-                artsRuntimeStop();
-                return -1;
-                //exit(1);
-            }
-            //remoteSocketSendLockList[rank]=0U;
-            return length2+length;
-        }
-
-        total = 0;
-        res = 0;
-
-        while(length2!=0 && res >= 0)
-        {
-            res = rsend( remoteSocketSendList[rank*ports+port], payload+total, length2, MSG_DONTWAIT );
-            if(res >= 0 )
-            {
-                total+=res;
-                length2-=res;
-            }
-        }
-
-        if( res < 0 )
-        {
-            //PRINTF("Fail Send payload 2 %p %d %d %d\n", message, length, length2, lengthTemp);
-            if (errno != EAGAIN)
-            {
-                //PRINTF("error %s\n", strerror(errno));
-                //PRINTF("Send Failed to rank %d\n", rank);
-                struct artsRemotePacket * pk = (void *)message;
-                PRINTF("artsRemoteSendPayloadRequest %u 2 Socket appears to be closed to rank %d:  %s\n", pk->messageType, rank, strerror(errno));
-                artsRuntimeStop();
-                return -1;
-                //exit(1);
-            }
-
-            //remoteSocketSendLockList[rank]=0U;
-            return length2;
-        }
-        //remoteSocketSendLockList[rank]=0U;
+        tempLength = artsActualSend(payload, length2, rank, port);
+            return tempLength;
     }
-
-    return length2+length;
+    return length + length2;
 }
 
 bool artsRemoteSetupIncoming()
@@ -601,7 +464,6 @@ bool artsRemoteSetupIncoming()
         DPRINTF("%d %d\n", artsGlobalMessageTable->myRank, artsGlobalMessageTable->table[i].rank);
         if(artsGlobalMessageTable->myRank == artsGlobalMessageTable->table[i].rank)
         {
-            set = true;
             DPRINTF("Receive go %d\n",i);
             for( j=0; j < count; j++ )
             {
@@ -679,11 +541,6 @@ void artsRemoteSetupOutgoing()
             remoteSocketSendList[i*ports+j] = artsGetSocketOutgoing( remoteServerSendList+i*ports+j, outPort+j, inet_addr(ipList+100*i) );
     }
 }
-void artsRemoteCleanup()
-{
-    
-}
-
 
 static __thread unsigned int threadStart;
 static __thread unsigned int threadStop;
@@ -693,10 +550,6 @@ static __thread unsigned int * reRecieveRes;
 static __thread void ** reRecievePacket;
 static __thread bool * maxIncoming;
 static __thread bool maxOutWorking;
-
-static __thread unsigned int byteRecieveCount=0;
-static __thread uint64_t lastRecieve;
-static __thread double maxBandwidth=0;
 
 void artsRemotSetThreadInboundQueues(unsigned int start, unsigned int stop)
 {
@@ -814,6 +667,7 @@ bool maxOutBuffs(unsigned int ignore)
     }
     return true;
 }
+
 bool artsServerTryToRecieve(char ** inBuffer, int * inPacketSize, volatile unsigned int * remoteStealLock)
 {
     int i, res, res2, stealHandlerThread=0;

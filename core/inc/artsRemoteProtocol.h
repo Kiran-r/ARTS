@@ -263,10 +263,8 @@ struct __attribute__ ((__packed__)) artsRemoteSignalContextPacket
 void outInit( unsigned int size );
 bool artsRemoteAsyncSend();
 void artsRemoteSendRequestAsync( int rank, char * message, unsigned int length );
-void artsRemoteSendRequestAsyncEnd( int rank, char * message, unsigned int length );
 void artsRemoteSendRequestPayloadAsync( int rank, char * message, unsigned int length, char * payload, unsigned int size );
-void artsRemoteSendRequestPayloadAsyncFree( int rank, char * message, unsigned int length, char * payload, unsigned int offset, unsigned int size, artsGuid_t guid, void(*freeMethod)(void*));
-void artsRemoteSendRequestPayloadAsyncCopy( int rank, char * message, unsigned int length, char * payload, unsigned int size );
+void artsRemoteSendRequestPayloadAsyncFree( int rank, char * message, unsigned int length, char * payload, unsigned int offset, unsigned int size, void(*freeMethod)(void*));
 void artsRemotSetThreadOutboundQueues(unsigned int start, unsigned int stop);
 #ifdef __cplusplus
 }

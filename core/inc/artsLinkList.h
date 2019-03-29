@@ -22,9 +22,9 @@ struct artsLinkList;
 struct artsLinkList * artsLinkListGroupNew(unsigned int listSize);
 struct artsLinkList * artsLinkListGet(struct artsLinkList *linkList, unsigned int position);
 void artsLinkListDelete(void *linkList);
-void artsLinkListPushBack(struct artsLinkList *list, void *item, unsigned int size);
+void artsLinkListPushBack(struct artsLinkList *list, void *item);
 void * artsLinkListPopFront( struct artsLinkList * list, void ** freePos );
-void artsLinkListDeleteItem( void * item );
+void artsLinkListDeleteItem( void * toDelete );
 void * artsLinkListNewItem(unsigned int size);
 
 #endif

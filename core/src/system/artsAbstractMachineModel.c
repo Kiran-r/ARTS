@@ -439,7 +439,6 @@ void defaultPolicy(unsigned int numberOfWorkers, unsigned int numberOfSenders, u
     }
     
     unsigned int next = (max - max%stride) + stride;
-    PRINTF("Max: %d Next: %d\n", max, next);
     for(unsigned int i=0; i<numberOfSenders; i++)
     {
         for(; next<numCores; next+=config->coresPerNetworkThread)

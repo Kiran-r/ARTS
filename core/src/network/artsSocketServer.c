@@ -394,7 +394,6 @@ unsigned int artsRemoteSendRequest(int rank, unsigned int queue, char * message,
 
 unsigned int artsRemoteSendPayloadRequest( int rank, unsigned int queue, char * message, unsigned int length, char * payload, int length2 )
 {
-    int res=0;
     int port = queue % ports;
     if(artsRemoteConnect(rank, port))
     {
@@ -407,8 +406,7 @@ unsigned int artsRemoteSendPayloadRequest( int rank, unsigned int queue, char * 
         if(tempLength)
             return tempLength + length2;
 
-        tempLength = artsActualSend(payload, length2, rank, port);
-            return tempLength;
+        return artsActualSend(payload, length2, rank, port);
     }
     return length + length2;
 }

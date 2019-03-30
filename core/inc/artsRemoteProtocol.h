@@ -19,7 +19,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-//#define SEQUENCENUMBERS 1
+#define SEQUENCENUMBERS 1
 
 //TODO: Switch to an enum
 enum artsServerMessageType

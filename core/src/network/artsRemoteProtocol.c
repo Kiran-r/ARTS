@@ -54,6 +54,8 @@ __thread struct outList ** outResend;
 #ifdef SEQUENCENUMBERS
 unsigned int * seqNumLock = NULL;
 uint64_t * seqNumber = NULL;
+__thread uint64_t * lastOut;
+__thread uint64_t * lastSent;
 #endif
 
 void partialSendStore(struct outList * out , unsigned int lengthRemaining)
@@ -95,6 +97,10 @@ void artsRemotSetThreadOutboundQueues(unsigned int start, unsigned int stop)
     
     unsigned int size = stop - start;
     outResend = artsCalloc(sizeof(struct outList *)*size);
+#ifdef SEQUENCENUMBERS
+    lastOut = artsCalloc(sizeof(uint64_t)*artsGlobalRankCount);
+    lastSent = artsCalloc(sizeof(uint64_t)*artsGlobalRankCount);
+#endif
 }
 
 void outInit( unsigned int size )
@@ -128,7 +134,7 @@ static inline void outInsertNode( struct outList * node, unsigned int length  )
     artsLinkListPushBack(list, node);
 #ifdef SEQUENCENUMBERS
     artsUnlock(&seqNumLock[listId]);
-    PRINTF("Send: %u -> %u = %lu\n", artsGlobalRankId, node->rank, packet->seqNum);
+    printf("Push: %u -> %u = %lu %p\n", artsGlobalRankId, node->rank, packet->seqNum, list);
 #endif
 //    artsUpdatePerformanceMetric(artsNetworkQueuePush, artsThread, packet->size, false);
     artsUpdatePerformanceMetric(artsNetworkQueuePush, artsThread, 1, false);
@@ -143,6 +149,12 @@ static inline struct outList * outPopNode( unsigned int threadId, void ** freeMe
     if(out)
     {
         struct artsRemotePacket *packet = (struct artsRemotePacket *) (out + 1);
+#ifdef SEQUENCENUMBERS
+        if(lastOut[packet->seqRank] && packet->seqNum != lastOut[packet->seqRank] + 1)
+            printf("POP OUT OF ORDER %u -> %u %lu vs %lu %p\n", packet->seqRank, packet->rank, lastOut[packet->seqRank], packet->seqNum, list);
+        lastOut[packet->seqRank] = packet->seqNum;
+        printf("Pop : %u -> %u = %lu %p\n", artsGlobalRankId, out->rank, packet->seqNum, list);
+#endif
 //        artsUpdatePerformanceMetric(artsNetworkQueuePop, artsThread, packet->size, false);
     }
     artsUpdatePerformanceMetric(artsNetworkQueuePop, artsThread, 1, false);
@@ -172,6 +184,12 @@ bool artsRemoteAsyncSend()
             
             if (out) 
             {
+                #ifdef SEQUENCENUMBERS
+                    struct artsRemotePacket *packet = (struct artsRemotePacket *) (out + 1);
+                    if(lastSent[packet->seqRank] != packet->seqNum && packet->seqNum != lastSent[packet->seqRank]+1)
+                        printf("SENT OUT OF ORDER %lu vs %lu\n", lastSent[packet->seqRank], packet->seqNum);
+                    lastSent[packet->seqRank] = packet->seqNum;
+                #endif
                 if (!out->payload) 
                     lengthRemaining = artsRemoteSendRequest(out->rank, i, ((char*) (out + 1))+out->offset, out->length);
                 else 

@@ -109,8 +109,8 @@ void * artsLinkListPopFront( struct artsLinkList * list, void ** freePos )
     {
         data = (void*)(list->headPtr+1);
         list->headPtr=list->headPtr->next;
-        if(!list->headPtr)
-            list->tailPtr = NULL;
+//        if(!list->headPtr)
+//            list->tailPtr = NULL;
     }
     artsUnlock(&list->lock);
     return data;

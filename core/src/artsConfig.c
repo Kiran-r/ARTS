@@ -24,6 +24,36 @@
 #define DPRINTF(...)
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
 
+
+char * extract_nodelist_lsf(char *envr, int stride, unsigned int *cnt){
+   char *lsfNodes;
+   char *resString;
+   char *last;
+   int ele = 0;
+   lsfNodes = getenv(envr);
+   if(lsfNodes == NULL) return NULL;
+   if(stride <=0 ) stride =1;
+   unsigned int nodesStrLen = strlen(lsfNodes) + 1;
+   char *nodeList = malloc(sizeof(char) * nodesStrLen);
+   unsigned int count = 0;
+   unsigned int listStrLength = 0;
+   last = resString = strtok(lsfNodes, " ");
+   while (resString){
+      resString = strtok(NULL, " ");
+      ele ++;
+      if(resString && strcmp(resString, last) && !(ele % stride)){
+         strcpy(&nodeList[listStrLength], resString);
+         listStrLength += strlen(resString);
+         nodeList[listStrLength++] = ',';
+         last = resString;
+         count++;
+      }
+   }
+   nodeList[listStrLength-1] = '\0';
+   *cnt = count;
+   return nodeList;
+}
+
 struct artsConfigVariable * artsConfigFindVariable(struct artsConfigVariable ** head, char * string)
 {
     struct artsConfigVariable * found = NULL;
@@ -869,32 +899,11 @@ struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
     {
         ONCE_PRINTF("Using LSF\n");
         config->masterBoot = false;
-
-        char * lsfNodes;
-        char * resString;
-        char * last;
-        lsfNodes = getenv("LSB_HOSTS");
-//        PRINTF("lsfNodes %s\n", lsfNodes);
-        unsigned int nodesStrLen = strlen(lsfNodes) + 1;
-        char * nodeList = artsMalloc(sizeof (char)*nodesStrLen);
-        unsigned int count = 0;
-        unsigned int listStrLength = 0;
-
-        //Throw away the first since it is the batch sched
-        last = resString = strtok(lsfNodes, " ");
-        while (resString) 
-        {
-            resString = strtok(NULL, " ");
-            if (resString && strcmp(resString, last)) 
-            {
-                strcpy(&nodeList[listStrLength], resString);
-                listStrLength += strlen(resString);
-                nodeList[listStrLength++] = ',';
-                last = resString;
-                count++;
-            }
+        unsigned int count =0;
+        char *nodeList = extract_nodelist_lsf("LSB_HOSTS", 1, &count);
+        if(!nodeList){
+           nodeList = extract_nodelist_lsf("LSB_MCPU_HOSTS", 2, &count);
         }
-        nodeList[listStrLength-1] = '\0';
         config->nodes = count;
 
         artsConfigCreateRoutingTable(&config, nodeList);

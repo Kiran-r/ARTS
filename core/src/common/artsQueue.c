@@ -14,6 +14,47 @@
 
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
+#ifdef SIMPLE_ARCH
+
+#include <pthread.h>
+
+pthread_mutex_t amtx = PTHREAD_MUTEX_INITIALIZER;
+
+#define __CAS2(ptr, o1, o2, n1, n2)                             \
+({                                                              \
+    char __ret;                                                 \
+    uint64_t __junk;                                            \
+    uint64_t __old1 = (o1);                                     \
+    uint64_t __old2 = (o2);                                     \
+    uint64_t __new1 = (n1);                                     \
+    uint64_t __new2 = (n2);                                     \
+    pthread_mutex_lock(&amtx);                                  \
+    uint64_t *tmp = (uint64_t *)ptr;                            \
+    if(tmp[0] == o1 && tmp[1] == o2)                            \
+    {                                                           \
+       tmp[0] = n1;                                             \
+       tmp[1] = n2;                                             \
+       __ret = 1;                                               \
+    }                                                           \
+    else                                                        \
+    {                                                           \
+       __ret = 0;                                               \
+    }                                                           \
+    pthread_mutex_unlock(&amtx); __ret;})
+
+#define CAS2(ptr, o1, o2, n1, n2) __CAS2(ptr, o1, o2, n1, n2)
+
+#define BIT_TEST_AND_SET(ptr, b)                                \
+({                                                              \
+    char __ret;                                                 \
+    pthread_mutex_lock(&amtx);                                  \
+    uint64_t mask = 1ULL << b;                                  \
+    __ret = (*ptr & mask) ? 1 : 0; *ptr = *ptr | mask;          \
+    pthread_mutex_unlock(&amtx); __ret;                         \
+})
+
+#else
+
 #define __CAS2(ptr, o1, o2, n1, n2)                             \
 ({                                                              \
     char __ret;                                                 \
@@ -36,6 +77,8 @@
     asm volatile("lock btsq $63, %0; setnc %1" : "+m"(*ptr), "=a"(__ret) : : "cc"); \
     __ret;                                                      \
 })
+
+#endif
 
 void init_ring(RingQueue *r)
 {

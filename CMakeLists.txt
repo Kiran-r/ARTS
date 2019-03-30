@@ -80,6 +80,11 @@ endif()
 
 #<-------------------------------------------
 
+if(SIMPLE_ARCH MATCHES "1")
+   message("Using simple CAS2 adn BIT_TEST_SET")
+   add_definitions(-DSIMPLE_ARCH=1)
+endif()
+
 #DEFAULT SETTINGS
 if(NOT DEFINED DEQUE)
     set(DEQUE "chase_lev")

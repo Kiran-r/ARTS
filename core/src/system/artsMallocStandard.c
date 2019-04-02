@@ -15,7 +15,7 @@ void * artsMalloc(size_t size)
     ARTSEDTCOUNTERTIMERSTART(mallocMemory);
     size+=sizeof(uint64_t);
     void * address;
-    posix_memalign(&address, 8, size);
+    posix_memalign(&address, 16, size);
     if(address == NULL)
     {
         PRINTF("Out of Memory\n");
@@ -45,7 +45,7 @@ void * artsCalloc(size_t size)
     ARTSEDTCOUNTERTIMERSTART(callocMemory);
     size+=sizeof(uint64_t);
     void * address;
-    posix_memalign(&address, 8, size);
+    posix_memalign(&address, 16, size);
     if(address == NULL)
     {
         PRINTF("Out of Memory\n");

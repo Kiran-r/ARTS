@@ -134,9 +134,9 @@ static inline void outInsertNode( struct outList * node, unsigned int length  )
     artsLinkListPushBack(list, node);
 #ifdef SEQUENCENUMBERS
     artsUnlock(&seqNumLock[listId]);
-    printf("Push: %u -> %u = %lu %p\n", artsGlobalRankId, node->rank, packet->seqNum, list);
+    //PRINTF("Push: %u -> %u = %lu %p\n", artsGlobalRankId, node->rank, packet->seqNum, list);
 #endif
-//    artsUpdatePerformanceMetric(artsNetworkQueuePush, artsThread, packet->size, false);
+//    nartsUpdatePerformanceMetric(artsNetworkQueuePush, artsThread, packet->size, false);
     artsUpdatePerformanceMetric(artsNetworkQueuePush, artsThread, 1, false);
 }
 
@@ -150,10 +150,11 @@ static inline struct outList * outPopNode( unsigned int threadId, void ** freeMe
     {
         struct artsRemotePacket *packet = (struct artsRemotePacket *) (out + 1);
 #ifdef SEQUENCENUMBERS
-        if(lastOut[packet->seqRank] && packet->seqNum != lastOut[packet->seqRank] + 1)
-            printf("POP OUT OF ORDER %u -> %u %lu vs %lu %p\n", packet->seqRank, packet->rank, lastOut[packet->seqRank], packet->seqNum, list);
+        if(lastOut[packet->seqRank] && packet->seqNum != lastOut[packet->seqRank] + 1){
+            DPRINTF("POP OUT OF ORDER %u -> %u %lu vs %lu %p\n", packet->seqRank, packet->rank, lastOut[packet->seqRank], packet->seqNum, list);
+        }
         lastOut[packet->seqRank] = packet->seqNum;
-        printf("Pop : %u -> %u = %lu %p\n", artsGlobalRankId, out->rank, packet->seqNum, list);
+        //DPRINTF("Pop : %u -> %u = %lu %p\n", artsGlobalRankId, out->rank, packet->seqNum, list);
 #endif
 //        artsUpdatePerformanceMetric(artsNetworkQueuePop, artsThread, packet->size, false);
     }
@@ -186,8 +187,9 @@ bool artsRemoteAsyncSend()
             {
                 #ifdef SEQUENCENUMBERS
                     struct artsRemotePacket *packet = (struct artsRemotePacket *) (out + 1);
-                    if(lastSent[packet->seqRank] != packet->seqNum && packet->seqNum != lastSent[packet->seqRank]+1)
-                        printf("SENT OUT OF ORDER %lu vs %lu\n", lastSent[packet->seqRank], packet->seqNum);
+                    if(lastSent[packet->seqRank] != packet->seqNum && packet->seqNum != lastSent[packet->seqRank]+1){
+                        DPRINTF("SENT OUT OF ORDER %lu vs %lu\n", lastSent[packet->seqRank], packet->seqNum);
+                    }
                     lastSent[packet->seqRank] = packet->seqNum;
                 #endif
                 if (!out->payload) 

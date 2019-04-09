@@ -29,7 +29,7 @@ If everything goes well, you should have the binaries under the build folder.
 
 Copy from the sampleConfigs the arts_puma.cfg to the build/test folder:
 
-*$ cp arts/sampleConfigs/arts_puma.cfg arts/build/examples/arts.cfg*
+*$ cp arts/sampleConfigs/arts.cfg arts/build/examples/arts.cfg*
 
 Afterwards, you can run the test files by using srun (4 nodes 20 worker threads) or mpirun:
 
@@ -42,6 +42,7 @@ A configure file named arts.cfg located in the CWD is required to run.
 The output should read: 
 
 *[0] Using Slurm*
+
 *[0] Fib 32: 2178309 1*
 
 ## DOCUMENTATION

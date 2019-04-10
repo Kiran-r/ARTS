@@ -1,5 +1,4 @@
 # Instructions for installing and running the ARTS RTS
-====================================================
 
 ## INSTALLATION
 
@@ -48,3 +47,22 @@ The output should read:
 ## DOCUMENTATION
 
 Look at **arts.h** and **artsRT.h**
+
+## TEAM MEMBERS
+
+### MAIN TEAM MEMBERS
+
+Joshua Suetterlein, joshua.suetterlein@pnnl.gov
+Joseph Manzano, joseph.manzano@pnnl.gov
+Andres Marquez, andres.marquez@pnnl.gov
+
+### CONTRIBUTORS
+
+Marcin Zalewski
+Jesun Firoz
+Vito Castellana
+Marco Minutoli
+Antonino Tumeo
+John Feo
+Andrew Lumsdaine
+

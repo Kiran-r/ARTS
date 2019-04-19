@@ -59,12 +59,8 @@ void artsRuntimePrivateCleanup();
 void artsRuntimeStop();
 void artsHandleReadyEdt(struct artsEdt *edt);
 void artsRehandleReadyEdt(struct artsEdt *edt);
-void artsHandleReadyEdtNoBlock(struct artsEdt *edt);
 void artsHandleRemoteStolenEdt(struct artsEdt *edt);
 bool artsRuntimeSchedulerLoop();
-struct artsEdt * artsRuntimeStealAnyEdt();
-unsigned int artsRuntimeStealAnyMultipleEdt( unsigned int amount, void ** returnList );
-bool artsRuntimeRemoteBalance();
 void artsThreadZeroNodeStart();
 void artsThreadZeroPrivateInit(struct threadMask * unit, struct artsConfig * config);
 void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig * config);
@@ -82,6 +78,7 @@ bool artsDbLock (artsGuid_t dbGuid, void * edtPacket, unsigned int rank, bool sh
 bool artsNetworkFirstSchedulerLoop();
 bool artsNetworkBeforeStealSchedulerLoop();
 bool artsDefaultSchedulerLoop();
+bool artsGpuSchedulerLoop();
 #ifdef __cplusplus
 }
 #endif

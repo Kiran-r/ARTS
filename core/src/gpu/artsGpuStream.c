@@ -36,35 +36,48 @@
 ** WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the  **
 ** License for the specific language governing permissions and limitations   **
 ******************************************************************************/
-#ifndef ARTSEDTFUNCTIONS_H
-#define ARTSEDTFUNCTIONS_H
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include "arts.h"
 
-bool artsEdtCreateInternal(artsGuid_t * guid, unsigned int route, unsigned int cluster, unsigned int edtSpace, artsGuid_t eventGuid, artsEdt_t funcPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, bool useEpoch, artsGuid_t epochGuid, bool hasDepv);
-void artsEdtDelete(struct artsEdt * edt);
-void internalSignalEdt(artsGuid_t edtPacket, uint32_t slot, artsGuid_t dataGuid, artsType_t mode, void * ptr, unsigned int size);
+//Some help https://devblogs.nvidia.com/how-overlap-data-transfers-cuda-cc/
+//Once this *class* works we will put a stream(s) in create a thread local
+//stream.  Then we will push stuff!
 
 typedef struct 
 {
-    artsGuid_t currentEdtGuid;
-    struct artsEdt * currentEdt;
-    void * epochList;
-} threadLocal_t;
+    volatile unsigned int scheduled;
+    cudaStream_t * stream;
+} artsGpuStream_t;
 
-void artsSetThreadLocalEdtInfo(struct artsEdt * edt);
-void artsUnsetThreadLocalEdtInfo();
-void artsSaveThreadLocal(threadLocal_t * tl);
-void artsRestoreThreadLocal(threadLocal_t * tl);
-
-bool artsSetCurrentEpochGuid(artsGuid_t epochGuid);
-artsGuid_t * artsCheckEpochIsRoot(artsGuid_t toCheck);
-void artsIncrementFinishedEpochList();
-
-#ifdef __cplusplus
+void artsInitGpuStream(artsGpuStream_t ** stream)
+{
+//    cudaStreamCreate ( cudaStream_t* pStream );
 }
-#endif
 
-#endif
+void artsDestroyGpuStream(artsGpuStream_t * stream)
+{
+//    cudaStreamSynchronize ( cudaStream_t stream )
+//    	cudaStreamDestroy ( cudaStream_t stream )
+}
+
+void artsScheduleToStream(artsGpuStream_t * stream, artsGpu_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
+{
+//    For now this should push the following into the stream:
+//    1. Copy data from host to device
+//    2. Push kernel
+//    3. Copy data from device to host
+//    4. Call host callback function artsGpuHostWrapUp
+    
+//    cudaMemcpyAsync(&d_a[offset], &a[offset], streamBytes, cudaMemcpyHostToDevice, stream[i]);
+//    kernel<<<streamSize/blockSize, blockSize, 0, stream[i]>>>(d_a, offset);
+//    cudaMemcpyAsync(&a[offset], &d_a[offset], streamBytes, cudaMemcpyDeviceToHost, stream[i]);
+//    cudaLaunchHostFunc ( cudaStream_t stream, cudaHostFn_t fn, void* userData )
+}
+
+void artsWaitForStream(artsGpuStream_t * stream)
+{
+//    cudaStreamSynchronize ( cudaStream_t stream )
+}
+
+void artsStreamBusy(artsGpuStream * stream)
+{
+//    cudaStreamQuery ( cudaStream_t stream )
+}

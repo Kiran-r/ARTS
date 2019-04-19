@@ -72,6 +72,7 @@ typedef enum
 {
     ARTS_NULL = 0,
     ARTS_EDT,
+    ARTS_GPU_EDT,
     ARTS_EVENT,
     ARTS_EPOCH,
     ARTS_CALLBACK,
@@ -117,6 +118,9 @@ typedef struct
 //Signature of an EDT
 typedef void (*artsEdt_t) (uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
 
+//Signature of an GPU task (NOT SOLD ON IT LOOKING LIKE THIS... Up for suggestions)
+typedef void (*artsGpu_t) (uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
+
 //Signature of an event callback.  The data parameter is the value of the dataGuid used to satisfy the event.
 typedef void (*eventCallback_t)(artsEdtDep_t data);
 
@@ -155,6 +159,13 @@ struct artsEdt
     volatile unsigned int depcNeeded;
     volatile unsigned int invalidateCount;
 } __attribute__ ((aligned));
+
+struct artsGpuEdt
+{
+    struct artsEdt wrapperEdt;
+    artsGpu_t  gpuFunctPtr;
+    artsGuid_t eventGuid;
+};
 
 struct artsDependent
 {
@@ -224,6 +235,15 @@ typedef struct {
     volatile unsigned int * waitPtr;
     volatile uint64_t ticket;
 } artsEpoch_t;
+
+
+typedef struct {
+    void * buffer;
+    uint32_t * sizeToWrite;
+    unsigned int size;
+    artsGuid_t epochGuid;
+    volatile unsigned int uses;
+} artsBuffer_t;
 
 void PRINTF( const char* format, ... );
 

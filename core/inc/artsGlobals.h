@@ -64,6 +64,7 @@ struct artsRuntimeShared
     bool (*scheduler)();
     struct artsDeque ** deque;
     struct artsDeque ** receiverDeque;
+    struct artsDeque ** gpuDeque;
     struct artsRouteTable ** routeTable;
     struct artsRouteTable * remoteRouteTable;
     volatile bool ** localSpin;
@@ -99,6 +100,7 @@ struct artsRuntimePrivate
 {
     struct artsDeque * myDeque;
     struct artsDeque * myNodeDeque;
+    struct artsDeque * myGpuDeque;
     unsigned int coreId;
     unsigned int threadId;
     unsigned int groupId;

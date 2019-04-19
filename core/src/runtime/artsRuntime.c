@@ -91,7 +91,7 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.shutdownEpoch = (config->shutdownEpoch) ? 1 : NULL_GUID ;
     artsNodeInfo.shadLoopStride = config->shadLoopStride;
     artsNodeInfo.tMT = config->tMT;
-    artsNodeInfo.tMTLocalSpin = NULL;
+    artsNodeInfo.pinThreads = config->pinThreads;
     artsNodeInfo.keys = artsCalloc(sizeof(uint64_t*) * totalThreads);
     artsNodeInfo.globalGuidThreadId = artsCalloc(sizeof(uint64_t) * totalThreads);
     artsTMTNodeInit(workerThreads);

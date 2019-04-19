@@ -45,7 +45,6 @@ struct artsRuntimeShared
     struct artsRouteTable ** routeTable;
     struct artsRouteTable * remoteRouteTable;
     volatile bool ** localSpin;
-    volatile bool ** tMTLocalSpin;
     unsigned int ** memoryMoves;
     struct atomicCreateBarrierInfo ** atomicWaits;
     unsigned int workerThreadCount;
@@ -69,6 +68,7 @@ struct artsRuntimeShared
     artsGuid_t shutdownEpoch;
     unsigned int shadLoopStride;
     bool tMT;
+    unsigned int pinThreads;
     uint64_t ** keys;
     uint64_t * globalGuidThreadId;
 }__attribute__ ((aligned(64)));

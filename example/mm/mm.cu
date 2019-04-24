@@ -295,10 +295,12 @@ void mm_gpu_cublas(int wA, int hA, int wB, int hB, int block_size, float *host_A
     //------
     // check CUBLAS result?
     // TODO: Check Correctness of computed values?
+#ifdef PRINT_RES
     int i, j;
     for(i = 0; i < hA * block_size; i++)
       for(j = 0; j < wB * block_size; j++)
         printf("Result[%d][%d]: %lf\n", i, j, host_C[i * wB * block_size + j]);
+#endif 
     cudaFree(d_A);
     cudaFree(d_B);
     cudaFree(d_C);

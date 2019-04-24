@@ -168,8 +168,6 @@ void mm_gpu(int wA, int hA, int wB, int hB, int block_size, float * host_A, floa
   unsigned int mem_size_B = size_B * sizeof(float);
   unsigned int mem_size_C = dimsC.x * dimsC.y * sizeof(float);
 
-  PRINTF("%u %u %u\n", mem_size_A, mem_size_B, mem_size_C);
-
   cudaError_t error;
   error = cudaMalloc((void **) &d_A, mem_size_A);
   if (error != cudaSuccess)
@@ -177,7 +175,7 @@ void mm_gpu(int wA, int hA, int wB, int hB, int block_size, float * host_A, floa
     printf("cudaMalloc d_A failed... \n");
     exit(EXIT_FAILURE);
   }
-/*
+
   error = cudaMalloc((void **) &d_B, mem_size_B);
   if (error != cudaSuccess)
   {
@@ -239,10 +237,10 @@ void mm_gpu(int wA, int hA, int wB, int hB, int block_size, float * host_A, floa
     for(j = 0; j < wB * block_size; j++)
       printf("Result[%d][%d]: %lf\n", i, j, h_C[i * wB * block_size + j]);
   #endif
-*/
+
   cudaFree(d_A);
-  //cudaFree(d_B);
-  //cudaFree(d_C);
+  cudaFree(d_B);
+  cudaFree(d_C);
 }
 
 #ifdef USE_CUBLAS

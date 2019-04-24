@@ -47,7 +47,7 @@ if(CMAKE_COMPILER_IS_GNUCC OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 endif()
 
 # Check CUDA 
-OPTION(WITH_CUDA "Enable Cuda Support (Default: OFF)" OFF)
+OPTION(WITH_CUDA "Enable Cuda Support (Default: OFF)" ON)
 if(WITH_CUDA)
   find_package(CUDA 7.0 REQUIRED)
   if(CUDA_FOUND)

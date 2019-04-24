@@ -239,8 +239,8 @@ void mm_gpu(int wA, int hA, int wB, int hB, int block_size, float * host_A, floa
   #endif
 
   cudaFree(d_A);
-  //cudaFree(d_B);
-  //cudaFree(d_C);
+  cudaFree(d_B);
+  cudaFree(d_C);
 }
 
 #ifdef USE_CUBLAS

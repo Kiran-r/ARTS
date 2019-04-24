@@ -45,16 +45,21 @@ int main(int argc, char** argv) {
     
     time = artsGetTimeStamp();
     
-    void * ptr = NULL;
-    cudaMalloc(&ptr, 1024);
+    #ifdef USE_CUBLAS
+        mm_gpu_cublas(wA, hA, wB, hB, block_size, ptrA, ptrB, ptrC);
+    #elif USE_GPU 
+        mm_gpu(wA, hA, wB, hB, block_size, ptrA, ptrB, ptrC);
+    #else
+        int m = hA * block_size;
+        int n = wB * block_size;
+        int o = hB * block_size; // wA * block_size;
+        for (int i = 0; i < m; i++)
+            for (int j = 0; j < n; j++)
+                for (int k = 0; k < o; ++k)
+                    ptrC[i * n + j] += ptrA[i * o + k] * ptrB[k * n + j];
+    #endif
     
-//    #ifdef USE_CUBLAS
-//        mm_gpu_cublas(wA, hA, wB, hB, block_size, h_A, h_B, h_C);
-//    #else
-//        mm_gpu(wA, hA, wB, hB, block_size, ptrA, ptrB, ptrC);
-//    #endif
-    
-    artsGetTimeStamp() - time;
+    time = artsGetTimeStamp() - time;
     PRINTF("MM completed! Time: %lu\n", time);
     return 0;
 }

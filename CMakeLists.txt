@@ -37,8 +37,8 @@
 ## License for the specific language governing permissions and limitations
 ###############################################################################
 
-cmake_minimum_required(VERSION 2.6)
-project (arts)
+cmake_minimum_required(VERSION 3.8)
+project (arts LANGUAGES C CXX CUDA)
 
 #CMake Configuration
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
@@ -89,29 +89,18 @@ if(CMAKE_COMPILER_IS_GNUCC OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 
 endif()
 
-# Check CUDA 
-OPTION(WITH_CUDA "Enable Cuda Support (Default: OFF)" OFF)
-if(WITH_CUDA)
-  find_package(CUDA 7.0 REQUIRED)
-  if(CUDA_FOUND)
-     set(USE_GPU ON)
-     add_definitions(-DUSE_GPU)
-     message("USE_GPU Set ON")
-     # Force gcc as host compiler. TODO: Fix this
-     SET(CUDA_HOST_COMPILER gcc)       
-     SET(CUDA_SEPARABLE_COMPILATION ON)
-     SET(CUDA_PROPAGATE_HOST_FLAGS OFF)
-     CUDA_SELECT_NVCC_ARCH_FLAGS(ARCH_FLAGS 3.0 3.2 3.5 3.7 5.0 5.2 5.3 6.0 6.1 6.2 7.0)
-     list(APPEND CUDA_NVCC_FLAGS "-O2;-DVERBOSE;" ${ARCH_FLAGS})
-   else()
-     message(FATAL_ERROR "CUDA library not found.")
-   endif()
-   if(WITH_CUBLAS)
-     set(USE_CUBLAS ON)
-     add_definitions(-DUSE_CUBLAS)
-     message("USE_CUBLAS Set ON")
-   endif()
-endif(WITH_CUDA)
+find_package(CUDA 7)
+if(CUDA_FOUND)
+    include_directories("${CUDA_INCLUDE_DIRS}")
+    add_definitions(-DUSE_GPU)
+    message("Using CUDA")
+    find_package(cuBlas)
+    if(CUBLAS_FOUND)
+        include_directories(${CUBLAS_INCLUDE_DIRS})
+        add_definitions(-DUSE_CUBLAS)
+        message("Using CUBLAS")
+    endif() 
+endif()
 
 #Find Required Libs-------------------------->
 

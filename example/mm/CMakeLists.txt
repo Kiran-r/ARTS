@@ -14,13 +14,23 @@ else()
 
   set_source_files_properties(${MM_CUDA_SOURCES} PROPERTIES CUDA_SOURCE_PROPERTY_FORMAT OBJ)
   cuda_add_library(mm_test_cuda ${MM_CUDA_SOURCES})
+
   target_include_directories(mm_test_cuda PUBLIC ${MM_INCLUDE})
   add_executable(mm_test ${MM_C_SOURCES})
+
   target_include_directories(mm_test PUBLIC ${MM_INCLUDE})
   add_dependencies(mm_test mm_test_cuda)
+
   #target_link_libraries(mm_test mm_test_cuda ${LIBS} mm_test_cuda ${CUDA_LIBRARIES})
+
   if(USE_CUBLAS)
     CUDA_ADD_CUBLAS_TO_TARGET(mm_test)
   endif()
   target_link_libraries(mm_test mm_test_cuda ${LIBS} ${CUDA_LIBRARIES})
+#
+#  add_executable(mmNoArts mmNoArts.c)
+#  target_include_directories(mmNoArts PUBLIC ${MM_INCLUDE})
+#
+#  add_dependencies(mmNoArts mm_test_cuda)
+#  target_link_libraries(mmNoArts mm_test_cuda ${LIBS} ${CUDA_LIBRARIES}) 
 endif()

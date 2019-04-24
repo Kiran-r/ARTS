@@ -148,9 +148,7 @@ void mm_kernel_32(int block_size, float *C, float *A, float *B, int wA, int wB) 
 }
 
 extern "C"
-// int mm_gpu(int wA, int hA, int wB, int hB, int block_size, float *host_A, float
-void mm_gpu(int wA, int hA, int wB, int hB, int block_size, float *host_A, float
-    *host_B, float *host_C)
+void mm_gpu(int wA, int hA, int wB, int hB, int block_size, float * host_A, float * host_B, float * host_C)
 {
   dim3 dimsA(wA*block_size, hA*block_size, 1);
   dim3 dimsB(wB*block_size, hB*block_size, 1);
@@ -170,6 +168,8 @@ void mm_gpu(int wA, int hA, int wB, int hB, int block_size, float *host_A, float
   unsigned int mem_size_B = size_B * sizeof(float);
   unsigned int mem_size_C = dimsC.x * dimsC.y * sizeof(float);
 
+  PRINTF("%u %u %u\n", mem_size_A, mem_size_B, mem_size_C);
+
   cudaError_t error;
   error = cudaMalloc((void **) &d_A, mem_size_A);
   if (error != cudaSuccess)
@@ -177,7 +177,7 @@ void mm_gpu(int wA, int hA, int wB, int hB, int block_size, float *host_A, float
     printf("cudaMalloc d_A failed... \n");
     exit(EXIT_FAILURE);
   }
-
+/*
   error = cudaMalloc((void **) &d_B, mem_size_B);
   if (error != cudaSuccess)
   {
@@ -233,14 +233,16 @@ void mm_gpu(int wA, int hA, int wB, int hB, int block_size, float *host_A, float
   }
 
   // TODO: Check Correctness of computed values?
+  #ifdef PRINT_RES
   int i, j;
   for(i = 0; i < hA * block_size; i++)
     for(j = 0; j < wB * block_size; j++)
       printf("Result[%d][%d]: %lf\n", i, j, h_C[i * wB * block_size + j]);
-
+  #endif
+*/
   cudaFree(d_A);
-  cudaFree(d_B);
-  cudaFree(d_C);
+  //cudaFree(d_B);
+  //cudaFree(d_C);
 }
 
 #ifdef USE_CUBLAS
@@ -306,10 +308,8 @@ void mm_gpu_cublas(int wA, int hA, int wB, int hB, int block_size, float *host_A
 #endif
 
 extern "C"
-// artsGuid_t mm_calculate_gpu(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 void mm_calculate_gpu(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-  printf("Here mm_calculate_gpu --\n");
   int wA = paramv[0];
   int hA = paramv[1];
   int wB = paramv[2];
@@ -325,4 +325,5 @@ void mm_calculate_gpu(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdt
 #else
   mm_gpu(wA, hA, wB, hB, block_size, h_A, h_B, h_C);
 #endif
+  artsSignalEdt(paramv[5], 0, NULL_GUID);
 }

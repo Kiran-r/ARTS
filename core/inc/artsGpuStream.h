@@ -1,11 +1,3 @@
-
-#ifndef ARTSGPUSTREAM_H
-#define ARTSGPUSTREAM_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /******************************************************************************
 ** This material was prepared as an account of work sponsored by an agency   **
 ** of the United States Government.  Neither the United States Government    **
@@ -44,6 +36,13 @@ extern "C" {
 ** WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the  **
 ** License for the specific language governing permissions and limitations   **
 ******************************************************************************/
+#ifndef ARTSGPUSTREAM_H
+#define ARTSGPUSTREAM_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <cuda_runtime.h>    
 #include "artsRT.h"
 #include "artsAtomics.h"
@@ -81,7 +80,6 @@ extern __thread artsGpuStream_t artsStream;
 void artsInitGpuStream(artsGpuStream_t * aStream);
 void artsDestroyGpuStream(artsGpuStream_t * aStream);
 void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void *data);
-void artsHostWrapUp();
 void artsScheduleToStream(artsGpuStream_t * aStream, artsGpu_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, artsEdt * edtPtr);
 void artsWaitForStream(artsGpuStream_t * aStream);
 void artsStreamBusy(artsGpuStream_t * aStream);

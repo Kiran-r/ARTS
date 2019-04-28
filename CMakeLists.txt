@@ -38,7 +38,7 @@
 ###############################################################################
 
 cmake_minimum_required(VERSION 3.8)
-project (arts LANGUAGES C CXX CUDA)
+project (arts LANGUAGES C CXX)
 
 #CMake Configuration
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
@@ -89,18 +89,31 @@ if(CMAKE_COMPILER_IS_GNUCC OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 
 endif()
 
-find_package(CUDA 7)
-if(CUDA_FOUND)
-    include_directories("${CUDA_INCLUDE_DIRS}")
-    add_definitions(-DUSE_GPU)
-    message("Using CUDA")
-    find_package(cuBlas)
-    if(CUBLAS_FOUND)
-        include_directories(${CUBLAS_INCLUDE_DIRS})
-        add_definitions(-DUSE_CUBLAS)
-        message("Using CUBLAS")
+include(CheckLanguage)
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+    find_package(CUDA 7)
+    if(CUDA_FOUND)
+        include_directories("${CUDA_INCLUDE_DIRS}")
+        add_definitions(-DUSE_GPU)
+        message("Using CUDA")
+        find_package(cuBlas)
+        if(CUBLAS_FOUND)
+            include_directories(${CUBLAS_INCLUDE_DIRS})
+            add_definitions(-DUSE_CUBLAS)
+            message("Using CUBLAS")
+        else()
+            set(CUBLAS_LIBRARIES "")
+        endif()
+    else()
+        set(CUDA_LIBRARIES "")
     endif()
+else()
+    message(STATUS "No CUDA support")
 endif()
+
+
 
 #Find Required Libs-------------------------->
 

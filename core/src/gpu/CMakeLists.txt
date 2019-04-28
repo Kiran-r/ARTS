@@ -36,59 +36,17 @@
 ## WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 ## License for the specific language governing permissions and limitations
 ###############################################################################
+if(CUDA_FOUND)
+    set(gpu_inc 
+        ${CORE_INCLUDE_DIR}/artsGpuStream.h
+        )
 
-#This is all placeholder stuff to figure out what we really need...
+    set(gpu_src
+        artsGpuStream.c
+        )
 
-# CHECK CUDA
-OPTION(WITH_CUDA "Enable CUDA Support (Default: OFF)" OFF)
-if(WITH_CUDA)
-  find_package(CUDA REQUIRED)
-  if(CUDA_FOUND)
-    set(USE_GPU ON)
-    add_definitions(-DUSE_GPU)
-    message("USE_GPU Set ON")
-    #if(USE_GPU)
-    #else()
-    #  message(FATAL_ERROR "USE_GPU Not Set ON")
-    #endif()
-    #list(APPEND CUDA_NVCC_FLAGS "-arch=sm_20;-O2;-DVERBOSE")
-    SET(CUDA_HOST_COMPILER gcc)
-    SET(CUDA_SEPARABLE_COMPILATION ON)
-    SET(CUDA_PROPAGATE_HOST_FLAGS OFF)
-    list(APPEND CUDA_NVCC_FLAGS "-O2;-DVERBOSE;-gencode; arch=compute_60,code=sm_60")
-  else()
-    message(FATAL_ERROR "CUDA library not found.")
-  endif()
-  if(WITH_CUBLAS)
-    set(USE_CUBLAS ON)
-    add_definitions(-DUSE_CUBLAS)
-    message("USE_CUBLAS Set ON")
-  endif()
-endif(WITH_CUDA)
-
-set(LIBS hive ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC_LIB})
-
-if(NOT USE_GPU)
-  set (MM_INCLUDE ${CMAKE_SOURCE_DIR}/example/mm)
-  set (MM_C_SOURCES ${CMAKE_SOURCE_DIR}/example/mm/mm.c)
-  #include_directories(${MM_INCLUDE})
-  add_executable(mm_test ${MM_C_SOURCES})
-  #target_include_directories(mm_test PUBLIC ${MM_INCLUDE})
-  target_link_libraries(mm_test ${LIBS})
-else()
-  set (MM_INCLUDE ${CMAKE_SOURCE_DIR}/examples/mm)
-  set (MM_C_SOURCES mm.c)
-  set (MM_CUDA_SOURCES mm.cu)
-
-  set_source_files_properties(${MM_CUDA_SOURCES} PROPERTIES CUDA_SOURCE_PROPERTY_FORMAT OBJ)
-  cuda_add_library(mm_test_cuda ${MM_CUDA_SOURCES})
-  target_include_directories(mm_test_cuda PUBLIC ${MM_INCLUDE})
-  add_executable(mm_test ${MM_C_SOURCES})
-  target_include_directories(mm_test PUBLIC ${MM_INCLUDE})
-  add_dependencies(mm_test mm_test_cuda)
-  #target_link_libraries(mm_test mm_test_cuda ${LIBS} mm_test_cuda ${CUDA_LIBRARIES})
-  if(USE_CUBLAS)
-    CUDA_ADD_CUBLAS_TO_TARGET(mm_test)
-  endif()
-  target_link_libraries(mm_test mm_test_cuda ${LIBS} ${CUDA_LIBRARIES})
+    set_source_files_properties(${gpu_src} PROPERTIES LANGUAGE CUDA)
+    add_library(gpu OBJECT ${gpu_src})
+    set_target_properties(gpu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+    install(FILES ${gpu_inc} DESTINATION include)
 endif()

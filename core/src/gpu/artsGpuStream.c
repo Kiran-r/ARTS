@@ -38,27 +38,51 @@
 ******************************************************************************/
 
 //Some help https://devblogs.nvidia.com/how-overlap-data-transfers-cuda-cc/
+//and https://github.com/NVIDIA-developer-blog/code-samples/blob/master/series/cuda-cpp/overlap-data-transfers/async.cu
 //Once this *class* works we will put a stream(s) in create a thread local
 //stream.  Then we will push stuff!
+#include "artsGpuStream.h"
 
-typedef struct 
-{
-    volatile unsigned int scheduled;
-    cudaStream_t * stream;
-} artsGpuStream_t;
+#define DPRINTF( ... )
+//#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
 
-void artsInitGpuStream(artsGpuStream_t ** stream)
+__thread artsGpuStream_t artsStream;
+__thread volatile unsigned int deleteLock = 0;
+__thread artsArrayList * deleteQueue = NULL;
+__thread artsArrayList * deleteHostQueue = NULL;
+
+void artsInitGpuStream(artsGpuStream_t * aStream)
 {
-//    cudaStreamCreate ( cudaStream_t* pStream );
+    CHECKCORRECT(cudaStreamCreate(&aStream->stream));
+    artsLock(&deleteLock);
+    if(!deleteQueue)
+        deleteQueue = artsNewArrayList(sizeof(void*), 32);
+    if(!deleteHostQueue)
+        deleteHostQueue = artsNewArrayList(sizeof(void*), 32);
+    artsUnlock(&deleteLock);
 }
 
-void artsDestroyGpuStream(artsGpuStream_t * stream)
+void artsDestroyGpuStream(artsGpuStream_t * aStream)
 {
-//    cudaStreamSynchronize ( cudaStream_t stream )
-//    	cudaStreamDestroy ( cudaStream_t stream )
+    CHECKCORRECT(cudaStreamSynchronize(aStream->stream));
+    CHECKCORRECT(cudaStreamDestroy(aStream->stream));
 }
 
-void artsScheduleToStream(artsGpuStream_t * stream, artsGpu_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
+void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data)
+{
+    artsGpuCleanUp_t * gc = (artsGpuCleanUp_t*) data;    
+//    artsGpuHostWrapUp(gc->edt);
+    
+    artsLock(gc->deleteLock);
+    artsPushToArrayList(gc->deleteQueue,     &gc->devDB);
+    artsPushToArrayList(gc->deleteQueue,     &gc->devClosure);
+    artsPushToArrayList(gc->deleteHostQueue, &gc);
+    artsUnlock(gc->deleteLock);
+    
+    PRINTF("FINISHED GPU CALLS %s\n", cudaGetErrorString(status));
+}
+
+void artsScheduleToStream(artsGpuStream_t * aStream, artsGpu_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, artsEdt * edtPtr)
 {
 //    For now this should push the following into the stream:
 //    1. Copy data from host to device
@@ -66,18 +90,156 @@ void artsScheduleToStream(artsGpuStream_t * stream, artsGpu_t fnPtr, uint32_t pa
 //    3. Copy data from device to host
 //    4. Call host callback function artsGpuHostWrapUp
     
-//    cudaMemcpyAsync(&d_a[offset], &a[offset], streamBytes, cudaMemcpyHostToDevice, stream[i]);
-//    kernel<<<streamSize/blockSize, blockSize, 0, stream[i]>>>(d_a, offset);
-//    cudaMemcpyAsync(&a[offset], &d_a[offset], streamBytes, cudaMemcpyDeviceToHost, stream[i]);
-//    cudaLaunchHostFunc ( cudaStream_t stream, cudaHostFn_t fn, void* userData )
+    void * devDB       = NULL;
+    void * devClosure  = NULL;
+    void * hostClosure = NULL;
+    
+    uint64_t         * devParamv  = NULL;
+    artsEdtDep_t     * devDepv    = NULL;
+    
+    artsGpuCleanUp_t * hostGCPtr = NULL;
+    uint64_t         * hostParamv = NULL;
+    artsEdtDep_t     * hostDepv   = NULL;
+    
+    //Get size of closure
+    size_t devClosureSize = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc;
+    size_t hostClosureSize = devClosureSize + sizeof(artsGpuCleanUp_t);
+    
+    //Get size of DBs
+    uint64_t totalDBSize = 0;
+    for(unsigned int i=0; i<depc; i++)
+    {
+        if(depv[i].ptr)
+        {
+            struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
+            totalDBSize += db->header.size - sizeof(struct artsDb);
+        }
+    }
+    
+    DPRINTF("totalDBSize: %u devClosureSize: %u hostClosureSize: %u\n", totalDBSize, devClosureSize, hostClosureSize);
+    
+    //Allocate space for DB on GPU
+    if(totalDBSize)
+        CHECKCORRECT(cudaMalloc(&devDB, totalDBSize));
+    
+    //Allocate Closure for GPU
+    if(devClosureSize)
+    {
+        CHECKCORRECT(cudaMalloc(&devClosure, devClosureSize));
+        devParamv = (uint64_t*) devClosure;
+        devDepv = (artsEdtDep_t *)(devParamv + paramc);
+    }
+    
+    //Allocate closure for host
+    if(hostClosureSize)
+    {
+        CHECKCORRECT(cudaMallocHost(&hostClosure, hostClosureSize));
+        hostGCPtr = (artsGpuCleanUp_t *) hostClosure;
+        if(paramc)
+            hostParamv = (uint64_t*)(hostGCPtr + 1);
+        if(depc)
+            hostDepv = (artsEdtDep_t *)(hostParamv + paramc);
+    }
+    
+    DPRINTF("devDB: %p devClosure: %p hostClosure: %p\n", devDB, devClosure, hostClosure);
+    
+    //Fill host closure
+    hostGCPtr->deleteLock = &deleteLock;
+    hostGCPtr->deleteQueue = deleteQueue;
+    hostGCPtr->deleteHostQueue = deleteHostQueue;
+    hostGCPtr->devDB = devDB;
+    hostGCPtr->devClosure = devClosure;
+    hostGCPtr->edt = edtPtr;
+    for(unsigned int i=0; i<paramc; i++)
+        hostParamv[i] = paramv[i];
+    uint64_t tempSize = 0;
+    for(unsigned int i=0; i<depc; i++)
+    {
+        uint64_t size = 0;
+        if(depv[i].ptr)
+        {
+            struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
+            size = db->header.size - sizeof(struct artsDb);
+            hostDepv[i].ptr  = (char*)devDB + tempSize;
+        }
+        else
+            hostDepv[i].ptr  = NULL;
+        hostDepv[i].guid = depv[i].guid;
+        hostDepv[i].mode = depv[i].mode;
+        tempSize+=size;
+    }
+    
+    //Fill GPU DBs
+    for(unsigned int i=0; i<depc; i++)
+    {
+        if(depv[i].ptr)
+        {
+        struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
+        size_t size = (size_t) (db->header.size - sizeof(struct artsDb));
+        //hostDepv now holds devDb + offset
+        CHECKCORRECT(cudaMemcpyAsync(hostDepv[i].ptr, depv[i].ptr, size, cudaMemcpyHostToDevice, aStream->stream));
+        }
+    }
+    
+    //Fill GPU closure (we don't need the edt which is why we start at hostParmv
+    CHECKCORRECT(cudaMemcpyAsync(devClosure, (void*)hostParamv, devClosureSize, cudaMemcpyHostToDevice, aStream->stream));
+    
+    //Launch kernel
+    fnPtr<<<grid, block, 0, aStream->stream>>>(paramc, devParamv, depc, devDepv);
+    
+    //Move data back
+    for(unsigned int i=0; i<depc; i++)
+    {
+        if(depv[i].ptr)
+        {
+        struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
+        size_t size = (size_t) (db->header.size - sizeof(struct artsDb));
+        CHECKCORRECT(cudaMemcpyAsync(depv[i].ptr, hostDepv[i].ptr, size, cudaMemcpyDeviceToHost, aStream->stream));
+        }
+    }
+    
+    CHECKCORRECT(cudaStreamAddCallback(aStream->stream, artsWrapUp, hostClosure, 0));
 }
 
-void artsWaitForStream(artsGpuStream_t * stream)
+void artsWaitForStream(artsGpuStream_t * aStream)
 {
-//    cudaStreamSynchronize ( cudaStream_t stream )
+    CHECKCORRECT(cudaStreamSynchronize(aStream->stream));
 }
 
-void artsStreamBusy(artsGpuStream * stream)
+void artsStreamBusy(artsGpuStream_t * aStream)
 {
-//    cudaStreamQuery ( cudaStream_t stream )
+    CHECKCORRECT(cudaStreamQuery(aStream->stream));
+}
+
+void artsFreeGpuMemory()
+{
+    artsLock(&deleteLock);
+    
+    uint64_t size = artsLengthArrayList(deleteQueue);
+    DPRINTF("deleteQueue Size: %u\n", size);
+    if(size)
+    {
+        for(uint64_t i=0; i<size; i++)
+        {
+            void ** ptr = (void**)artsGetFromArrayList(deleteQueue, i);
+            DPRINTF("i: %u %p\n", i, *ptr);
+            CHECKCORRECT(cudaFree(*ptr));
+        }
+        artsResetArrayList(deleteQueue);
+    }
+    
+    size = artsLengthArrayList(deleteHostQueue);
+    DPRINTF("deleteHostQueue Size: %u\n", size);
+    if(size)
+    {
+        for(uint64_t i=0; i<size; i++)
+        {
+            void ** ptr = (void**)artsGetFromArrayList(deleteHostQueue, i);
+            DPRINTF("Host i: %u %p\n", i, *ptr);
+            CHECKCORRECT(cudaFreeHost(*ptr));
+        }
+        artsResetArrayList(deleteHostQueue);
+    }
+    
+    artsUnlock(&deleteLock);
 }

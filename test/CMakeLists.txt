@@ -37,7 +37,7 @@
 ## License for the specific language governing permissions and limitations
 ###############################################################################
 
-set(LIBS arts ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC_LIB})
+set(LIBS arts ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC_LIB} ${CUDA_LIBRARIES} ${CUBLAS_LIBRARIES})
 
 add_executable(testMain testMain.c)
 target_link_libraries(testMain ${LIBS})
@@ -119,3 +119,9 @@ target_link_libraries(testBuffer ${LIBS})
 
 add_executable(testEvent testEvent.c)
 target_link_libraries(testEvent ${LIBS})
+
+if(CUDA_FOUND)
+    set_source_files_properties(testGpuStream.c PROPERTIES LANGUAGE CUDA)
+    add_executable(testGpuStream testGpuStream.c)
+    target_link_libraries(testGpuStream ${LIBS})
+endif()

@@ -36,80 +36,72 @@
 ** WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the  **
 ** License for the specific language governing permissions and limitations   **
 ******************************************************************************/
-
-// Original copyright
-// Copyright (c) 2013, Adam Morrison and Yehuda Afek.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions
-// are met:
-//
-//  * Redistributions of source code must retain the above copyright
-//    notice, this list of conditions and the following disclaimer.
-//  * Redistributions in binary form must reproduce the above copyright
-//    notice, this list of conditions and the following disclaimer in
-//    the documentation and/or other materials provided with the
-//    distribution.
-//  * Neither the name of the Tel Aviv University nor the names of the
-//    author of this software may be used to endorse or promote products
-//    derived from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-#ifndef ARTSQUEUE_H
-#define	ARTSQUEUE_H
-
+#include <stdio.h>
+#include <stdlib.h>
 #include "arts.h"
+#include "artsGpuStream.h"
 
-#define Object          uint64_t
-#define RING_POW        (6)
-#define RING_SIZE       (1ull << RING_POW)
-#define ALIGNMENT       8
+#define SOMEARGS 10
 
-typedef struct RingNode
+artsGuid_t localDbCreate(void **addr, uint64_t size, artsType_t mode, artsGuid_t guid)
 {
-    volatile uint64_t val;
-    volatile uint64_t idx;
-    uint64_t pad[14];
-} RingNode __attribute__ ((aligned (128)));
+    unsigned int dbSize = size + sizeof(struct artsDb);
+//    void * ptr = artsMalloc(dbSize);
+    void * ptr = NULL;
+    cudaMallocHost(&ptr, dbSize);
+    if(ptr)
+    {
+        struct artsHeader *header = (struct artsHeader*)ptr;
+        header->type = mode;
+        header->size = dbSize;
+        struct artsDb * dbRes = (struct artsDb *)header;
+        dbRes->guid = guid;
+        dbRes->dbList = NULL;
+        *addr = (void*)((struct artsDb *) ptr + 1);
+    }
+    return guid;
+}
 
-typedef struct RingQueue
+__global__ void kernel(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    volatile int64_t head __attribute__ ((aligned (128)));
-    volatile int64_t tail __attribute__ ((aligned (128)));
-    struct RingQueue *next __attribute__ ((aligned (128)));
-    RingNode array[RING_SIZE];
-} RingQueue __attribute__ ((aligned (128)));
+    uint64_t * ptr = (uint64_t *)depv[threadIdx.x].ptr;
+    *ptr = paramv[threadIdx.x];
+}
 
-typedef struct artsQueue
-{
-    RingQueue * head;
-    RingQueue * tail;
-} artsQueue __attribute__ ((aligned (128)));
-
-artsQueue * artsNewQueue();
-void enqueue(Object arg, artsQueue * queue);
-Object dequeue(artsQueue * queue);
-
-int close_crq(RingQueue *rq, const uint64_t t, const int tries);
-uint64_t node_index(uint64_t i) __attribute__ ((pure));
-void fixState(RingQueue *rq);
-uint64_t set_unsafe(uint64_t i) __attribute__ ((pure));
-int is_empty(uint64_t v) __attribute__ ((pure));
-uint64_t node_unsafe(uint64_t i) __attribute__ ((pure));
-int crq_is_closed(uint64_t t) __attribute__ ((pure));
-void init_ring(RingQueue *r);
-uint64_t tail_index(uint64_t t) __attribute__ ((pure));
-
-#endif	/* artsQUEUE_H */
+int main(void)
+{    
+    dim3 grid(1);
+    dim3 block(SOMEARGS);
+    
+    uint64_t paramv[SOMEARGS];
+    artsEdtDep_t depv[SOMEARGS];
+    
+    PRINTF("INIT STREAM\n");
+    artsInitGpuStream(&artsStream);
+    
+    for(unsigned int i=0; i<SOMEARGS; i++)
+    {
+        paramv[i] = i;
+        depv[i].guid = localDbCreate(&depv[i].ptr, sizeof(artsGuid_t), ARTS_DB_READ, 999);
+        depv[i].mode = ARTS_DB_READ;
+    }
+    
+    PRINTF("LAUNCHING 1 %u\n", SOMEARGS);
+    artsScheduleToStream(&artsStream, kernel, SOMEARGS, paramv, SOMEARGS, depv, grid, block, NULL);
+    
+    PRINTF("WAITING\n");
+    artsWaitForStream(&artsStream);
+    
+    for(unsigned int i=0; i<SOMEARGS; i++)
+    {
+        artsGuid_t * ptr = (artsGuid_t *) depv[i].ptr;
+        PRINTF("RES: %lu\n", *ptr);
+    }
+    
+    PRINTF("DELETING\n");
+    artsFreeGpuMemory();
+    
+    PRINTF("DESTROYING\n");
+    artsDestroyGpuStream(&artsStream);
+    return 0;
+}

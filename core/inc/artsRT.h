@@ -49,7 +49,7 @@ extern "C" {
 #include <string.h>
 #include <stdint.h>
 #include <inttypes.h>
-    
+ 
 /* boolean support in C */
 #ifdef __cplusplus
 #define TRUE true
@@ -159,13 +159,6 @@ struct artsEdt
     volatile unsigned int depcNeeded;
     volatile unsigned int invalidateCount;
 } __attribute__ ((aligned));
-
-struct artsGpuEdt
-{
-    struct artsEdt wrapperEdt;
-    artsGpu_t  gpuFunctPtr;
-    artsGuid_t eventGuid;
-};
 
 struct artsDependent
 {

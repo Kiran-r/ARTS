@@ -57,6 +57,11 @@
 #include "artsIntrospection.h"
 #include "artsTMT.h"
 
+#ifdef USE_GPU
+#include "artsGpuRuntime.h"
+#include "artsGpuStream.h"
+#endif
+
 #define DPRINTF( ... )
 #define PACKET_SIZE 4096
 #define NETWORK_BACKOFF_INCREMENT 0
@@ -230,6 +235,10 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
     artsGuidKeyGeneratorInit();
     INITCOUNTERLIST(unit->id, artsGlobalRankId, config->counterFolder, config->counterStartPoint);
     
+#ifdef USE_GPU
+    artsInitGpuStream();
+#endif
+    
     if (artsNodeInfo.tMT) // @awmm
     {
         DPRINTF("tMT: PthreadLayer: preparing aliasing for master thread %d\n", unit->id);
@@ -263,6 +272,9 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
 void artsRuntimePrivateCleanup()
 {
     artsTMTRuntimePrivateCleanup();
+#ifdef USE_GPU
+    artsDestroyGpuStream();
+#endif
     artsAtomicSub(&artsNodeInfo.readyToClean, 1U);
     while(artsNodeInfo.readyToClean){ };
     if(artsThreadInfo.myDeque)
@@ -294,7 +306,17 @@ void artsHandleRemoteStolenEdt(struct artsEdt *edt)
     DPRINTF("push stolen %d\n",artsThreadInfo.coreId);
     incrementQueueEpoch(edt->epochGuid);
     globalShutdownGuidIncQueue();
-    artsDequePushFront(artsThreadInfo.myDeque, edt, 0);
+#ifdef USE_GPU
+    if(!artsThreadInfo.myDeque || !artsThreadInfo.myGpuDeque)
+        artsStoreNewEdts(edt);
+    else
+#endif
+    {
+        if(edt->header.type == ARTS_EDT)
+            artsDequePushFront(artsThreadInfo.myDeque, edt, 0);
+        if(edt->header.type == ARTS_GPU_EDT)
+            artsDequePushFront(artsThreadInfo.myGpuDeque, edt, 0);
+    }   
 }
 
 void artsHandleReadyEdt(struct artsEdt * edt)
@@ -304,7 +326,18 @@ void artsHandleReadyEdt(struct artsEdt * edt)
     {
         incrementQueueEpoch(edt->epochGuid);
         globalShutdownGuidIncQueue();
-        artsDequePushFront(artsThreadInfo.myDeque, edt, 0);
+#ifdef USE_GPU
+        if(!artsThreadInfo.myDeque || !artsThreadInfo.myGpuDeque)
+            artsStoreNewEdts(edt);
+        else
+#endif
+        {
+            if(edt->header.type == ARTS_EDT)
+                artsDequePushFront(artsThreadInfo.myDeque, edt, 0);
+            if(edt->header.type == ARTS_GPU_EDT)
+                artsDequePushFront(artsThreadInfo.myGpuDeque, edt, 0);
+        }
+            
         artsUpdatePerformanceMetric(artsEdtQueue, artsThread, 1, false);
     }
 }
@@ -339,15 +372,16 @@ static inline void artsRunEdt(void *edtPacket)
     decOustandingEdts(1); //This is for debugging purposes
 }
 
-void artsGpuHostWrapUp(void *edtPacket)
+void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, artsGuid_t dataGuid)
 {
+#ifdef USE_GPU
     //This function should be used similarly to the second half of run edt
     //We will run this on the host but using the streams
-    //This is also probably where we want to update the state of GPU structure
-    //to reflect that it is free(ish)
-    struct artsEdt *edt = edtPacket;
-    uint32_t depc = edt->depc;
-    artsEdtDep_t * depv = (artsEdtDep_t *)(((uint64_t *)(edt + 1)) + edt->paramc);
+    struct artsGpuEdt * edt = edtPacket;
+    uint32_t       paramc = edt->wrapperEdt.paramc;
+    uint32_t       depc   = edt->wrapperEdt.depc;
+    uint64_t     * paramv = (uint64_t *)(edt + 1);
+    artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
 
 //    Still need GPU counters
 //    ARTSCOUNTERTIMERENDINCREMENT(edtCounter);
@@ -356,32 +390,45 @@ void artsGpuHostWrapUp(void *edtPacket)
 //    Again I don't think we need this
 //    artsUnsetThreadLocalEdtInfo();
 
+    //Signal next
+    DPRINTF("TO SIGNAL: %lu -> %lu\n", toSignal, dataGuid);
+    if(toSignal)
+    {
+        artsType_t mode = artsGuidGetType(toSignal);
+        if(mode == ARTS_EDT || mode == ARTS_GPU_EDT)
+            artsSignalEdt(toSignal, slot, dataGuid);
+        if(mode == ARTS_EVENT)
+            artsEventSatisfySlot(toSignal, dataGuid, slot);
+    }
+    
     releaseDbs(depc, depv);
     artsEdtDelete(edtPacket);
 //    decOustandingEdts(1); //This is for debugging purposes
+#endif
 }
 
 static inline void artsRunGpu(void *edtPacket)
 {
-    struct artsEdt *edt = edtPacket;
-    uint32_t depc = edt->depc;
-    artsEdtDep_t * depv = (artsEdtDep_t *)(((uint64_t *)(edt + 1)) + edt->paramc);
-
-    artsEdt_t func = edt->funcPtr;
-    uint32_t paramc = edt->paramc;
-    uint64_t *paramv = (uint64_t *)(edt + 1);
-
+#ifdef USE_GPU
+    struct artsGpuEdt * edt = edtPacket;
+    artsEdt_t func = edt->wrapperEdt.funcPtr;
+    uint32_t       paramc = edt->wrapperEdt.paramc;
+    uint32_t       depc   = edt->wrapperEdt.depc;
+    uint64_t     * paramv = (uint64_t *)(edt + 1);
+    artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
+    
     prepDbs(depc, depv);
 
-//    I don't think we will need this since gpu can do any epoch creation
+//    I don't think we will need this since gpu can't do any epoch creation
 //    artsSetThreadLocalEdtInfo(edt);
     
 //    TODO: Setup gpu counters
 //    ARTSCOUNTERTIMERSTART(edtCounter);
 
 //    This is where we need to actually launch data on the stream
-//    func(paramc, paramv, depc, depv);
+    artsScheduleToStream(func, paramc, paramv, depc, depv, edtPacket);
 //    The rest of the work needs to be done by artsGpuWrapUp by host via stream
+#endif
 }
 
 inline struct artsEdt * artsRuntimeStealFromNetwork()
@@ -504,14 +551,21 @@ bool artsGpuSchedulerLoop()
 /*TODO: This will push all gpu stuff from GPU ready queue
  without looking to see how full the GPU is... We need to 
  add logic to limit/state for how much gets pushed*/
+#ifdef USE_GPU
+    //Clear some memory
+    artsFreeGpuMemory();
+    artsHandleNewEdts();
+    
     struct artsEdt * edtFound = NULL;
     //First part run GPU stuff
     if(!(edtFound = artsDequePopFront(artsThreadInfo.myGpuDeque)))
     {
         if(!edtFound)
             edtFound = artsRuntimeStealGpuTask();
-        artsRunGpu(edtFound);
     }
+    if(edtFound)
+        artsRunGpu(edtFound);
+#endif
     return artsDefaultSchedulerLoop();
 }
 

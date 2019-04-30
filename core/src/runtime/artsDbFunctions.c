@@ -51,9 +51,39 @@
 #include "artsCounter.h"
 #include "artsIntrospection.h"
 
+#ifdef USE_GPU
+#include "artsGpuRuntime.h"
+#endif
+
 #define DPRINTF( ... )
 
 artsTypeName;
+
+inline void * artsDbMalloc(artsType_t mode, unsigned int size)
+{
+    void * ptr = NULL;
+#ifdef USE_GPU
+    if(mode == ARTS_DB_GPU)
+        ptr = artsCudaMallocHost(size);
+#endif
+    if(!ptr)
+        ptr = artsMalloc(size);
+    return ptr;
+}
+
+void artsDbFree(void * ptr)
+{
+    struct artsDb * db = (struct artsDb*) ptr;
+#ifdef USE_GPU
+    if(db->header.type == ARTS_DB_GPU)
+    {
+        artsCudaFreeHost(ptr);
+        ptr = NULL;
+    }
+#endif
+    if(ptr)
+        artsFree(ptr);
+}
 
 void artsDbCreateInternal(artsGuid_t guid, void *addr, uint64_t size, uint64_t packetSize, artsType_t mode)
 {
@@ -73,12 +103,14 @@ artsGuid_t artsDbCreateRemote(unsigned int route, uint64_t size, artsType_t mode
 {
     ARTSEDTCOUNTERTIMERSTART(dbCreateCounter);
     artsGuid_t guid = artsGuidCreateForRank(route, mode);
-    void * ptr = artsMalloc(sizeof(struct artsDb));
+//    void * ptr = artsMalloc(sizeof(struct artsDb));
+    void * ptr = artsDbMalloc(mode, sizeof(struct artsDb));
     struct artsDb * db = (struct artsDb*) ptr;
     db->header.size = size + sizeof(struct artsDb);
     db->dbList = (mode == ARTS_DB_PIN) ? (void*)0 : (void*)1;
     
-    artsRemoteMemoryMove(route, guid, ptr, sizeof(struct artsDb), ARTS_REMOTE_DB_SEND_MSG, artsFree);
+//    artsRemoteMemoryMove(route, guid, ptr, sizeof(struct artsDb), ARTS_REMOTE_DB_SEND_MSG, artsFree);
+    artsRemoteMemoryMove(route, guid, ptr, sizeof(struct artsDb), ARTS_REMOTE_DB_SEND_MSG, artsDbFree);
     ARTSEDTCOUNTERTIMERENDINCREMENT(dbCreateCounter);
 }
 
@@ -90,7 +122,8 @@ artsGuid_t artsDbCreate(void **addr, uint64_t size, artsType_t mode)
     unsigned int dbSize = size + sizeof(struct artsDb);
 
     ARTSSETMEMSHOTTYPE(artsDbMemorySize);
-    void * ptr = artsMalloc(dbSize);
+//    void * ptr = artsMalloc(dbSize);
+    void * ptr = artsDbMalloc(mode, dbSize);
     ARTSSETMEMSHOTTYPE(artsDefaultMemorySize);
     if(ptr)
     {
@@ -115,7 +148,8 @@ void * artsDbCreateWithGuid(artsGuid_t guid, uint64_t size)
         unsigned int dbSize = size + sizeof(struct artsDb);
         
         ARTSSETMEMSHOTTYPE(artsDbMemorySize);
-        ptr = artsMalloc(dbSize);
+//        ptr = artsMalloc(dbSize);
+        ptr = artsDbMalloc(mode, dbSize);
         ARTSSETMEMSHOTTYPE(artsDefaultMemorySize);
         if(ptr)
         {
@@ -139,7 +173,8 @@ void * artsDbCreateWithGuidAndData(artsGuid_t guid, void * data, uint64_t size)
         unsigned int dbSize = size + sizeof(struct artsDb);
         
         ARTSSETMEMSHOTTYPE(artsDbMemorySize);
-        ptr = artsMalloc(dbSize);
+//        ptr = artsMalloc(dbSize);
+        ptr = artsDbMalloc(mode, dbSize);
         ARTSSETMEMSHOTTYPE(artsDefaultMemorySize);
         
         if(ptr)
@@ -203,7 +238,8 @@ void artsDbMove(artsGuid_t dbGuid, unsigned int rank)
         {
             struct artsDb * dbRes = artsRouteTableLookupItem(dbGuid);
             if(dbRes)
-                artsRemoteMemoryMove(rank, dbGuid, dbRes, dbRes->header.size, ARTS_REMOTE_DB_MOVE_MSG, artsFree);
+                artsRemoteMemoryMove(rank, dbGuid, dbRes, dbRes->header.size, ARTS_REMOTE_DB_MOVE_MSG, artsDbFree);
+//                artsRemoteMemoryMove(rank, dbGuid, dbRes, dbRes->header.size, ARTS_REMOTE_DB_MOVE_MSG, artsFree);
             else
                 artsOutOfOrderDbMove(dbGuid, rank);
         }
@@ -212,11 +248,13 @@ void artsDbMove(artsGuid_t dbGuid, unsigned int rank)
 
 void artsDbDestroy(artsGuid_t guid)
 {
+    artsType_t mode = artsGuidGetType(guid);
     struct artsDb * dbRes = artsRouteTableLookupItem(guid);
     if(dbRes!=NULL)
     {
         artsRemoteDbDestroy(guid, artsGlobalRankId, 0);
-        artsFree(dbRes);
+        artsDbFree(dbRes);
+//        artsFree(dbRes);
         artsRouteTableRemoveItem(guid);
     }
     else
@@ -230,7 +268,8 @@ void artsDbDestroySafe(artsGuid_t guid, bool remote)
     {
         if(remote)
             artsRemoteDbDestroy(guid, artsGlobalRankId, 0);
-        artsFree(dbRes);
+        artsDbFree(dbRes);
+//        artsFree(dbRes);
         artsRouteTableRemoveItem(guid);
     }
     else if(remote)
@@ -244,7 +283,7 @@ void artsDbDestroySafe(artsGuid_t guid, bool remote)
 //Returns false on out of order and true otherwise
 void acquireDbs(struct artsEdt * edt)
 {
-    artsEdtDep_t * depv = (artsEdtDep_t *)(((uint64_t *)(edt + 1)) + edt->paramc);
+    artsEdtDep_t * depv = artsGetDepv(edt);
     edt->depcNeeded = edt->depc + 1;
     for(int i=0; i<edt->depc; i++)
     {
@@ -302,6 +341,7 @@ void acquireDbs(struct artsEdt * edt)
 //                    }
                     break;
                 }
+                case ARTS_DB_GPU:
                 case ARTS_DB_READ:
                 case ARTS_DB_WRITE:
                     if(owner == artsGlobalRankId) //Owner Rank
@@ -319,7 +359,7 @@ void acquireDbs(struct artsEdt * edt)
                             }
                             else //Owner rank but someone else has valid copy
                             {
-                                if(depv[i].mode == ARTS_DB_READ)
+                                if(depv[i].mode == ARTS_DB_READ || depv[i].mode == ARTS_DB_GPU )
                                     artsRemoteDbRequest(depv[i].guid, validRank, edt, i, depv[i].mode, true);
                                 else
                                     artsRemoteDbFullRequest(depv[i].guid, validRank, edt, i, depv[i].mode);

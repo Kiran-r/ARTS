@@ -139,6 +139,7 @@ extern uint64_t artsGuidMax;
 #define artsTypeName const char * const _artsTypeName[] = { \
 "ARTS_NULL", \
 "ARTS_EDT", \
+"ARTS_GPU_EDT", \
 "ARTS_EVENT", \
 "ARTS_EPOCH", \
 "ARTS_CALLBACK", \
@@ -148,6 +149,7 @@ extern uint64_t artsGuidMax;
 "ARTS_DB_PIN", \
 "ARTS_DB_ONCE", \
 "ARTS_DB_ONCE_LOCAL", \
+"ARTS_DB_GPU", \
 "ARTS_LAST_TYPE", \
 "ARTS_SINGLE_VALUE", \
 "ARTS_PTR" }

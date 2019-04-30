@@ -36,37 +36,47 @@
 ** WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the  **
 ** License for the specific language governing permissions and limitations   **
 ******************************************************************************/
-#ifndef ARTSEDTFUNCTIONS_H
-#define ARTSEDTFUNCTIONS_H
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include "arts.h"
 
-bool artsEdtCreateInternal(struct artsEdt * edt, artsType_t mode, artsGuid_t * guid, unsigned int route, unsigned int cluster, unsigned int edtSpace, artsGuid_t eventGuid, artsEdt_t funcPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, bool useEpoch, artsGuid_t epochGuid, bool hasDepv);
-void artsEdtDelete(struct artsEdt * edt);
-void internalSignalEdt(artsGuid_t edtPacket, uint32_t slot, artsGuid_t dataGuid, artsType_t mode, void * ptr, unsigned int size);
+//Some help https://devblogs.nvidia.com/how-overlap-data-transfers-cuda-cc/
+//and https://github.com/NVIDIA-developer-blog/code-samples/blob/master/series/cuda-cpp/overlap-data-transfers/async.cu
+//Once this *class* works we will put a stream(s) in create a thread local
+//stream.  Then we will push stuff!
+#include "artsGpuRuntime.h"
+#include "artsGpuStream.h"
+#include "artsEdtFunctions.h"
+#include "artsGlobals.h"
 
-typedef struct 
+void * artsCudaMallocHost(unsigned int size)
 {
-    artsGuid_t currentEdtGuid;
-    struct artsEdt * currentEdt;
-    void * epochList;
-} threadLocal_t;
-
-void artsSetThreadLocalEdtInfo(struct artsEdt * edt);
-void artsUnsetThreadLocalEdtInfo();
-void artsSaveThreadLocal(threadLocal_t * tl);
-void artsRestoreThreadLocal(threadLocal_t * tl);
-
-bool artsSetCurrentEpochGuid(artsGuid_t epochGuid);
-artsGuid_t * artsCheckEpochIsRoot(artsGuid_t toCheck);
-void artsIncrementFinishedEpochList();
-
-
-void * artsGetDepv(void * edtPtr);
-#ifdef __cplusplus
+    void * ptr;
+    cudaMallocHost(&ptr, size);
+    return ptr;
 }
-#endif
 
-#endif
+void artsCudaFreeHost(void * ptr)
+{
+    cudaFreeHost(&ptr);
+}
+
+artsGuid_t artsEdtCreateGpuDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv)
+{
+//    ARTSEDTCOUNTERTIMERSTART(edtCreateCounter);
+    unsigned int depSpace = (hasDepv) ? depc * sizeof(artsEdtDep_t) : 0;
+    unsigned int edtSpace = sizeof(struct artsGpuEdt) + paramc * sizeof(uint64_t) + depSpace;
+    
+    struct artsGpuEdt * edt = (struct artsGpuEdt *) artsMalloc(edtSpace);
+    edt->grid = grid;
+    edt->block = block;
+    edt->endGuid = endGuid;
+    edt->slot = slot;
+    edt->dataGuid = dataGuid;
+    artsGuid_t guid = NULL_GUID;
+    artsEdtCreateInternal((artsEdt*) edt, ARTS_GPU_EDT, &guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
+//    ARTSEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
+    return guid;
+}
+
+artsGuid_t artsEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid)
+{
+    return artsEdtCreateGpuDep(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, true);
+}

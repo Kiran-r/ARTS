@@ -36,37 +36,35 @@
 ** WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the  **
 ** License for the specific language governing permissions and limitations   **
 ******************************************************************************/
-#ifndef ARTSEDTFUNCTIONS_H
-#define ARTSEDTFUNCTIONS_H
+#ifndef ARTSGPURUNTIME_H
+#define ARTSGPURUNTIME_H
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "arts.h"
 
-bool artsEdtCreateInternal(struct artsEdt * edt, artsType_t mode, artsGuid_t * guid, unsigned int route, unsigned int cluster, unsigned int edtSpace, artsGuid_t eventGuid, artsEdt_t funcPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, bool useEpoch, artsGuid_t epochGuid, bool hasDepv);
-void artsEdtDelete(struct artsEdt * edt);
-void internalSignalEdt(artsGuid_t edtPacket, uint32_t slot, artsGuid_t dataGuid, artsType_t mode, void * ptr, unsigned int size);
-
-typedef struct 
+#include <cuda_runtime.h>    
+#include "artsRT.h"
+    
+struct artsGpuEdt
 {
-    artsGuid_t currentEdtGuid;
-    struct artsEdt * currentEdt;
-    void * epochList;
-} threadLocal_t;
+    struct artsEdt wrapperEdt;
+    dim3 grid;
+    dim3 block;
+    artsGuid_t endGuid;
+    artsGuid_t dataGuid;
+    uint32_t slot;
+};
 
-void artsSetThreadLocalEdtInfo(struct artsEdt * edt);
-void artsUnsetThreadLocalEdtInfo();
-void artsSaveThreadLocal(threadLocal_t * tl);
-void artsRestoreThreadLocal(threadLocal_t * tl);
+void * artsCudaMallocHost(unsigned int size);
+void artsCudaFreeHost(void * ptr);
+artsGuid_t artsEdtCreateGpuDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv);
+artsGuid_t artsEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid);
 
-bool artsSetCurrentEpochGuid(artsGuid_t epochGuid);
-artsGuid_t * artsCheckEpochIsRoot(artsGuid_t toCheck);
-void artsIncrementFinishedEpochList();
-
-
-void * artsGetDepv(void * edtPtr);
+void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, artsGuid_t dataGuid);
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif /* ARTSGPURUNTIME_H */
+

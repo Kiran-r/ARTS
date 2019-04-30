@@ -372,7 +372,8 @@ void artsRemoteEventSatisfySlot(artsGuid_t eventGuid, artsGuid_t dataGuid, uint3
 
 void artsDbRequestCallback(struct artsEdt *edt, unsigned int slot, struct artsDb * dbRes)
 { 
-    artsEdtDep_t * depv = (artsEdtDep_t *)(((uint64_t *)(edt + 1)) + edt->paramc);
+    artsEdtDep_t * depv = artsGetDepv(edt);
+    
     depv[slot].ptr = dbRes + 1;
     unsigned int temp = artsAtomicSub(&edt->depcNeeded, 1U);
     if(temp == 0)

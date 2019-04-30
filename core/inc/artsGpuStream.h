@@ -49,24 +49,17 @@ extern "C" {
 #include "artsArrayList.h"
 
 #define CHECKCORRECT(x) { cudaError_t err; if( (err = (x)) != cudaSuccess ) PRINTF("FAILED %s: %s\n", #x, cudaGetErrorString(err)); }
-
-struct artsGpuEdt
-{
-    struct artsEdt wrapperEdt;
-    dim3 grid;
-    dim3 block;
-    artsGpu_t  gpuFunctPtr;
-    artsGuid_t eventGuid;
-};
     
 typedef struct
 {
     volatile unsigned int * deleteLock;
+    volatile unsigned int * newEdtLock;
     artsArrayList * deleteQueue;
     artsArrayList * deleteHostQueue;
+    artsArrayList * newEdts;
     void * devDB;
     void * devClosure;
-    artsEdt * edt;
+    struct artsEdt * edt;
 } artsGpuCleanUp_t;
     
 typedef struct 
@@ -75,14 +68,16 @@ typedef struct
     cudaStream_t stream;
 } artsGpuStream_t;
 
-extern __thread artsGpuStream_t artsStream;
+void artsInitGpuStream();
+void artsDestroyGpuStream();
+void artsScheduleToStreamInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr);
+void artsScheduleToStream(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, void * edtPtr);
 
-void artsInitGpuStream(artsGpuStream_t * aStream);
-void artsDestroyGpuStream(artsGpuStream_t * aStream);
-void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void *data);
-void artsScheduleToStream(artsGpuStream_t * aStream, artsGpu_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, artsEdt * edtPtr);
-void artsWaitForStream(artsGpuStream_t * aStream);
-void artsStreamBusy(artsGpuStream_t * aStream);
+void artsWaitForStream();
+void artsStreamBusy();
+
+void artsStoreNewEdts(void * edt);
+void artsHandleNewEdts();
 void artsFreeGpuMemory();
 
 #ifdef __cplusplus

@@ -40,7 +40,7 @@
 include (CheckIncludeFiles)
 include (CheckSymbolExists)
 
-set(LIBS arts ${M_LIB} ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC_LIB})
+set(LIBS arts ${M_LIB} ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC_LIB} ${CUDA_LIBRARIES} ${CUBLAS_LIBRARIES})
 
 CHECK_INCLUDE_FILES (alloca.h HAVE_ALLOCA_H)
 check_symbol_exists (alloca alloca.h HAVE_ALLOCA)
@@ -79,4 +79,10 @@ target_link_libraries(scanStatistics arts-graph ${LIBS})
 #add_executable(triangleCount2 triangleCount2.c)
 #target_link_libraries(triangleCount2 arts-graph ${LIBS})
 
-add_subdirectory(mm)
+#add_subdirectory(mm)
+
+if(CUDA_FOUND)
+    set_source_files_properties(fibGpu.c PROPERTIES LANGUAGE CUDA)
+    add_executable(fibGpu fibGpu.c)
+    target_link_libraries(fibGpu ${LIBS})
+endif()

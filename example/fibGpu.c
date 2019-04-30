@@ -39,71 +39,94 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "arts.h"
-#include "artsGpuStream.h"
 #include "artsGpuRuntime.h"
 
-#define SOMEARGS 10
+uint64_t start = 0;
 
-artsGuid_t localDbCreate(void **addr, uint64_t size, artsType_t mode, artsGuid_t guid)
+//This is the GPU kernel
+__global__ void fibJoin(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    unsigned int dbSize = size + sizeof(struct artsDb);
-//    void * ptr = artsMalloc(dbSize);
-    void * ptr = NULL;
-    cudaMallocHost(&ptr, dbSize);
-    if(ptr)
-    {
-        struct artsHeader *header = (struct artsHeader*)ptr;
-        header->type = mode;
-        header->size = dbSize;
-        struct artsDb * dbRes = (struct artsDb *)header;
-        dbRes->guid = guid;
-        dbRes->dbList = NULL;
-        *addr = (void*)((struct artsDb *) ptr + 1);
-    }
-    return guid;
+    unsigned int * x = (unsigned int *) depv[0].ptr;
+    unsigned int * y = (unsigned int *) depv[1].ptr;
+    unsigned int * res = (unsigned int *) depv[2].ptr;
+    (*res) = (*x) + (*y);
 }
 
-__global__ void kernel(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
+void fibFork(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    uint64_t * ptr = (uint64_t *)depv[threadIdx.x].ptr;
-    *ptr = paramv[threadIdx.x];
+    unsigned int next = 0; //(artsGetCurrentNode() + 1) % artsGetTotalNodes();
+//    PRINTF("NODE: %u WORKER: %u NEXT: %u\n", artsGetCurrentNode(), artsGetCurrentWorker(), next);
+    
+    artsGuid_t     doneGuid = paramv[0];
+    unsigned int   slot     = (unsigned int) paramv[1];
+    
+    artsGuid_t     resGuid  = depv[0].guid;
+    unsigned int * resPtr   = (unsigned int*) depv[0].ptr;
+    
+    if((*resPtr) < 2)
+        artsSignalEdt(doneGuid, slot, resGuid);
+    else
+    {
+        //Create two DB of type ARTS_DB_GPU
+        unsigned int * x  = NULL;
+        artsGuid_t     xGuid = artsDbCreate((void**) &x, sizeof(unsigned int), ARTS_DB_GPU);
+        (*x) = (*resPtr) - 1;
+        
+        unsigned int * y  = NULL;
+        artsGuid_t     yGuid = artsDbCreate((void**) &y, sizeof(unsigned int), ARTS_DB_GPU);
+        (*y) = (*resPtr) - 2;
+        
+        //Create a continuation edt to run on the GPU
+        dim3 grid(1);
+        dim3 block(1);
+        artsGuid_t joinGuid = artsEdtCreateGpu(fibJoin, next, 0, NULL, 3, grid, block, doneGuid, slot, resGuid);
+        artsSignalEdt(joinGuid, 2, resGuid);
+        
+        //Create the forks which will run on the CPU
+        uint64_t args[2] = {joinGuid, 0};
+        artsGuid_t forkGuidX = artsEdtCreate(fibFork, next, 2, args, 1);
+        artsSignalEdt(forkGuidX, 0, xGuid);
+        
+        args[1] = 1;
+        artsGuid_t forkGuidY = artsEdtCreate(fibFork, next, 2, args, 1);
+        artsSignalEdt(forkGuidY, 0, yGuid);
+    }
 }
 
-int main(void)
+void fibDone(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    dim3 grid(1);
-    dim3 block(SOMEARGS);
+    uint64_t time = artsGetTimeStamp() - start;
+    unsigned int * resPtr = (unsigned int*) depv[0].ptr;
+    PRINTF("Fib %u: %u time: %lu nodes: %u workers: %u\n", paramv[0], *resPtr, time, artsGetTotalNodes(), artsGetTotalWorkers());
+    artsShutdown();
+}
+
+extern "C"
+void initPerNode(unsigned int nodeId, int argc, char** argv)
+{
     
-    uint64_t paramv[SOMEARGS];
-    artsEdtDep_t depv[SOMEARGS];
-    
-    PRINTF("INIT STREAM\n");
-    artsInitGpuStream();
-    
-    for(unsigned int i=0; i<SOMEARGS; i++)
+}
+
+extern "C"
+void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
+{   
+    if(!nodeId && !workerId)
     {
-        paramv[i] = i;
-        depv[i].guid = localDbCreate(&depv[i].ptr, sizeof(artsGuid_t), ARTS_DB_READ, 999);
-        depv[i].mode = ARTS_DB_READ;
+        unsigned int * resPtr  = NULL;
+        artsGuid_t     resGuid = artsDbCreate((void**) &resPtr, sizeof(unsigned int), ARTS_DB_GPU);
+        *resPtr = atoi(argv[1]);
+        
+        artsGuid_t doneGuid = artsEdtCreate(fibDone, 0, 1, (uint64_t*)resPtr, 1);
+        
+        uint64_t args[] = {doneGuid, 0};
+        artsGuid_t fibGuid = artsEdtCreate(fibFork, 0, 2, args, 1);
+        artsSignalEdt(fibGuid, 0, resGuid);
+        start = artsGetTimeStamp();
     }
-    
-    PRINTF("LAUNCHING 1 %u\n", SOMEARGS);
-    artsScheduleToStreamInternal(kernel, SOMEARGS, paramv, SOMEARGS, depv, grid, block, NULL);
-    
-    PRINTF("WAITING\n");
-    artsWaitForStream();
-    
-    for(unsigned int i=0; i<SOMEARGS; i++)
-    {
-        artsGuid_t * ptr = (artsGuid_t *) depv[i].ptr;
-        PRINTF("RES: %lu\n", *ptr);
-    }
-    
-    PRINTF("DELETING\n");
-    artsFreeGpuMemory();
-    
-    PRINTF("DESTROYING\n");
-    artsDestroyGpuStream();
+}
+
+int main(int argc, char** argv)
+{
+    artsRT(argc, argv);
     return 0;
 }
-

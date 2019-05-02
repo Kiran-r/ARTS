@@ -463,7 +463,8 @@ inline struct artsEdt * artsRuntimeStealFromWorker()
     return edt;
 }
 
-inline struct artsEdt * artsRuntimeStealGpuTask()
+//inline struct artsEdt * artsRuntimeStealGpuTask()
+struct artsEdt * artsRuntimeStealGpuTask()
 {
     struct artsEdt *edt = NULL;
     if(artsNodeInfo.totalThreadCount > 1)

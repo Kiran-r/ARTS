@@ -59,7 +59,8 @@
 
 artsTypeName;
 
-inline void * artsDbMalloc(artsType_t mode, unsigned int size)
+// inline void * artsDbMalloc(artsType_t mode, unsigned int size)
+void * artsDbMalloc(artsType_t mode, unsigned int size)
 {
     void * ptr = NULL;
 #ifdef USE_GPU

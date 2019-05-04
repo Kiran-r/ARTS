@@ -350,26 +350,26 @@ void acquireDbs(struct artsEdt * edt)
                         struct artsDb * dbTemp = artsRouteTableLookupDb(depv[i].guid, &validRank);
                         if(dbTemp) //We have found an entry
                         {
-                        if(artsAddDbDuplicate(dbTemp, artsGlobalRankId, edt, i, depv[i].mode))
-                        {
-                            if(validRank == artsGlobalRankId) //Owner rank and we have the valid copy
+                            if(artsAddDbDuplicate(dbTemp, artsGlobalRankId, edt, i, depv[i].mode))
                             {
-                                dbFound = dbTemp;
-                                artsAtomicSub(&edt->depcNeeded, 1U);
+                                if(validRank == artsGlobalRankId) //Owner rank and we have the valid copy
+                                {
+                                    dbFound = dbTemp;
+                                    artsAtomicSub(&edt->depcNeeded, 1U);
+                                }
+                                else //Owner rank but someone else has valid copy
+                                {
+                                    if(depv[i].mode == ARTS_DB_READ || depv[i].mode == ARTS_DB_GPU )
+                                        artsRemoteDbRequest(depv[i].guid, validRank, edt, i, depv[i].mode, true);
+                                    else
+                                        artsRemoteDbFullRequest(depv[i].guid, validRank, edt, i, depv[i].mode);
+                                }
                             }
-                            else //Owner rank but someone else has valid copy
-                            {
-                                if(depv[i].mode == ARTS_DB_READ || depv[i].mode == ARTS_DB_GPU )
-                                    artsRemoteDbRequest(depv[i].guid, validRank, edt, i, depv[i].mode, true);
-                                else
-                                    artsRemoteDbFullRequest(depv[i].guid, validRank, edt, i, depv[i].mode);
-                            }
-                        }
 //                            else  //We can't read right now due to an exclusive access or cdag write in progress
 //                            {
 //                                PRINTF("############### %lu Queue in frontier\n", depv[i].guid);
 //                            }
-                    }
+                        }
                         else //The Db hasn't been created yet
                         {
                             DPRINTF("%lu out of order request\n", depv[i].guid);

@@ -272,7 +272,7 @@ void artsPushDelayedEdt(struct artsLocalDelayedEdt * head, unsigned int position
     for(unsigned int i=0; i<numElements; i++)
     {
         if(!current->next)
-            current->next = artsMalloc(sizeof(struct artsLocalDelayedEdt));
+            current->next = artsCalloc(sizeof(struct artsLocalDelayedEdt));
         current=current->next;
     }
     current->edt[elementPos] = edt;
@@ -591,7 +591,7 @@ struct artsDbFrontierIterator * artsProgressAndGetFrontier(struct artsDbList * d
 
 unsigned int * makeCopy(struct artsDbFrontier * frontier)
 {
-    unsigned int * array = artsMalloc(sizeof(unsigned int) * frontier->position);
+    unsigned int * array = artsCalloc(sizeof(unsigned int) * frontier->position);
     unsigned int numElements = frontier->position / DBSPERELEMENT;
     unsigned int lastPos = frontier->position % DBSPERELEMENT;
     struct artsDbElement * current = &frontier->list;

@@ -42,7 +42,7 @@
 //#include "artsGpuRuntime.h"
 
 #define MATSIZE 10
-#define TILE 2
+#define TILE 10
 
 uint64_t start = 0;
 
@@ -50,7 +50,9 @@ unsigned int numBlocks = 1;
 artsGuid_t aMatGuid = NULL_GUID;
 artsGuid_t bMatGuid = NULL_GUID;
 artsGuid_t cMatGuid = NULL_GUID;
-    
+artsGuidRange * aTileGuids = NULL;
+artsGuidRange * bTileGuids = NULL;
+
 void printMatrix(unsigned int rowSize, float * mat)
 {
     unsigned int columnSize = rowSize;
@@ -109,26 +111,20 @@ void copyBlock(unsigned int x, unsigned int y, unsigned int tileRowSize, float *
 
 void initBlockMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    artsGuid_t toSignal = paramv[0];
-    
-    unsigned int i = paramv[1];
-    unsigned int j = paramv[2];
-    unsigned int k = paramv[3];
-    
-    float * aTile;
-    float * bTile;
-    
-    artsGuid_t aTileGuid = artsDbCreate((void**) &aTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU);
-    artsGuid_t bTileGuid = artsDbCreate((void**) &bTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU);
+    unsigned int i = paramv[0];
+    unsigned int j = paramv[1];
     
     float * aMat = (float*) depv[0].ptr;
     float * bMat = (float*) depv[1].ptr;
     
-    copyBlock(i, k, TILE, aTile, MATSIZE, aMat, true);
-    copyBlock(k, j, TILE, bTile, MATSIZE, bMat, true);
+    artsGuid_t aGuid = artsGetGuid(aTileGuids, i * numBlocks + j);
+    artsGuid_t bGuid = artsGetGuid(bTileGuids, i * numBlocks + j);
     
-    artsSignalEdt(toSignal, 0, aTileGuid);
-    artsSignalEdt(toSignal, 1, bTileGuid);
+    float * aTile = artsDbCreateWithGuid(aGuid, sizeof(float) * TILE * TILE);
+    float * bTile = artsDbCreateWithGuid(bGuid, sizeof(float) * TILE * TILE);
+    
+    copyBlock(i, j, TILE, aTile, MATSIZE, aMat, true);
+    copyBlock(i, j, TILE, bTile, MATSIZE, bMat, true);
 }
 
 void multiplyMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
@@ -178,7 +174,6 @@ void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[
     
     float * cTile;
     artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU);
-
     for(unsigned int i=0; i<depc; i++)
     {
         float * toAdd = depv[i].ptr;
@@ -190,7 +185,7 @@ void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[
             }
         }
     }    
-    artsSignalEdt(doneGuid, i * numBlocks + j, cTileGuid);
+    artsSignalEdt(doneGuid, 1+ (i * numBlocks + j), cTileGuid);
 }
 
 void finishBlockMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
@@ -201,7 +196,7 @@ void finishBlockMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep
     {
         for(unsigned int j=0; j<numBlocks; j++)
         {
-            float * cTile = (float*) depv[i * numBlocks + j].ptr;
+            float * cTile = (float*) depv[1 + i * numBlocks + j].ptr;
             copyBlock(i, j, TILE, cTile, MATSIZE, cMat, false);
         }
     }
@@ -219,6 +214,9 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     aMatGuid = artsReserveGuidRoute(ARTS_DB_READ, 0);
     bMatGuid = artsReserveGuidRoute(ARTS_DB_READ, 0);
     cMatGuid = artsReserveGuidRoute(ARTS_DB_READ, 0);
+    
+    aTileGuids = artsNewGuidRangeNode(ARTS_DB_READ, numBlocks*numBlocks, 0);
+    bTileGuids = artsNewGuidRangeNode(ARTS_DB_READ, numBlocks*numBlocks, 0);
     
     if(!nodeId)
     {
@@ -252,17 +250,19 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         {
             for(unsigned int j=0; j<numBlocks; j++)
             {
+                uint64_t initArgs[] = {i, j}; 
+                artsGuid_t initGuid = artsEdtCreate(initBlockMM, 0, 2, initArgs, 2);
+                artsSignalEdt(initGuid, 0, aMatGuid);
+                artsSignalEdt(initGuid, 1, bMatGuid);
+                
                 uint64_t sumArgs[] = {doneGuid, i, j};
                 artsGuid_t sumGuid = artsEdtCreate(sumMM, 0, 3, sumArgs, numBlocks);
                 for(unsigned int k=0; k<numBlocks; k++)
                 {
                     uint64_t args[] = {sumGuid, i, j, k};
                     artsGuid_t mulGuid = artsEdtCreate(multiplyMM, 0, 4, args, 2);
-
-                    args[0] = mulGuid; 
-                    artsGuid_t initGuid = artsEdtCreate(initBlockMM, 0, 4, args, 2);
-                    artsSignalEdt(initGuid, 0, aMatGuid);
-                    artsSignalEdt(initGuid, 1, bMatGuid);
+                    artsSignalEdt(mulGuid, 0, artsGetGuid(aTileGuids, i * numBlocks + k));
+                    artsSignalEdt(mulGuid, 1, artsGetGuid(bTileGuids, k * numBlocks + j));
                 }
             }
         }

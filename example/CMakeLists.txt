@@ -86,3 +86,6 @@ if(CUDA_FOUND)
     add_executable(fibGpu fibGpu.c)
     target_link_libraries(fibGpu ${LIBS})
 endif()
+
+add_executable(mmTile mmTile.c)
+target_link_libraries(mmTile ${LIBS})

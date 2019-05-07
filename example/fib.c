@@ -79,25 +79,21 @@ void fibDone(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t dep
     artsShutdown();
 }
 
-artsGuid_t someGuid = NULL_GUID;
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    someGuid = artsReserveGuidRoute(ARTS_EDT, 0);
-    artsSignalEdt(someGuid, 0, NULL_GUID);
+    
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
 {   
-//    if(!nodeId && !workerId)
-//    {
+    if(!nodeId && !workerId)
+    {
         unsigned int num = atoi(argv[1]);
-//        artsGuid_t doneGuid = artsEdtCreate(fibDone, 0, 1, (uint64_t*)&num, 1);
-        artsEdtCreateWithGuid(fibDone, someGuid, 1, (uint64_t*)&num, 1);
-//        uint64_t args[3] = {doneGuid, 0, num};
+        artsGuid_t doneGuid = artsEdtCreate(fibDone, 0, 1, (uint64_t*)&num, 1);
+        uint64_t args[3] = {doneGuid, 0, num};
         start = artsGetTimeStamp();
-//        artsGuid_t guid = artsEdtCreate(fibFork, 0, 3, args, 0);
-//    }
-    
+        artsGuid_t guid = artsEdtCreate(fibFork, 0, 3, args, 0);
+    }
 }
 
 int main(int argc, char** argv)

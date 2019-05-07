@@ -39,10 +39,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "arts.h"
-//#include "artsGpuRuntime.h"
+#include "artsGpuRuntime.h"
 
-#define MATSIZE 10
-#define TILE 10
+#define GPUMM 1
+#define MATSIZE 1024 
+#define TILE 16
 
 uint64_t start = 0;
 
@@ -50,8 +51,7 @@ unsigned int numBlocks = 1;
 artsGuid_t aMatGuid = NULL_GUID;
 artsGuid_t bMatGuid = NULL_GUID;
 artsGuid_t cMatGuid = NULL_GUID;
-artsGuidRange * aTileGuids = NULL;
-artsGuidRange * bTileGuids = NULL;
+artsGuid_t doneGuid = NULL_GUID;
 
 void printMatrix(unsigned int rowSize, float * mat)
 {
@@ -109,22 +109,45 @@ void copyBlock(unsigned int x, unsigned int y, unsigned int tileRowSize, float *
 
 }
 
-void initBlockMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
+__global__ void mmKernel(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    unsigned int i = paramv[0];
-    unsigned int j = paramv[1];
+    const int blk = (int) paramv[0];
+    float *A = (float *) depv[0].ptr; 
+    float *B = (float *) depv[1].ptr;
+    float *C = (float *) depv[2].ptr;
     
-    float * aMat = (float*) depv[0].ptr;
-    float * bMat = (float*) depv[1].ptr;
+    int col = blockDim.x * blockIdx.x + threadIdx.x;
+    int row = blockDim.y * blockIdx.y + threadIdx.y;
     
-    artsGuid_t aGuid = artsGetGuid(aTileGuids, i * numBlocks + j);
-    artsGuid_t bGuid = artsGetGuid(bTileGuids, i * numBlocks + j);
+    float sum = 0;
+    for(unsigned int k=0; k<blk; k++)
+        sum+=A[row * blk + k] * B[k * blk + col];
+    C[row * blk + col] = sum;
+}
+
+void mmKernelCPU(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
+{
+    artsGuid_t toSignal = (artsGuid_t) paramv[1];
+    unsigned int k = (unsigned int) paramv[2];
+    artsGuid_t cTileGuid = (artsGuid_t) paramv[3];
+    const int blk = (int) paramv[0];
+    float *A = (float *) depv[0].ptr; 
+    float *B = (float *) depv[1].ptr;
+    float *C = (float *) depv[2].ptr;
     
-    float * aTile = artsDbCreateWithGuid(aGuid, sizeof(float) * TILE * TILE);
-    float * bTile = artsDbCreateWithGuid(bGuid, sizeof(float) * TILE * TILE);
-    
-    copyBlock(i, j, TILE, aTile, MATSIZE, aMat, true);
-    copyBlock(i, j, TILE, bTile, MATSIZE, bMat, true);
+    for(unsigned int i=0; i<blk; i++)
+    {
+        //rows of B
+        for(unsigned int j=0; j<blk; j++)
+        {
+            //rows of A and columns of B
+            for(unsigned int k=0; k<blk; k++)
+            {
+                C[i * blk + j] += A[i * blk + k] * B[k * blk + j];
+            }
+        }
+    }
+    artsSignalEdt(toSignal, k, cTileGuid);
 }
 
 void multiplyMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
@@ -138,27 +161,37 @@ void multiplyMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
     unsigned int j = paramv[2];
     unsigned int k = paramv[3];
     
-    float * aTile = (float*) depv[0].ptr;
-    float * bTile = (float*) depv[1].ptr;
+    float * aMat = (float*) depv[0].ptr;
+    float * bMat = (float*) depv[1].ptr;
+    
+    float * aTile = NULL;
+    float * bTile = NULL;
     float * cTile = NULL;
     
+    artsGuid_t aTileGuid = artsDbCreate((void**) &aTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU);
+    artsGuid_t bTileGuid = artsDbCreate((void**) &bTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU);
     artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU);
+    
+    copyBlock(i, k, TILE, aTile, MATSIZE, aMat, true);
+    copyBlock(k, j, TILE, bTile, MATSIZE, bMat, true);
     initMatrix(rowSize, cTile, false, true);
     
-    //columns of A
-    for(unsigned int i=0; i<columnSize; i++)
-    {
-        //rows of B
-        for(unsigned int j=0; j<rowSize; j++)
-        {
-            //rows of A and columns of B
-            for(unsigned int k=0; k<rowSize; k++)
-            {
-                cTile[i * rowSize + j] += aTile[i * rowSize + k] * bTile[k * rowSize + j];
-            }
-        }
-    }
-    artsSignalEdt(toSignal, k, cTileGuid);
+#ifdef GPUMM
+    dim3 threads(TILE, TILE);
+    dim3 grid(1, 1);
+    
+    uint64_t args[] = {TILE};
+    artsGuid_t    mulGpuGuid = artsEdtCreateGpu(mmKernel, artsGetCurrentNode(), 1, args, 3, threads, grid, toSignal, k, cTileGuid);
+    artsSignalEdt(mulGpuGuid, 0, aTileGuid);
+    artsSignalEdt(mulGpuGuid, 1, bTileGuid);
+    artsSignalEdt(mulGpuGuid, 2, cTileGuid);
+#else
+    uint64_t args[] = {TILE, toSignal, k, cTileGuid};
+    artsGuid_t    mulGpuGuid = artsEdtCreate(mmKernelCPU, artsGetCurrentNode(), 4, args, 3);
+    artsSignalEdt(mulGpuGuid, 0, aTileGuid);
+    artsSignalEdt(mulGpuGuid, 1, bTileGuid);
+    artsSignalEdt(mulGpuGuid, 2, cTileGuid);
+#endif
 }
 
 void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
@@ -170,13 +203,14 @@ void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[
     
     unsigned int i = paramv[1];
     unsigned int j = paramv[2];
-    unsigned int k = paramv[3];
     
     float * cTile;
     artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU);
+    initMatrix(rowSize, cTile, false, true);
+    
     for(unsigned int i=0; i<depc; i++)
     {
-        float * toAdd = depv[i].ptr;
+        float * toAdd = (float*) depv[i].ptr;
         for(unsigned int j=0; j<columnSize; j++)
         {
             for(unsigned int k=0; k<rowSize; k++)
@@ -184,7 +218,8 @@ void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[
                 cTile[j * rowSize + k] += toAdd[j * rowSize + k];
             }
         }
-    }    
+    }
+//    printMatrix(TILE, cTile);
     artsSignalEdt(doneGuid, 1+ (i * numBlocks + j), cTileGuid);
 }
 
@@ -201,22 +236,26 @@ void finishBlockMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep
         }
     }
     uint64_t time = artsGetTimeStamp() - start;
-    printMatrix(MATSIZE, cMat);
+    
+    for(unsigned int i=0; i<MATSIZE*MATSIZE; i++)
+    {
+        if(cMat[i] != i)
+            PRINTF("Failed\n");
+    }
+//    printMatrix(MATSIZE, cMat);
+    
     PRINTF("DONE %lu\n", time);
     artsShutdown();
 }
 
-//extern "C"
+extern "C"
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
     numBlocks = MATSIZE / TILE;
-    
+    doneGuid = artsReserveGuidRoute(ARTS_EDT,     0);
     aMatGuid = artsReserveGuidRoute(ARTS_DB_READ, 0);
     bMatGuid = artsReserveGuidRoute(ARTS_DB_READ, 0);
     cMatGuid = artsReserveGuidRoute(ARTS_DB_READ, 0);
-    
-    aTileGuids = artsNewGuidRangeNode(ARTS_DB_READ, numBlocks*numBlocks, 0);
-    bTileGuids = artsNewGuidRangeNode(ARTS_DB_READ, numBlocks*numBlocks, 0);
     
     if(!nodeId)
     {
@@ -238,34 +277,35 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     }
 }
 
-//extern "C"
+extern "C"
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
 {   
-    if(!nodeId && !workerId)
+    unsigned int totalThreads = artsGetTotalNodes() * artsGetTotalWorkers();
+    unsigned int globalThreadId = nodeId * artsGetTotalWorkers() + workerId;
+    
+    for(unsigned int i=0; i<numBlocks; i++)
     {
-        artsGuid_t doneGuid = artsEdtCreate(finishBlockMM, 0, 0, NULL, 1 + numBlocks * numBlocks);
-        artsSignalEdt(doneGuid, 0, cMatGuid);
-        
-        for(unsigned int i=0; i<numBlocks; i++)
+        for(unsigned int j=0; j<numBlocks; j++)
         {
-            for(unsigned int j=0; j<numBlocks; j++)
+            if((i * numBlocks + j) % totalThreads == globalThreadId)
             {
-                uint64_t initArgs[] = {i, j}; 
-                artsGuid_t initGuid = artsEdtCreate(initBlockMM, 0, 2, initArgs, 2);
-                artsSignalEdt(initGuid, 0, aMatGuid);
-                artsSignalEdt(initGuid, 1, bMatGuid);
-                
                 uint64_t sumArgs[] = {doneGuid, i, j};
-                artsGuid_t sumGuid = artsEdtCreate(sumMM, 0, 3, sumArgs, numBlocks);
+                artsGuid_t sumGuid = artsEdtCreate(sumMM, nodeId, 3, sumArgs, numBlocks);
                 for(unsigned int k=0; k<numBlocks; k++)
                 {
                     uint64_t args[] = {sumGuid, i, j, k};
-                    artsGuid_t mulGuid = artsEdtCreate(multiplyMM, 0, 4, args, 2);
-                    artsSignalEdt(mulGuid, 0, artsGetGuid(aTileGuids, i * numBlocks + k));
-                    artsSignalEdt(mulGuid, 1, artsGetGuid(bTileGuids, k * numBlocks + j));
+                    artsGuid_t mulGuid = artsEdtCreate(multiplyMM, nodeId, 4, args, 2);
+                    artsSignalEdt(mulGuid, 0, aMatGuid);
+                    artsSignalEdt(mulGuid, 1, bMatGuid);
                 }
             }
         }
+    }
+    
+    if(!nodeId && !workerId)
+    {
+        artsEdtCreateWithGuid(finishBlockMM, doneGuid, 0, NULL, 1 + numBlocks * numBlocks);
+        artsSignalEdt(doneGuid, 0, cMatGuid);
         start = artsGetTimeStamp();
     }
 }

@@ -52,6 +52,7 @@ extern "C" {
     
 typedef struct
 {
+    volatile unsigned int * scheduleCounter;
     volatile unsigned int * deleteLock;
     volatile unsigned int * newEdtLock;
     artsArrayList * deleteQueue;
@@ -75,6 +76,7 @@ void artsScheduleToStream(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, u
 
 void artsWaitForStream();
 void artsStreamBusy();
+unsigned int artsStreamScheduled();
 
 void artsStoreNewEdts(void * edt);
 void artsHandleNewEdts();

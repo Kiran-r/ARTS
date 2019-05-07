@@ -372,7 +372,7 @@ void acquireDbs(struct artsEdt * edt)
                         }
                         else //The Db hasn't been created yet
                         {
-                            DPRINTF("%lu out of order request\n", depv[i].guid);
+                            PRINTF("%lu out of order request\n", depv[i].guid);
                             artsOutOfOrderHandleDbRequest(depv[i].guid, edt, i);
                         }
                     }

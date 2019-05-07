@@ -90,7 +90,7 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.scheduler = schedulerLoop[config->scheduler];
     artsNodeInfo.deque = (struct artsDeque**) artsMalloc(sizeof(struct artsDeque*)*totalThreads);
     artsNodeInfo.receiverDeque = (struct artsDeque**) artsMalloc(sizeof(struct artsDeque*)*receiverThreads);
-    artsNodeInfo.gpuDeque = (struct artsDeque**) artsMalloc(sizeof(struct artsDeque*)*workerThreads);
+    artsNodeInfo.gpuDeque = (struct artsDeque**) artsMalloc(sizeof(struct artsDeque*)*totalThreads);
     artsNodeInfo.routeTable = (struct artsRouteTable**) artsCalloc(sizeof(struct artsRouteTable*)*totalThreads);
     artsNodeInfo.remoteRouteTable = artsRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
     artsNodeInfo.localSpin = (volatile bool**) artsCalloc(sizeof(bool*)*totalThreads);
@@ -168,9 +168,9 @@ void artsThreadZeroNodeStart()
 void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * config)
 {
     artsNodeInfo.deque[unit->id] = artsThreadInfo.myDeque = artsDequeNew(config->dequeSize);
+    artsNodeInfo.gpuDeque[unit->id] = artsThreadInfo.myGpuDeque = artsDequeNew(config->dequeSize);
     if(unit->worker)
-    {
-        artsNodeInfo.gpuDeque[unit->id] = artsThreadInfo.myGpuDeque = artsDequeNew(config->dequeSize);
+    { 
         artsNodeInfo.routeTable[unit->id] =  artsRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
     }
 
@@ -331,7 +331,7 @@ void artsHandleReadyEdt(struct artsEdt * edt)
             artsStoreNewEdts(edt);
         else
 #endif
-        {
+        { 
             if(edt->header.type == ARTS_EDT)
                 artsDequePushFront(artsThreadInfo.myDeque, edt, 0);
             if(edt->header.type == ARTS_GPU_EDT)
@@ -472,7 +472,7 @@ inline struct artsEdt * artsRuntimeStealGpuTask()
         do
         {
             stealLoc = jrand48(artsThreadInfo.drand_buf);
-            stealLoc = stealLoc % artsNodeInfo.workerThreadCount;
+            stealLoc = stealLoc % artsNodeInfo.totalThreadCount;
         } while(stealLoc == artsThreadInfo.threadId);
         edt = artsDequePopBack(artsNodeInfo.gpuDeque[stealLoc]);
     }
@@ -555,16 +555,18 @@ bool artsGpuSchedulerLoop()
     //Clear some memory
     artsFreeGpuMemory();
     artsHandleNewEdts();
-    
-    struct artsEdt * edtFound = NULL;
-    //First part run GPU stuff
-    if(!(edtFound = artsDequePopFront(artsThreadInfo.myGpuDeque)))
+    if(!artsStreamScheduled())
     {
-        if(!edtFound)
-            edtFound = artsRuntimeStealGpuTask();
+        struct artsEdt * edtFound = NULL;
+        //First part run GPU stuff
+        if(!(edtFound = artsDequePopFront(artsThreadInfo.myGpuDeque)))
+        {
+            if(!edtFound)
+                edtFound = artsRuntimeStealGpuTask();
+        }
+        if(edtFound)
+            artsRunGpu(edtFound);
     }
-    if(edtFound)
-        artsRunGpu(edtFound);
 #endif
     return artsDefaultSchedulerLoop();
 }

@@ -49,15 +49,20 @@
 #define DPRINTF( ... )
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
 
+__thread int artsNumDevices = 0;
 __thread artsGpuStream_t artsStream;
-__thread volatile unsigned int deleteLock = 0;
-__thread volatile unsigned int newEdtLock = 0;
-__thread artsArrayList * deleteQueue = NULL;
-__thread artsArrayList * deleteHostQueue = NULL;
-__thread artsArrayList * newEdts = NULL;
+
+__thread volatile unsigned int deleteLock = 0;   //Per Device
+__thread artsArrayList * deleteQueue = NULL;     //Per Device
+__thread artsArrayList * deleteHostQueue = NULL; //Per Device
+
+__thread volatile unsigned int newEdtLock = 0; //Can be shared across streams and devices
+__thread artsArrayList * newEdts = NULL; //Can be shared across streams and devices
 
 void artsInitGpuStream()
 {
+    CHECKCORRECT(cudaGetDeviceCount(&artsNumDevices));
+    DPRINTF("NUM DEV: %d\n", numDevices);
     CHECKCORRECT(cudaStreamCreate(&artsStream.stream));
     artsLock(&deleteLock);
     deleteQueue     = artsNewArrayList(sizeof(void*), 32);
@@ -107,6 +112,7 @@ void artsDestroyGpuStream()
 void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data)
 {
     artsGpuCleanUp_t * gc = (artsGpuCleanUp_t*) data;
+    //Shouldn't have to touch newly ready edts regardless of streams and devices
     struct artsGpuEdt * edt = (struct artsGpuEdt *) gc->edt;
     if(gc->edt)
     {
@@ -115,6 +121,7 @@ void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data)
         artsGpuHostWrapUp(gc->edt, edt->endGuid, edt->slot, edt->dataGuid);
     }
     
+    //This should change for multi devices
     artsLock(gc->deleteLock);
     artsPushToArrayList(gc->deleteQueue,     &gc->devDB);
     artsPushToArrayList(gc->deleteQueue,     &gc->devClosure);
@@ -188,6 +195,7 @@ void artsScheduleToStreamInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * p
     DPRINTF("devDB: %p devClosure: %p hostClosure: %p\n", devDB, devClosure, hostClosure);
     
     //Fill host closure
+    hostGCPtr->scheduleCounter = &artsStream.scheduled;
     hostGCPtr->deleteLock = &deleteLock;
     hostGCPtr->newEdtLock = &newEdtLock;
     hostGCPtr->deleteQueue = deleteQueue;
@@ -270,8 +278,13 @@ void artsStreamBusy()
     CHECKCORRECT(cudaStreamQuery(artsStream.stream));
 }
 
-__thread uint64_t  devSize = 0;
-__thread uint64_t hostSize = 0;
+unsigned int artsStreamScheduled()
+{
+    return artsStream.scheduled;
+}
+
+__thread uint64_t  devSize = 0; //Per device
+__thread uint64_t hostSize = 0; //Per device
 
 /* This is some really crappy problem
  * CudaFree can't run at the same time as the host callback, artsWrapUp.

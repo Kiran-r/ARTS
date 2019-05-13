@@ -4,7 +4,7 @@
 ** nor the United States Department of Energy, nor Battelle, nor any of      **
 ** their employees, nor any jurisdiction or organization that has cooperated **
 ** in the development of these materials, makes any warranty, express or     **
-** implied, or assumes any legal liability or responsibility for the accuracy,* 
+** implied, or assumes any legal liability or responsibility for the accuracy,*
 ** completeness, or usefulness or any information, apparatus, product,       **
 ** software, or process disclosed, or represents that its use would not      **
 ** infringe privately owned rights.                                          **
@@ -73,37 +73,40 @@ int main(void)
 {
     dim3 grid(1);
     dim3 block(SOMEARGS);
-    
+
     uint64_t paramv[SOMEARGS];
     artsEdtDep_t depv[SOMEARGS];
-    
+
     PRINTF("INIT STREAM\n");
     artsInitGpuStream();
-    
+
     for(unsigned int i=0; i<SOMEARGS; i++)
     {
         paramv[i] = i;
         depv[i].guid = localDbCreate(&depv[i].ptr, sizeof(artsGuid_t), ARTS_DB_READ, 999);
         depv[i].mode = ARTS_DB_READ;
     }
-    
+
     PRINTF("LAUNCHING 1 %u\n", SOMEARGS);
-    artsScheduleToStreamInternal(kernel, SOMEARGS, paramv, SOMEARGS, depv, grid, block, NULL);
-    
+    // need to modify the test script
+    int * strmIds = (int*) malloc(sizeof(int) * MAX_STREAMS);
+    for(unsigned int i = 0; i < MAX_STREAMS; i++)
+        strmIds[i] = i;
+    artsScheduleToStreamInternal(kernel, SOMEARGS, paramv, SOMEARGS, depv, grid, block, NULL, strmIds, MAX_STREAMS, 0);
+
     PRINTF("WAITING\n");
     artsWaitForStream();
-    
+
     for(unsigned int i=0; i<SOMEARGS; i++)
     {
         artsGuid_t * ptr = (artsGuid_t *) depv[i].ptr;
         PRINTF("RES: %lu\n", *ptr);
     }
-    
+
     PRINTF("DELETING\n");
     artsFreeGpuMemory();
-    
+
     PRINTF("DESTROYING\n");
     artsDestroyGpuStream();
     return 0;
 }
-

@@ -4,7 +4,7 @@
 ** nor the United States Department of Energy, nor Battelle, nor any of      **
 ** their employees, nor any jurisdiction or organization that has cooperated **
 ** in the development of these materials, makes any warranty, express or     **
-** implied, or assumes any legal liability or responsibility for the accuracy,* 
+** implied, or assumes any legal liability or responsibility for the accuracy,*
 ** completeness, or usefulness or any information, apparatus, product,       **
 ** software, or process disclosed, or represents that its use would not      **
 ** infringe privately owned rights.                                          **
@@ -141,7 +141,7 @@ void artsThreadZeroNodeStart()
 
     setGlobalGuidOn();
     createShutdownEpoch();
-    
+
     if(initPerNode)
         initPerNode(artsGlobalRankId, mainArgc, mainArgv);
     setGuidGeneratorAfterParallelStart();
@@ -152,12 +152,12 @@ void artsThreadZeroNodeStart()
     while(artsNodeInfo.readyToParallelStart){ }
     if(initPerWorker && artsThreadInfo.worker)
         initPerWorker(artsGlobalRankId, artsThreadInfo.groupId, mainArgc, mainArgv);
-    
+
     if(artsMain && !artsGlobalRankId)
         artsEdtCreate(artsMainEdt, 0, 0, NULL, 0);
-    
+
     artsIncrementFinishedEpochList();
-    
+
     artsAtomicSub(&artsNodeInfo.readyToInspect, 1U);
     while(artsNodeInfo.readyToInspect){ }
     ARTSSTARTCOUNTING(3);
@@ -171,7 +171,7 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
     artsNodeInfo.deque[unit->id] = artsThreadInfo.myDeque = artsDequeNew(config->dequeSize);
     artsNodeInfo.gpuDeque[unit->id] = artsThreadInfo.myGpuDeque = (config->gpu) ? artsDequeNew(config->dequeSize) : NULL;
     if(unit->worker)
-    { 
+    {
         artsNodeInfo.routeTable[unit->id] =  artsRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
     }
 
@@ -235,18 +235,18 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
     artsThreadInfo.shadLock = 0;
     artsGuidKeyGeneratorInit();
     INITCOUNTERLIST(unit->id, artsGlobalRankId, config->counterFolder, config->counterStartPoint);
-    
+
 #ifdef USE_GPU
     if(config->gpu)
         artsInitGpuStream();
 #endif
-    
+
     if (artsNodeInfo.tMT) // @awmm
     {
         DPRINTF("tMT: PthreadLayer: preparing aliasing for master thread %d\n", unit->id);
         artsTMTRuntimePrivateInit(unit, &artsThreadInfo);
     }
-    
+
     artsAtomicSub(&artsNodeInfo.readyToPush, 1U);
     while(artsNodeInfo.readyToPush){  };
     if(unit->id)
@@ -260,7 +260,7 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
                 initPerWorker(artsGlobalRankId, artsThreadInfo.groupId, mainArgc, mainArgv);
             artsIncrementFinishedEpochList();
         }
-        
+
         artsAtomicSub(&artsNodeInfo.readyToInspect, 1U);
         while(artsNodeInfo.readyToInspect) { };
         artsAtomicSub(&artsNodeInfo.readyToExecute, 1U);
@@ -322,7 +322,7 @@ void artsHandleRemoteStolenEdt(struct artsEdt *edt)
             artsDequePushFront(artsThreadInfo.myDeque, edt, 0);
         if(edt->header.type == ARTS_GPU_EDT)
             artsDequePushFront(artsThreadInfo.myGpuDeque, edt, 0);
-    }   
+    }
 }
 
 void artsHandleReadyEdt(struct artsEdt * edt)
@@ -340,13 +340,13 @@ void artsHandleReadyEdt(struct artsEdt * edt)
         }
         else
 #endif
-        { 
+        {
             if(edt->header.type == ARTS_EDT)
                 artsDequePushFront(artsThreadInfo.myDeque, edt, 0);
             if(edt->header.type == ARTS_GPU_EDT)
                 artsDequePushFront(artsThreadInfo.myGpuDeque, edt, 0);
         }
-            
+
         artsUpdatePerformanceMetric(artsEdtQueue, artsThread, 1, false);
     }
 }
@@ -375,7 +375,7 @@ static inline void artsRunEdt(void *edtPacket)
 
     if(edt->outputBuffer != NULL_GUID) //This is for a synchronous path
         artsSetBuffer(edt->outputBuffer, artsCalloc(sizeof(unsigned int)), sizeof(unsigned int));
-    
+
     releaseDbs(depc, depv);
     artsEdtDelete(edtPacket);
     decOustandingEdts(1); //This is for debugging purposes
@@ -395,7 +395,7 @@ void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, arts
 //    Still need GPU counters
 //    ARTSCOUNTERTIMERENDINCREMENT(edtCounter);
 //    artsUpdatePerformanceMetric(artsEdtThroughput, artsThread, 1, false);
-    
+
 //    Again I don't think we need this
 //    artsUnsetThreadLocalEdtInfo();
 
@@ -409,7 +409,7 @@ void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, arts
         if(mode == ARTS_EVENT)
             artsEventSatisfySlot(toSignal, dataGuid, slot);
     }
-    
+
     releaseDbs(depc, depv);
     artsEdtDelete(edtPacket);
 //    decOustandingEdts(1); //This is for debugging purposes
@@ -425,12 +425,12 @@ static inline void artsRunGpu(void *edtPacket)
     uint32_t       depc   = edt->wrapperEdt.depc;
     uint64_t     * paramv = (uint64_t *)(edt + 1);
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
-    
+
     prepDbs(depc, depv);
 
 //    I don't think we will need this since gpu can't do any epoch creation
 //    artsSetThreadLocalEdtInfo(edt);
-    
+
 //    TODO: Setup gpu counters
 //    ARTSCOUNTERTIMERSTART(edtCounter);
 
@@ -536,7 +536,7 @@ bool artsDefaultSchedulerLoop()
         if(!edtFound)
             if(!(edtFound = artsRuntimeStealFromWorker()))
                 edtFound = artsRuntimeStealFromNetwork();
-        
+
         if(edtFound)
             artsUpdatePerformanceMetric(artsEdtSteal, artsThread, 1, false);
     }
@@ -559,13 +559,15 @@ bool artsDefaultSchedulerLoop()
 bool artsGpuSchedulerLoop()
 {
 /*TODO: This will push all gpu stuff from GPU ready queue
- without looking to see how full the GPU is... We need to 
+ without looking to see how full the GPU is... We need to
  add logic to limit/state for how much gets pushed*/
 #ifdef USE_GPU
     //Clear some memory
     artsFreeGpuMemory();
     artsHandleNewEdts();
-    if(!artsStreamScheduled())
+    // Default device and stream
+    // if(!artsStreamScheduled())
+    if(!artsStreamScheduled(0,0))
     {
         struct artsEdt * edtFound = NULL;
         //First part run GPU stuff

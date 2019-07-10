@@ -83,7 +83,7 @@ int artsRouteTableLookupRank(artsGuid_t key);
 bool artsRouteTableUpdateItem(artsGuid_t key, void * data, unsigned int rank, itemState state);
 struct artsDbFrontierIterator * artsRouteTableGetRankDuplicates(artsGuid_t key, unsigned int rank);
 bool artsRouteTableAddSent(artsGuid_t key, void * edt, unsigned int slot, bool aggregate);
-bool artsRouteTableAddOO(artsGuid_t key, void * data);
+bool artsRouteTableAddOO(artsGuid_t key, void * data, bool inc);
 void artsRouteTableFireOO(artsGuid_t key, void (*callback)(void *, void*) );
 void artsRouteTableFireSent(artsGuid_t key, void (*callback)(void *, void*) );
 unsigned int artsRouteTablePopEw(artsGuid_t key );

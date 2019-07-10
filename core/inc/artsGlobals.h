@@ -91,6 +91,7 @@ struct artsRuntimeShared
     artsGuid_t shutdownEpoch;
     unsigned int shadLoopStride;
     bool tMT;
+    unsigned int gpu;
     unsigned int pinThreads;
     uint64_t ** keys;
     uint64_t * globalGuidThreadId;

@@ -633,7 +633,7 @@ unsigned int artsConfigGetNumberOfThreads(char * location)
     return artsConfigGetVariable( configFile, "threads");
 }
 
-struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
+struct artsConfig * artsConfigLoad()
 {
     FILE * configFile = NULL;
     struct artsConfig * config;
@@ -645,16 +645,11 @@ struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
 
     config = artsMalloc( sizeof( struct artsConfig ) );
 
-    if(location == NULL)
-    {
-        location = getenv("artsConfig");
-        if(location)
-            configFile = fopen( location, "r" );
-        else    
-            configFile = fopen( "arts.cfg", "r" );
-    }
-    else
+    char * location = getenv("artsConfig");
+    if(location)
         configFile = fopen( location, "r" );
+    else    
+        configFile = fopen( "arts.cfg", "r" );
 
     if(configFile == NULL)
     {
@@ -886,6 +881,11 @@ struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
     else
         config->coreCount = 0;
     
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"gpu")) != NULL)
+        config->gpu = strtol( foundVariable->value, &end , 10);
+    else
+        config->gpu = 0;
+    
     //WARNING: Slurm Launcher Set!  
     if (strncmp(config->launcher, "slurm", 5) == 0) 
     {
@@ -946,7 +946,7 @@ struct artsConfig * artsConfigLoad( int argc, char ** argv, char * location )
     else if (strncmp(config->launcher, "ssh", 5) == 0) 
     {
         config->launcherData =
-                artsRemoteLauncherCreate(argc, argv, config, config->killMode,
+                artsRemoteLauncherCreate(0, NULL, config, config->killMode,
                 artsRemoteLauncherSSHStartupProcesses,
                 artsRemoteLauncherSSHCleanupProcesses);
         config->masterBoot = true;

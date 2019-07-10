@@ -125,3 +125,6 @@ if(CUDA_FOUND)
     add_executable(testGpuStream testGpuStream.c)
     target_link_libraries(testGpuStream ${LIBS})
 endif()
+
+add_executable(testOOBug testOOBug.c)
+target_link_libraries(testOOBug ${LIBS})

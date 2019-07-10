@@ -248,14 +248,14 @@ itemState getItemState(struct artsRouteItem * item)
     return noKey;
 }
 
-bool incItem(struct artsRouteItem * item)
+bool incItem(struct artsRouteItem * item, unsigned int count)
 {
     while(1)
     {
         uint64_t local = item->lock;
         if(!(local & deleteItem) && checkMaxItem(local))
         {
-            if(local == artsAtomicCswapU64(&item->lock, local, local + 1))
+            if(local == artsAtomicCswapU64(&item->lock, local, local + count))
             {
                 return true;
             }
@@ -268,6 +268,9 @@ bool incItem(struct artsRouteItem * item)
 
 bool decItem(struct artsRouteItem * item)
 {
+//    uint64_t local = item->lock;
+//    if(getCount(local) == 0)
+//        artsDebugGenerateSegFault();
     uint64_t local = artsAtomicSubU64(&item->lock, 1);
     if(shouldDelete(local))
     {
@@ -549,7 +552,7 @@ bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, b
                         found->rank = rank;
                         markWrite(found);
                         if(used)
-                            incItem(found);
+                            incItem(found, 1);
                         ret = true;
                     }
                 }
@@ -616,7 +619,7 @@ bool artsRouteTableAddSent(artsGuid_t key, void * edt, unsigned int slot, bool a
     else
     {
         sendReq = artsRouteTableReserveItemRace(key, &item, true);
-        if(!sendReq && !incItem(item))
+        if(!sendReq && !incItem(item, 1))
             PRINTF("Item marked for deletion before it has arrived %u...", sendReq);
     }
     artsOutOfOrderHandleDbRequestWithOOList(&item->ooList, &item->data, edt, slot);
@@ -642,7 +645,7 @@ itemState artsRouteTableLookupItemWithState(artsGuid_t key, void *** data, itemS
     {
         if(inc)
         {
-            if(!incItem(location))
+            if(!incItem(location, 1))
             {
                 *data = NULL;
                 return noKey;
@@ -663,7 +666,7 @@ void * artsRouteTableLookupDb(artsGuid_t key, int * rank)
     if(location)
     {
         *rank = location->rank;
-        if(incItem(location))
+        if(incItem(location, 1))
             ret = location->data;
     }
     return ret;
@@ -720,11 +723,13 @@ void artsRouteTableFireOO(artsGuid_t key, void (*callback)(void *, void*))
         artsOutOfOrderListFireCallback(&item->ooList, item->data, callback);
 }
 
-bool artsRouteTableAddOO(artsGuid_t key, void * data)
+bool artsRouteTableAddOO(artsGuid_t key, void * data, bool inc)
 {
     struct artsRouteItem * item = NULL;
     if(artsRouteTableReserveItemRace(key, &item, true) || checkItemState(item, reservedKey))
     {
+        if(inc)
+            incItem(item, 1);
         bool res = artsOutOfOrderListAddItem( &item->ooList, data );
         return res;
     }
@@ -761,7 +766,7 @@ void ** artsRouteTableReserve(artsGuid_t key, bool * dec, itemState *state)
         if(!res)
         {
             //Check to make sure we can use it
-            if(incItem(item))
+            if(incItem(item, 1))
             {
                 *dec = true;
                 break;

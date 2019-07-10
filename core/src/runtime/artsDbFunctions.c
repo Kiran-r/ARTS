@@ -64,7 +64,7 @@ void * artsDbMalloc(artsType_t mode, unsigned int size)
 {
     void * ptr = NULL;
 #ifdef USE_GPU
-    if(mode == ARTS_DB_GPU)
+    if(artsNodeInfo.gpu && mode == ARTS_DB_GPU)
         ptr = artsCudaMallocHost(size);
 #endif
     if(!ptr)
@@ -76,7 +76,7 @@ void artsDbFree(void * ptr)
 {
     struct artsDb * db = (struct artsDb*) ptr;
 #ifdef USE_GPU
-    if(db->header.type == ARTS_DB_GPU)
+    if(artsNodeInfo.gpu && db->header.type == ARTS_DB_GPU)
     {
         artsCudaFreeHost(ptr);
         ptr = NULL;
@@ -156,7 +156,12 @@ void * artsDbCreateWithGuid(artsGuid_t guid, uint64_t size)
         {
             artsDbCreateInternal(guid, ptr, size, dbSize, mode);
             if(artsRouteTableAddItemRace(ptr, guid, artsGlobalRankId, false))
+            {
+                DPRINTF("RUNNING OO\n");
                 artsRouteTableFireOO(guid, artsOutOfOrderHandler);
+            }
+            else
+                DPRINTF("NOT RUNNING OO\n");
             ptr = (void*)((struct artsDb *) ptr + 1);
         }
     }
@@ -300,7 +305,7 @@ void acquireDbs(struct artsEdt * edt)
                 {
                     if(owner != artsGlobalRankId)
                     {
-                        artsOutOfOrderHandleDbRequest(depv[i].guid, edt, i);
+                        artsOutOfOrderHandleDbRequest(depv[i].guid, edt, i, false);
                         artsDbMove(depv[i].guid, artsGlobalRankId);
                         break;
                     }
@@ -312,10 +317,10 @@ void acquireDbs(struct artsEdt * edt)
                     if(dbTemp)
                     {
                         dbFound = dbTemp;
-                    artsAtomicSub(&edt->depcNeeded, 1U);
+                        artsAtomicSub(&edt->depcNeeded, 1U);
                     }
                     else
-                        artsOutOfOrderHandleDbRequest(depv[i].guid, edt, i);
+                        artsOutOfOrderHandleDbRequest(depv[i].guid, edt, i, false);
                     break;
                 }
                 case ARTS_DB_PIN:
@@ -331,7 +336,7 @@ void acquireDbs(struct artsEdt * edt)
                         }
                         else
                         {
-                            artsOutOfOrderHandleDbRequest(depv[i].guid, edt, i);
+                            artsOutOfOrderHandleDbRequest(depv[i].guid, edt, i, true);
                         }
 //                    }
 //                    else
@@ -373,8 +378,8 @@ void acquireDbs(struct artsEdt * edt)
                         }
                         else //The Db hasn't been created yet
                         {
-                            DPRINTF("%lu out of order request\n", depv[i].guid);
-                            artsOutOfOrderHandleDbRequest(depv[i].guid, edt, i);
+                            PRINTF("%lu out of order request\n", depv[i].guid);
+                            artsOutOfOrderHandleDbRequest(depv[i].guid, edt, i, true);
                         }
                     }
                     else
@@ -435,11 +440,12 @@ void releaseDbs(unsigned int depc, artsEdtDep_t * depv)
     for(int i=0; i<depc; i++)
     {
 //        PRINTF(">>>>>>>>>>>>>>>>>>>>>>> %lu\n", depv[i].guid);
+        unsigned int owner = artsGuidGetRank(depv[i].guid);
         if(   depv[i].guid != NULL_GUID &&
               depv[i].mode == ARTS_DB_WRITE )
         {
             //Signal we finished and progress frontier
-            if(artsGuidGetRank(depv[i].guid) == artsGlobalRankId)
+            if(owner == artsGlobalRankId)
             {
                 struct artsDb * db = ((struct artsDb *)depv[i].ptr - 1);
                 artsProgressFrontier(db, artsGlobalRankId);

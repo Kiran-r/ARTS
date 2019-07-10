@@ -117,6 +117,7 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.shutdownEpoch = (config->shutdownEpoch) ? 1 : NULL_GUID ;
     artsNodeInfo.shadLoopStride = config->shadLoopStride;
     artsNodeInfo.tMT = config->tMT;
+    artsNodeInfo.gpu = config->gpu;
     artsNodeInfo.pinThreads = config->pinThreads;
     artsNodeInfo.keys = artsCalloc(sizeof(uint64_t*) * totalThreads);
     artsNodeInfo.globalGuidThreadId = artsCalloc(sizeof(uint64_t) * totalThreads);
@@ -168,7 +169,7 @@ void artsThreadZeroNodeStart()
 void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * config)
 {
     artsNodeInfo.deque[unit->id] = artsThreadInfo.myDeque = artsDequeNew(config->dequeSize);
-    artsNodeInfo.gpuDeque[unit->id] = artsThreadInfo.myGpuDeque = artsDequeNew(config->dequeSize);
+    artsNodeInfo.gpuDeque[unit->id] = artsThreadInfo.myGpuDeque = (config->gpu) ? artsDequeNew(config->dequeSize) : NULL;
     if(unit->worker)
     { 
         artsNodeInfo.routeTable[unit->id] =  artsRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
@@ -236,7 +237,8 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
     INITCOUNTERLIST(unit->id, artsGlobalRankId, config->counterFolder, config->counterStartPoint);
     
 #ifdef USE_GPU
-    artsInitGpuStream();
+    if(config->gpu)
+        artsInitGpuStream();
 #endif
     
     if (artsNodeInfo.tMT) // @awmm
@@ -273,7 +275,8 @@ void artsRuntimePrivateCleanup()
 {
     artsTMTRuntimePrivateCleanup();
 #ifdef USE_GPU
-    artsDestroyGpuStream();
+    if(artsNodeInfo.gpu)
+        artsDestroyGpuStream();
 #endif
     artsAtomicSub(&artsNodeInfo.readyToClean, 1U);
     while(artsNodeInfo.readyToClean){ };
@@ -307,8 +310,11 @@ void artsHandleRemoteStolenEdt(struct artsEdt *edt)
     incrementQueueEpoch(edt->epochGuid);
     globalShutdownGuidIncQueue();
 #ifdef USE_GPU
-    if(!artsThreadInfo.myDeque || !artsThreadInfo.myGpuDeque)
-        artsStoreNewEdts(edt);
+    if(artsNodeInfo.gpu)
+    {
+        if(!artsThreadInfo.myDeque || !artsThreadInfo.myGpuDeque)
+            artsStoreNewEdts(edt);
+    }
     else
 #endif
     {
@@ -327,8 +333,11 @@ void artsHandleReadyEdt(struct artsEdt * edt)
         incrementQueueEpoch(edt->epochGuid);
         globalShutdownGuidIncQueue();
 #ifdef USE_GPU
-        if(!artsThreadInfo.myDeque || !artsThreadInfo.myGpuDeque)
-            artsStoreNewEdts(edt);
+        if(artsNodeInfo.gpu)
+        {
+            if(!artsThreadInfo.myDeque || !artsThreadInfo.myGpuDeque)
+                artsStoreNewEdts(edt);
+        }
         else
 #endif
         { 

@@ -310,11 +310,8 @@ void artsHandleRemoteStolenEdt(struct artsEdt *edt)
     incrementQueueEpoch(edt->epochGuid);
     globalShutdownGuidIncQueue();
 #ifdef USE_GPU
-    if(artsNodeInfo.gpu)
-    {
-        if(!artsThreadInfo.myDeque || !artsThreadInfo.myGpuDeque)
-            artsStoreNewEdts(edt);
-    }
+    if(artsNodeInfo.gpu && (!artsThreadInfo.myDeque || !artsThreadInfo.myGpuDeque))
+        artsStoreNewEdts(edt);
     else
 #endif
     {
@@ -333,16 +330,15 @@ void artsHandleReadyEdt(struct artsEdt * edt)
         incrementQueueEpoch(edt->epochGuid);
         globalShutdownGuidIncQueue();
 #ifdef USE_GPU
-        if(artsNodeInfo.gpu)
-        {
-            if(!artsThreadInfo.myDeque || !artsThreadInfo.myGpuDeque)
-                artsStoreNewEdts(edt);
-        }
+        if(artsNodeInfo.gpu && (!artsThreadInfo.myDeque || !artsThreadInfo.myGpuDeque))
+            artsStoreNewEdts(edt);
         else
 #endif
         {
             if(edt->header.type == ARTS_EDT)
+            {
                 artsDequePushFront(artsThreadInfo.myDeque, edt, 0);
+            }
             if(edt->header.type == ARTS_GPU_EDT)
                 artsDequePushFront(artsThreadInfo.myGpuDeque, edt, 0);
         }
@@ -561,13 +557,13 @@ bool artsGpuSchedulerLoop()
 /*TODO: This will push all gpu stuff from GPU ready queue
  without looking to see how full the GPU is... We need to
  add logic to limit/state for how much gets pushed*/
-#ifdef USE_GPU
+//#ifdef USE_GPU
     //Clear some memory
     artsFreeGpuMemory();
     artsHandleNewEdts();
     // Default device and stream
-    // if(!artsStreamScheduled())
-    if(!artsStreamScheduled(0,0))
+//  if(!artsStreamScheduled(0,0))
+    if(!artsStreamScheduled())
     {
         struct artsEdt * edtFound = NULL;
         //First part run GPU stuff
@@ -579,7 +575,7 @@ bool artsGpuSchedulerLoop()
         if(edtFound)
             artsRunGpu(edtFound);
     }
-#endif
+//#endif
     return artsDefaultSchedulerLoop();
 }
 

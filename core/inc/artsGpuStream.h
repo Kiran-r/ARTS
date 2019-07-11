@@ -4,7 +4,7 @@
 ** nor the United States Department of Energy, nor Battelle, nor any of      **
 ** their employees, nor any jurisdiction or organization that has cooperated **
 ** in the development of these materials, makes any warranty, express or     **
-** implied, or assumes any legal liability or responsibility for the accuracy,*
+** implied, or assumes any legal liability or responsibility for the accuracy,* 
 ** completeness, or usefulness or any information, apparatus, product,       **
 ** software, or process disclosed, or represents that its use would not      **
 ** infringe privately owned rights.                                          **
@@ -43,22 +43,13 @@
 extern "C" {
 #endif
 
-#include <cuda_runtime.h>
+#include <cuda_runtime.h>    
 #include "artsRT.h"
 #include "artsAtomics.h"
 #include "artsArrayList.h"
 
-#define MAX_STREAMS 16 // Default Max Streams per thread;
-
 #define CHECKCORRECT(x) { cudaError_t err; if( (err = (x)) != cudaSuccess ) PRINTF("FAILED %s: %s\n", #x, cudaGetErrorString(err)); }
-
-typedef struct
-{
-    volatile unsigned int deleteLock;   //Per Device
-    artsArrayList * deleteQueue;     //Per Device
-    artsArrayList * deleteHostQueue; //Per Device
-} artsGpuResCleanUp_t;
-
+    
 typedef struct
 {
     volatile unsigned int * scheduleCounter;
@@ -71,23 +62,21 @@ typedef struct
     void * devClosure;
     struct artsEdt * edt;
 } artsGpuCleanUp_t;
-
-typedef struct
+    
+typedef struct 
 {
-    volatile unsigned int scheduled[MAX_STREAMS];
-    cudaStream_t stream[MAX_STREAMS];
+    volatile unsigned int scheduled;
+    cudaStream_t stream;
 } artsGpuStream_t;
 
 void artsInitGpuStream();
 void artsDestroyGpuStream();
-// void artsScheduleToStreamInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr);
-void artsScheduleToStreamInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr, int *strmIds, int strmCnt, int devId);
+void artsScheduleToStreamInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr);
 void artsScheduleToStream(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, void * edtPtr);
 
 void artsWaitForStream();
 void artsStreamBusy();
-// unsigned int artsStreamScheduled();
-unsigned int artsStreamScheduled(int strmId, int devId);
+unsigned int artsStreamScheduled();
 
 void artsStoreNewEdts(void * edt);
 void artsHandleNewEdts();
@@ -98,3 +87,4 @@ void artsFreeGpuMemory();
 #endif
 
 #endif /* ARTSGPUSTREAM_H */
+

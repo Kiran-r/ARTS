@@ -91,7 +91,6 @@ void initMatrix(unsigned int rowSize, float * mat, bool identity, bool zero)
 void copyBlock(unsigned int x, unsigned int y, unsigned int tileRowSize, float * tile, unsigned int rowSize, float * mat, bool toTile)
 {
     unsigned int tileColumnSize = tileRowSize;
-    unsigned int columnSize      = rowSize;
     
     unsigned int xOffset = tileRowSize    * x;
     unsigned int yOffset = tileColumnSize * y;
@@ -155,7 +154,6 @@ void multiplyMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
     artsGuid_t toSignal = paramv[0];
     
     unsigned int rowSize    = TILE;
-    unsigned int columnSize = TILE;
     
     unsigned int i = paramv[1];
     unsigned int j = paramv[2];
@@ -225,7 +223,6 @@ void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[
 
 void finishBlockMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    artsGuid_t toSignal = paramv[0]; 
     float * cMat  = (float*) depv[0].ptr;
     for(unsigned int i=0; i<numBlocks; i++)
     {

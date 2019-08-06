@@ -76,9 +76,10 @@ int main(void)
     
     uint64_t paramv[SOMEARGS];
     artsEdtDep_t depv[SOMEARGS];
+    artsGpu_t * artsGpu;
     
     PRINTF("INIT STREAM\n");
-    artsInitGpuStream();
+    artsInitGpus();
     
     for(unsigned int i=0; i<SOMEARGS; i++)
     {
@@ -86,12 +87,14 @@ int main(void)
         depv[i].guid = localDbCreate(&depv[i].ptr, sizeof(artsGuid_t), ARTS_DB_READ, 999);
         depv[i].mode = ARTS_DB_READ;
     }
+
+    artsGpu = artsGpuScheduled();
     
     PRINTF("LAUNCHING 1 %u\n", SOMEARGS);
-    artsScheduleToStreamInternal(kernel, SOMEARGS, paramv, SOMEARGS, depv, grid, block, NULL);
+    artsScheduleToGpuInternal(kernel, SOMEARGS, paramv, SOMEARGS, depv, grid, block, NULL, artsGpu);
     
     PRINTF("WAITING\n");
-    artsWaitForStream();
+    artsGpuSynchronize(artsGpu);
     
     for(unsigned int i=0; i<SOMEARGS; i++)
     {
@@ -103,7 +106,7 @@ int main(void)
     artsFreeGpuMemory();
     
     PRINTF("DESTROYING\n");
-    artsDestroyGpuStream();
+    artsCleanupGpus();
     return 0;
 }
 

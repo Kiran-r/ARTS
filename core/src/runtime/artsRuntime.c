@@ -123,6 +123,10 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.globalGuidThreadId = artsCalloc(sizeof(uint64_t) * totalThreads);
     artsTMTNodeInit(workerThreads);
     artsInitIntrospector(config);
+#ifdef USE_GPU
+    if(config->gpu) // TODO: Multi-Node init
+        artsInitGpus();
+#endif
 }
 
 void artsRuntimeGlobalCleanup()
@@ -133,6 +137,10 @@ void artsRuntimeGlobalCleanup()
     artsFree((void *)artsNodeInfo.localSpin);
     artsFree(artsNodeInfo.memoryMoves);
     artsFree(artsNodeInfo.atomicWaits);
+#ifdef USE_GPU
+    if(artsNodeInfo.gpu)
+        artsCleanupGpus();
+#endif
 }
 
 void artsThreadZeroNodeStart()
@@ -236,11 +244,6 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
     artsGuidKeyGeneratorInit();
     INITCOUNTERLIST(unit->id, artsGlobalRankId, config->counterFolder, config->counterStartPoint);
 
-#ifdef USE_GPU
-    if(config->gpu)
-        artsInitGpuStream();
-#endif
-
     if (artsNodeInfo.tMT) // @awmm
     {
         DPRINTF("tMT: PthreadLayer: preparing aliasing for master thread %d\n", unit->id);
@@ -274,10 +277,6 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
 void artsRuntimePrivateCleanup()
 {
     artsTMTRuntimePrivateCleanup();
-#ifdef USE_GPU
-    if(artsNodeInfo.gpu)
-        artsDestroyGpuStream();
-#endif
     artsAtomicSub(&artsNodeInfo.readyToClean, 1U);
     while(artsNodeInfo.readyToClean){ };
     if(artsThreadInfo.myDeque)
@@ -412,7 +411,7 @@ void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, arts
 #endif
 }
 
-static inline void artsRunGpu(void *edtPacket)
+static inline void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
 {
 #ifdef USE_GPU
     struct artsGpuEdt * edt = edtPacket;
@@ -431,7 +430,7 @@ static inline void artsRunGpu(void *edtPacket)
 //    ARTSCOUNTERTIMERSTART(edtCounter);
 
 //    This is where we need to actually launch data on the stream
-    artsScheduleToStream(func, paramc, paramv, depc, depv, edtPacket);
+    artsScheduleToGpu(func, paramc, paramv, depc, depv, edtPacket, artsGpu);
 //    The rest of the work needs to be done by artsGpuWrapUp by host via stream
 #endif
 }
@@ -559,22 +558,24 @@ bool artsGpuSchedulerLoop()
  add logic to limit/state for how much gets pushed*/
 //#ifdef USE_GPU
     //Clear some memory
-    artsFreeGpuMemory();
-    artsHandleNewEdts();
+
+    artsGpu_t * artsGpu;
+    //artsFreeGpuMemory(); // Make it per artsGpu_t
+    artsHandleNewEdts(); // Make it specific to a artsGpu_t
     // Default device and stream
 //  if(!artsStreamScheduled(0,0))
-    if(!artsStreamScheduled())
+    artsGpu = artsGpuScheduled();
+    struct artsEdt * edtFound = NULL;
+    //First part run GPU stuff
+    if(!(edtFound = artsDequePopFront(artsThreadInfo.myGpuDeque)))
     {
-        struct artsEdt * edtFound = NULL;
-        //First part run GPU stuff
-        if(!(edtFound = artsDequePopFront(artsThreadInfo.myGpuDeque)))
-        {
-            if(!edtFound)
-                edtFound = artsRuntimeStealGpuTask();
-        }
-        if(edtFound)
-            artsRunGpu(edtFound);
+        if(!edtFound)
+            edtFound = artsRuntimeStealGpuTask();
     }
+    if(edtFound)
+        artsRunGpu(edtFound, artsGpu);
+    else
+        artsAtomicUnschedule(&artsGpu->scheduled);
 //#endif
     return artsDefaultSchedulerLoop();
 }

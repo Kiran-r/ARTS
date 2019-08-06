@@ -62,25 +62,33 @@ typedef struct
     void * devClosure;
     struct artsEdt * edt;
 } artsGpuCleanUp_t;
-    
+
 typedef struct 
 {
-    volatile unsigned int scheduled;
-    cudaStream_t stream;
-} artsGpuStream_t;
+    int device;
+    volatile unsigned int scheduled;  //Per Device
+    cudaStream_t stream;                //Per Device
+    volatile unsigned int deleteLock; //Per Device
+    artsArrayList * deleteQueue;        //Per Device
+    artsArrayList * deleteHostQueue;    //Per Device
+} artsGpu_t;
 
-void artsInitGpuStream();
-void artsDestroyGpuStream();
-void artsScheduleToStreamInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr);
-void artsScheduleToStream(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, void * edtPtr);
+void artsInitGpus();
+void artsCleanupGpus();
+void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr, artsGpu_t * artsGpu);
+void artsScheduleToGpu(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, void * edtPtr, artsGpu_t * artsGpu);
 
-void artsWaitForStream();
-void artsStreamBusy();
-unsigned int artsStreamScheduled();
+void artsGpuSynchronize(artsGpu_t * artsGpu);
+void artsGpuStreamBusy(artsGpu_t* artsGpu);
+artsGpu_t * artsGpuScheduled();
 
 void artsStoreNewEdts(void * edt);
 void artsHandleNewEdts();
 void artsFreeGpuMemory();
+
+extern int artsNumGpus;
+extern artsGpu_t * artsGpus;
+
 
 #ifdef __cplusplus
 }

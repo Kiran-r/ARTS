@@ -114,6 +114,11 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     {
         unsigned int * resPtr  = NULL;
         artsGuid_t     resGuid = artsDbCreate((void**) &resPtr, sizeof(unsigned int), ARTS_DB_GPU);
+        if (argc < 2) {
+          PRINTF("Format: ./fibGpu NUMBER\n");
+          artsShutdown();
+          return;
+        }
         *resPtr = atoi(argv[1]);
         
         artsGuid_t doneGuid = artsEdtCreate(fibDone, 0, 1, (uint64_t*)resPtr, 1);

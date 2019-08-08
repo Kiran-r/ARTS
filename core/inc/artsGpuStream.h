@@ -48,7 +48,11 @@ extern "C" {
 #include "artsAtomics.h"
 #include "artsArrayList.h"
 
-#define CHECKCORRECT(x) { cudaError_t err; if( (err = (x)) != cudaSuccess ) PRINTF("FAILED %s: %s\n", #x, cudaGetErrorString(err)); }
+#define CHECKCORRECT(x) {                                   \
+  cudaError_t err;                                          \
+  if( (err = (x)) != cudaSuccess )                          \
+    PRINTF("FAILED %s: %s\n", #x, cudaGetErrorString(err)); \
+}
     
 typedef struct
 {

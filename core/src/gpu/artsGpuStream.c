@@ -59,25 +59,33 @@ __thread volatile unsigned int * tlNewEdtLock;
 __thread artsArrayList * tlNewEdts;
 //__thread artsGpu_t artsGpu;
 
+static cudaError_t artsCreateStreams (artsGpu_t * artsGpu) {
+  DPRINTF("Creating Stream on %d\n", artsGpu->device);
+  CHECKCORRECT(cudaStreamCreate(&artsGpu->stream)); // Make it scalable
+  DPRINTF("Created Stream on %d\n", artsGpu->device);
+  artsGpu->deleteQueue     = artsNewArrayList(sizeof(void*), 32);
+  artsGpu->deleteHostQueue = artsNewArrayList(sizeof(void*), 32);
+  artsGpu->scheduled = 0U;
+  return cudaSuccess;
+}
+
 void artsInitGpus()
 {
     int savedDevice;
     artsGpu_t * artsGpu;
     CHECKCORRECT(cudaGetDeviceCount(&artsNumGpus));
     DPRINTF("NUM DEV: %d\n", artsNumGpus);
-    artsGpus = (artsGpu_t*)malloc(sizeof(artsGpus)*artsNumGpus);
+    artsGpus = (artsGpu_t*)malloc(sizeof(artsGpu_t)*artsNumGpus);
     cudaGetDevice(&savedDevice);
 
     // Initialize artsGpu with 1 stream/GPU
-    for (int i=0; i<artsNumGpus; i++)
+    for (int i=0; i<artsNumGpus; ++i)
     {
-        artsGpu = artsGpus+i;
+        artsGpu = artsGpus + i;
         artsGpu->device = i;
-        CHECKCORRECT(cudaSetDevice(artsGpu->device));
-        CHECKCORRECT(cudaStreamCreate(&artsGpu->stream)); // Make it scalable
-        artsGpu->deleteQueue     = artsNewArrayList(sizeof(void*), 32);
-        artsGpu->deleteHostQueue = artsNewArrayList(sizeof(void*), 32);
-        artsGpu->scheduled = 0U;
+        DPRINTF("Setting %d\n", i);
+        CHECKCORRECT(cudaSetDevice(i));
+        CHECKCORRECT(artsCreateStreams(artsGpu));
     }
 
     artsLock(&newEdtLock);

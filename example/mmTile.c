@@ -42,10 +42,12 @@
 #include "artsGpuRuntime.h"
 
 #define GPUMM 1
-#define MATSIZE 1024 
-#define TILE 16
+#define MATSIZE 1024
+#define TILESIZE 16
 
 uint64_t start = 0;
+
+int mat_size, tile_size;
 
 unsigned int numBlocks = 1;
 artsGuid_t aMatGuid = NULL_GUID;
@@ -153,7 +155,7 @@ void multiplyMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
 {
     artsGuid_t toSignal = paramv[0];
     
-    unsigned int rowSize    = TILE;
+    unsigned int rowSize    = tile_size;
     
     unsigned int i = paramv[1];
     unsigned int j = paramv[2];
@@ -166,25 +168,25 @@ void multiplyMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
     float * bTile = NULL;
     float * cTile = NULL;
     
-    artsGuid_t aTileGuid = artsDbCreate((void**) &aTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU);
-    artsGuid_t bTileGuid = artsDbCreate((void**) &bTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU);
-    artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU);
+    artsGuid_t aTileGuid = artsDbCreate((void**) &aTile, sizeof(float) * tile_size * tile_size, ARTS_DB_GPU);
+    artsGuid_t bTileGuid = artsDbCreate((void**) &bTile, sizeof(float) * tile_size * tile_size, ARTS_DB_GPU);
+    artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(float) * tile_size * tile_size, ARTS_DB_GPU);
     
-    copyBlock(i, k, TILE, aTile, MATSIZE, aMat, true);
-    copyBlock(k, j, TILE, bTile, MATSIZE, bMat, true);
+    copyBlock(i, k, tile_size, aTile, mat_size, aMat, true);
+    copyBlock(k, j, tile_size, bTile, mat_size, bMat, true);
     initMatrix(rowSize, cTile, false, true);
     
 #ifdef GPUMM
-    dim3 threads(TILE, TILE);
+    dim3 threads(tile_size, tile_size);
     dim3 grid(1, 1);
     
-    uint64_t args[] = {TILE};
+    uint64_t args[] = {tile_size};
     artsGuid_t    mulGpuGuid = artsEdtCreateGpu(mmKernel, artsGetCurrentNode(), 1, args, 3, threads, grid, toSignal, k, cTileGuid);
     artsSignalEdt(mulGpuGuid, 0, aTileGuid);
     artsSignalEdt(mulGpuGuid, 1, bTileGuid);
     artsSignalEdt(mulGpuGuid, 2, cTileGuid);
 #else
-    uint64_t args[] = {TILE, toSignal, k, cTileGuid};
+    uint64_t args[] = {tile_size, toSignal, k, cTileGuid};
     artsGuid_t    mulGpuGuid = artsEdtCreate(mmKernelCPU, artsGetCurrentNode(), 4, args, 3);
     artsSignalEdt(mulGpuGuid, 0, aTileGuid);
     artsSignalEdt(mulGpuGuid, 1, bTileGuid);
@@ -196,14 +198,14 @@ void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[
 {
     artsGuid_t doneGuid = paramv[0];
     
-    unsigned int rowSize    = TILE;
-    unsigned int columnSize = TILE;
+    unsigned int rowSize    = tile_size;
+    unsigned int columnSize = tile_size;
     
     unsigned int i = paramv[1];
     unsigned int j = paramv[2];
     
     float * cTile;
-    artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU);
+    artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(float) * tile_size * tile_size, ARTS_DB_GPU);
     initMatrix(rowSize, cTile, false, true);
     
     for(unsigned int i=0; i<depc; i++)
@@ -217,7 +219,7 @@ void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[
             }
         }
     }
-//    printMatrix(TILE, cTile);
+//    printMatrix(tile_size, cTile);
     artsSignalEdt(doneGuid, 1+ (i * numBlocks + j), cTileGuid);
 }
 
@@ -229,17 +231,17 @@ void finishBlockMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep
         for(unsigned int j=0; j<numBlocks; j++)
         {
             float * cTile = (float*) depv[1 + i * numBlocks + j].ptr;
-            copyBlock(i, j, TILE, cTile, MATSIZE, cMat, false);
+            copyBlock(i, j, tile_size, cTile, mat_size, cMat, false);
         }
     }
     uint64_t time = artsGetTimeStamp() - start;
     
-    for(unsigned int i=0; i<MATSIZE*MATSIZE; i++)
+    for(unsigned int i=0; i<mat_size*mat_size; i++)
     {
         if(cMat[i] != i)
             PRINTF("Failed\n");
     }
-//    printMatrix(MATSIZE, cMat);
+//    printMatrix(mat_size, cMat);
     
     PRINTF("DONE %lu\n", time);
     artsShutdown();
@@ -248,7 +250,20 @@ void finishBlockMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep
 extern "C"
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    numBlocks = MATSIZE / TILE;
+    if (argc == 1)
+    {
+        mat_size = MATSIZE;
+        tile_size = TILESIZE;
+    } else if (argc == 2)
+    {
+        mat_size = atoi(argv[1]);
+        tile_size = TILESIZE;
+    } else
+    {
+        mat_size = atoi(argv[1]);
+        tile_size = atoi(argv[2]);
+    }
+    numBlocks = mat_size / tile_size;
     doneGuid = artsReserveGuidRoute(ARTS_EDT,     0);
     aMatGuid = artsReserveGuidRoute(ARTS_DB_READ, 0);
     bMatGuid = artsReserveGuidRoute(ARTS_DB_READ, 0);
@@ -256,20 +271,20 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     
     if(!nodeId)
     {
-        float * aMat = (float*) artsDbCreateWithGuid(aMatGuid, MATSIZE * MATSIZE * sizeof(float));
-        float * bMat = (float*) artsDbCreateWithGuid(bMatGuid, MATSIZE * MATSIZE * sizeof(float));
-        float * cMat = (float*) artsDbCreateWithGuid(cMatGuid, MATSIZE * MATSIZE * sizeof(float));
+        float * aMat = (float*) artsDbCreateWithGuid(aMatGuid, mat_size * mat_size * sizeof(float));
+        float * bMat = (float*) artsDbCreateWithGuid(bMatGuid, mat_size * mat_size * sizeof(float));
+        float * cMat = (float*) artsDbCreateWithGuid(cMatGuid, mat_size * mat_size * sizeof(float));
         
-        initMatrix(MATSIZE, aMat, false, false);
-        initMatrix(MATSIZE, bMat,  true, false);
-        initMatrix(MATSIZE, cMat, false, true);
+        initMatrix(mat_size, aMat, false, false);
+        initMatrix(mat_size, bMat,  true, false);
+        initMatrix(mat_size, cMat, false, true);
         
 //        PRINTF("A MATRIX\n");
-//        printMatrix(MATSIZE, aMat);
+//        printMatrix(mat_size, aMat);
 //        PRINTF("B MATRIX\n");
-//        printMatrix(MATSIZE, bMat);
+//        printMatrix(mat_size, bMat);
 //        PRINTF("C MATRIX\n");
-//        printMatrix(MATSIZE, cMat);
+//        printMatrix(mat_size, cMat);
         PRINTF("Starting\n");
     }
 }

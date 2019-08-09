@@ -55,8 +55,8 @@ artsGpu_t * artsGpus;
 volatile unsigned int newEdtLock = 0; //Can be shared across streams and devices
 artsArrayList * newEdts = NULL; //Can be shared across streams and devices
 
-__thread volatile unsigned int * tlNewEdtLock;
-__thread artsArrayList * tlNewEdts;
+volatile unsigned int * tlNewEdtLock;
+artsArrayList * tlNewEdts;
 //__thread artsGpu_t artsGpu;
 
 static cudaError_t artsCreateStreams (artsGpu_t * artsGpu) {

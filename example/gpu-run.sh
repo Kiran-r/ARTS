@@ -5,6 +5,8 @@ if [ $# -eq 0 ]; then
   exit 1
 fi
 
+function join { local IFS="$1"; shift; echo "$*"; }
+
 num_gpus=$1
 app=$2
 visible_gpus=()
@@ -21,6 +23,7 @@ echo "Running $app $app_args on $num_gpus GPUs"
 for (( i=0; i<$num_gpus; ++i ))
 do
   visible_gpus+=($i)
-  echo "Now running on $((i+1)) gpus [${visible_gpus[@]}]"
-  CUDA_VISIBLE_DEVICES=${visible_gpus[@]} $app $app_args
+  gpus=$(join , ${visible_gpus[@]})
+  echo "Now running on $((i+1)) gpus $gpus"
+  CUDA_VISIBLE_DEVICES=$gpus $app $app_args
 done

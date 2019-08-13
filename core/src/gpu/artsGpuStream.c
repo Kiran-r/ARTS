@@ -320,14 +320,14 @@ void artsGpuStreamBusy(artsGpu_t* artsGpu)
     CHECKCORRECT(cudaStreamQuery(artsGpu->stream));
 }
 
-artsGpu_t * artsGpuScheduled() {
+artsGpu_t * artsGpuScheduled(unsigned id) {
     // Loop over all devices to find available GPUs and return free artsGpu_t
-    do {
-      for (int i=0; i<artsNumGpus; ++i) {
-          if(artsAtomicSchedule(&(artsGpus+i)->scheduled))
-              return artsGpus+i;
-      }
-    } while (true); // TODO: Need a timeout here.
+    int start = (int) id % artsNumGpus;
+    for (int i=start, j=0; j<artsNumGpus; ++j, i=(i+1)%artsNumGpus) {
+        if(artsAtomicSchedule(&(artsGpus+i)->scheduled))
+            return artsGpus+i;
+    }
+    return NULL;
 }
 
 uint64_t  devSize = 0; //Per device

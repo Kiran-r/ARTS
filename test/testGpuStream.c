@@ -88,7 +88,7 @@ int main(void)
         depv[i].mode = ARTS_DB_READ;
     }
 
-    artsGpu = artsGpuScheduled();
+    artsGpu = artsGpuScheduled(0);
     
     PRINTF("LAUNCHING 1 %u\n", SOMEARGS);
     artsScheduleToGpuInternal(kernel, SOMEARGS, paramv, SOMEARGS, depv, grid, block, NULL, artsGpu);

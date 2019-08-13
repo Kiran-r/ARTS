@@ -564,7 +564,6 @@ bool artsGpuSchedulerLoop()
     artsHandleNewEdts(); // Make it specific to a artsGpu_t
     // Default device and stream
 //  if(!artsStreamScheduled(0,0))
-    artsGpu = artsGpuScheduled();
     struct artsEdt * edtFound = NULL;
     //First part run GPU stuff
     if(!(edtFound = artsDequePopFront(artsThreadInfo.myGpuDeque)))
@@ -572,10 +571,13 @@ bool artsGpuSchedulerLoop()
         if(!edtFound)
             edtFound = artsRuntimeStealGpuTask();
     }
-    if(edtFound)
-        artsRunGpu(edtFound, artsGpu);
-    else
-        artsAtomicUnschedule(&artsGpu->scheduled);
+    if(edtFound) {
+        artsGpu = artsGpuScheduled(artsThreadInfo.groupId);
+        if (artsGpu)
+            artsRunGpu(edtFound, artsGpu);
+        else
+            artsDequePushFront(artsThreadInfo.myGpuDeque, edtFound, 0);
+    }
 //#endif
     return artsDefaultSchedulerLoop();
 }

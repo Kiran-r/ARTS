@@ -84,7 +84,7 @@ void artsScheduleToGpu(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint
 
 void artsGpuSynchronize(artsGpu_t * artsGpu);
 void artsGpuStreamBusy(artsGpu_t* artsGpu);
-artsGpu_t * artsGpuScheduled();
+artsGpu_t * artsGpuScheduled(unsigned id);
 
 void artsStoreNewEdts(void * edt);
 void artsHandleNewEdts();

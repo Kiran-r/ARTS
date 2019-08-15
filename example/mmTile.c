@@ -220,28 +220,41 @@ void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[
         }
     }
 //    printMatrix(tile_size, cTile);
-    artsSignalEdt(doneGuid, 1+ (i * numBlocks + j), cTileGuid);
+    artsSignalEdt(doneGuid, 3 + (i * numBlocks + j), cTileGuid);
 }
 
 void finishBlockMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     float * cMat  = (float*) depv[0].ptr;
+    float * aMat  = (float*) depv[1].ptr;
+    float * bMat  = (float*) depv[2].ptr;
+    printf("Finish Block MM\n");
     for(unsigned int i=0; i<numBlocks; i++)
     {
         for(unsigned int j=0; j<numBlocks; j++)
         {
-            float * cTile = (float*) depv[1 + i * numBlocks + j].ptr;
+            float * cTile = (float*) depv[3 + (i * numBlocks + j)].ptr;
             copyBlock(i, j, tile_size, cTile, mat_size, cMat, false);
         }
     }
     uint64_t time = artsGetTimeStamp() - start;
     
-    for(unsigned int i=0; i<mat_size*mat_size; i++)
-    {
-        if(cMat[i] != i)
-            PRINTF("Failed\n");
-    }
-//    printMatrix(mat_size, cMat);
+    printf("C-Matrix:\n");
+    printMatrix(mat_size, cMat);
+    printf("Verifying results\n");
+    float *temp = (float*) artsCalloc(mat_size * mat_size * sizeof(float));
+    for (unsigned int i=0; i< mat_size; ++i)
+        for (unsigned int j=0; j<mat_size; ++j)
+            for (unsigned int k=0; k<mat_size; ++k)
+                temp[i*mat_size+j] += aMat[i*mat_size+k]*bMat[k*mat_size+j];
+
+    printf("Expected C-Matrix\n");
+    printMatrix(mat_size, temp);
+
+    for (unsigned int i=0; i< mat_size; ++i)
+        for (unsigned int j=0; j<mat_size; ++j)
+            if (temp[i * mat_size + j] != cMat[i * mat_size + j])
+                printf("Failed at cMat[%u][%u]\n", i, j);
     
     PRINTF("DONE %lu\n", time);
     artsShutdown();
@@ -276,16 +289,14 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
         float * cMat = (float*) artsDbCreateWithGuid(cMatGuid, mat_size * mat_size * sizeof(float));
         
         initMatrix(mat_size, aMat, false, false);
-        initMatrix(mat_size, bMat,  true, false);
+        initMatrix(mat_size, bMat, false, false);
         initMatrix(mat_size, cMat, false, true);
         
-//        PRINTF("A MATRIX\n");
-//        printMatrix(mat_size, aMat);
-//        PRINTF("B MATRIX\n");
-//        printMatrix(mat_size, bMat);
-//        PRINTF("C MATRIX\n");
-//        printMatrix(mat_size, cMat);
-        PRINTF("Starting\n");
+        PRINTF("A-Matrix\n");
+        printMatrix(mat_size, aMat);
+        PRINTF("B-Matrix\n");
+        printMatrix(mat_size, bMat);
+        PRINTF("Starting A x B:\n");
     }
 }
 
@@ -316,8 +327,10 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     
     if(!nodeId && !workerId)
     {
-        artsEdtCreateWithGuid(finishBlockMM, doneGuid, 0, NULL, 1 + numBlocks * numBlocks);
+        artsEdtCreateWithGuid(finishBlockMM, doneGuid, 0, NULL, 3 + numBlocks * numBlocks);
         artsSignalEdt(doneGuid, 0, cMatGuid);
+        artsSignalEdt(doneGuid, 1, aMatGuid);
+        artsSignalEdt(doneGuid, 2, bMatGuid);
         start = artsGetTimeStamp();
     }
 }

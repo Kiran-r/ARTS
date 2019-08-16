@@ -196,17 +196,43 @@ void multiplyMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
 #endif
 }
 
+__global__ void sumMMKernel(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
+{
+    const unsigned int columnSize = (unsigned int) paramv[0];
+
+    float * cTile = (float *) depv[0].ptr;
+
+    int row = blockDim.x * blockIdx.x + threadIdx.x;
+    int col = blockDim.y * blockIdx.y + threadIdx.y;
+
+    for (unsigned int k=1; k<depc; ++k)
+    {
+        float* toAdd = (float*) depv[k].ptr;
+        cTile[row * columnSize + col] += toAdd[row*columnSize+col];
+    }
+}
+
 void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     artsGuid_t doneGuid = paramv[0];
 
-    unsigned int rowSize    = tile_size;
     unsigned int columnSize = tile_size;
 
     unsigned int row = paramv[1];
     unsigned int col = paramv[2];
 
+#ifdef GPUMM
+    dim3 threads (columnSize, columnSize);
+    dim3 grid (1, 1);
+
+    uint64_t args[] = {columnSize};
+
+    artsGuid_t sumGpuGuid = artsEdtCreateGpu (sumMMKernel, artsGetCurrentNode(), 1, args, depc, threads, grid, doneGuid, 3 + (row * numBlocks + col), depv[0].guid);
+    for (unsigned int i=0; i<depc; ++i)
+        artsSignalEdt(sumGpuGuid, i, depv[i].guid);
+#else
     float * cTile;
+    unsigned int rowSize    = tile_size;
     artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(float) * tile_size * tile_size, ARTS_DB_GPU);
     initMatrix(rowSize, cTile, false, true);
 
@@ -222,6 +248,7 @@ void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[
         }
     }
     artsSignalEdt(doneGuid, 3 + (row * numBlocks + col), cTileGuid);
+#endif
 }
 
 void finishBlockMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])

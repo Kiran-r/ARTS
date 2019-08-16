@@ -398,11 +398,16 @@ void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, arts
     DPRINTF("TO SIGNAL: %lu -> %lu\n", toSignal, dataGuid);
     if(toSignal)
     {
-        artsType_t mode = artsGuidGetType(toSignal);
-        if(mode == ARTS_EDT || mode == ARTS_GPU_EDT)
-            artsSignalEdt(toSignal, slot, dataGuid);
-        if(mode == ARTS_EVENT)
-            artsEventSatisfySlot(toSignal, dataGuid, slot);
+        if (edt->passthrough)
+            artsSignalEdt(toSignal, slot, depv[dataGuid].guid);
+        else
+        {
+            artsType_t mode = artsGuidGetType(toSignal);
+            if(mode == ARTS_EDT || mode == ARTS_GPU_EDT)
+                artsSignalEdt(toSignal, slot, dataGuid);
+            if(mode == ARTS_EVENT)
+                artsEventSatisfySlot(toSignal, dataGuid, slot);
+        }
     }
 
     releaseDbs(depc, depv);

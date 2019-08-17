@@ -221,16 +221,6 @@ void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[
     unsigned int row = paramv[1];
     unsigned int col = paramv[2];
 
-#ifdef GPUMM
-    dim3 threads (columnSize, columnSize);
-    dim3 grid (1, 1);
-
-    uint64_t args[] = {columnSize};
-
-    artsGuid_t sumGpuGuid = artsEdtCreateGpu (sumMMKernel, artsGetCurrentNode(), 1, args, depc, threads, grid, doneGuid, 3 + (row * numBlocks + col), depv[0].guid);
-    for (unsigned int i=0; i<depc; ++i)
-        artsSignalEdt(sumGpuGuid, i, depv[i].guid);
-#else
     float * cTile;
     unsigned int rowSize    = tile_size;
     artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(float) * tile_size * tile_size, ARTS_DB_GPU);
@@ -248,7 +238,6 @@ void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[
         }
     }
     artsSignalEdt(doneGuid, 3 + (row * numBlocks + col), cTileGuid);
-#endif
 }
 
 void finishBlockMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
@@ -344,8 +333,16 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         {
             if((i * numBlocks + j) % totalThreads == globalThreadId)
             {
+#ifdef GPUMM
+                uint64_t sumArgs[] = {tile_size};
+                dim3 threads (tile_size, tile_size);
+                dim3 grid (1, 1);
+
+                artsGuid_t sumGuid = artsEdtCreateGpuPT (sumMMKernel, nodeId, 1, sumArgs, numBlocks, threads, grid, doneGuid, 3 + (i * numBlocks + j), 0);
+#else
                 uint64_t sumArgs[] = {doneGuid, i, j};
                 artsGuid_t sumGuid = artsEdtCreate(sumMM, nodeId, 3, sumArgs, numBlocks);
+#endif
                 for(unsigned int k=0; k<numBlocks; k++)
                 {
                     uint64_t args[] = {sumGuid, i, j, k};

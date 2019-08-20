@@ -75,6 +75,8 @@ typedef struct
     volatile unsigned int deleteLock; //Per Device
     artsArrayList * deleteQueue;        //Per Device
     artsArrayList * deleteHostQueue;    //Per Device
+    uint64_t devSize;
+    uint64_t hostSize;
 } artsGpu_t;
 
 void artsInitGpus();
@@ -88,7 +90,7 @@ artsGpu_t * artsGpuScheduled(unsigned id);
 
 void artsStoreNewEdts(void * edt);
 void artsHandleNewEdts();
-void artsFreeGpuMemory();
+void artsFreeGpuMemory(artsGpu_t * artsGpu);
 
 extern int artsNumGpus;
 extern artsGpu_t * artsGpus;

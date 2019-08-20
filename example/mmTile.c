@@ -177,7 +177,7 @@ void multiplyMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
     dim3 grid(1, 1);
     
     uint64_t args[] = {tile_size};
-    artsGuid_t    mulGpuGuid = artsEdtCreateGpu(mmKernel, artsGetCurrentNode(), 1, args, 3, threads, grid, toSignal, k, cTileGuid);
+    artsGuid_t    mulGpuGuid = artsEdtCreateGpu(mmKernel, artsGetCurrentNode(), 1, args, 3, threads, grid, toSignal, k, cTileGuid, true);
     artsSignalEdt(mulGpuGuid, 0, aTileGuid);
     artsSignalEdt(mulGpuGuid, 1, bTileGuid);
     artsSignalEdt(mulGpuGuid, 2, cTileGuid);
@@ -239,13 +239,12 @@ void finishBlockMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep
     double * cMat  = (double*) depv[0].ptr;
 
     for(unsigned int i=0; i<numBlocks; i++)
-    {
         for(unsigned int j=0; j<numBlocks; j++)
         {
             double * cTile = (double*) depv[3 + (i * numBlocks + j)].ptr;
             copyBlock(i, j, tile_size, cTile, mat_size, cMat, false);
         }
-    }
+
     uint64_t time = artsGetTimeStamp() - start;
 
 #if VERIFY
@@ -327,7 +326,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
                 dim3 threads (tile_size, tile_size);
                 dim3 grid (1, 1);
 
-                artsGuid_t sumGuid = artsEdtCreateGpuPT (sumMMKernel, nodeId, 1, sumArgs, numBlocks, threads, grid, doneGuid, 3 + (i * numBlocks + j), 0);
+                artsGuid_t sumGuid = artsEdtCreateGpuPT (sumMMKernel, nodeId, 1, sumArgs, numBlocks, threads, grid, doneGuid, 3 + (i * numBlocks + j), 0, false);
 #else
                 uint64_t sumArgs[] = {doneGuid, i, j};
                 artsGuid_t sumGuid = artsEdtCreate(sumMM, nodeId, 3, sumArgs, numBlocks);

@@ -160,7 +160,7 @@ void CUDART_CB artsGpuUnschedule(cudaStream_t stream, cudaError_t status, void *
     artsAtomicUnschedule(&artsGpu->scheduled);
 }
 
-void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr, artsGpu_t * artsGpu)
+void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr, artsGpu_t * artsGpu, bool op)
 {
 //    For now this should push the following into the stream:
 //    1. Copy data from host to device
@@ -264,6 +264,9 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     //Fill GPU DBs
     for(unsigned int i=0; i<depc; i++)
     {
+        if (i == depc && op)
+            break;
+
         if(depv[i].ptr)
         {
             struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
@@ -307,7 +310,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
 void artsScheduleToGpu(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, void * edtPtr, artsGpu_t * artsGpu)
 {
     struct artsGpuEdt * edt = (struct artsGpuEdt *)edtPtr;
-    artsScheduleToGpuInternal(fnPtr, paramc, paramv, depc, depv, edt->grid, edt->block, edtPtr, artsGpu);
+    artsScheduleToGpuInternal(fnPtr, paramc, paramv, depc, depv, edt->grid, edt->block, edtPtr, artsGpu, edt->op);
 }
 
 void artsGpuSynchronize(artsGpu_t * artsGpu)

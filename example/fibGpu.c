@@ -79,7 +79,7 @@ void fibFork(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t dep
         //Create a continuation edt to run on the GPU
         dim3 grid(1);
         dim3 block(1);
-        artsGuid_t joinGuid = artsEdtCreateGpu(fibJoin, next, 0, NULL, 3, grid, block, doneGuid, slot, resGuid);
+        artsGuid_t joinGuid = artsEdtCreateGpu(fibJoin, next, 0, NULL, 3, grid, block, doneGuid, slot, resGuid, true);
         artsSignalEdt(joinGuid, 2, resGuid);
         
         //Create the forks which will run on the CPU

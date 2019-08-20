@@ -565,7 +565,6 @@ bool artsGpuSchedulerLoop()
     //Clear some memory
 
     artsGpu_t * artsGpu;
-    //artsFreeGpuMemory(); // Make it per artsGpu_t
     artsHandleNewEdts(); // Make it specific to a artsGpu_t
     // Default device and stream
 //  if(!artsStreamScheduled(0,0))
@@ -579,7 +578,10 @@ bool artsGpuSchedulerLoop()
     if(edtFound) {
         artsGpu = artsGpuScheduled(artsThreadInfo.groupId);
         if (artsGpu)
+        {
+            artsFreeGpuMemory(artsGpu);
             artsRunGpu(edtFound, artsGpu);
+        }
         else
             artsDequePushFront(artsThreadInfo.myGpuDeque, edtFound, 0);
     }

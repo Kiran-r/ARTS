@@ -333,57 +333,53 @@ artsGpu_t * artsGpuScheduled(unsigned id) {
     return NULL;
 }
 
-uint64_t  devSize = 0; //Per device
-uint64_t hostSize = 0; //Per device
-
 /* This is some really crappy problem
  * CudaFree can't run at the same time as the host callback, artsWrapUp.
  * Host callback can lock arrayList if the free already has lock.
  * Thus deadlock!  Instead we do this fancy split.  
  */
-void artsFreeGpuMemory()
-{    
-    uint64_t  oldDevSize = devSize;
-    uint64_t oldHostSize = hostSize;
-    int savedDevice;
-    cudaGetDevice(&savedDevice);
+void artsFreeGpuMemory(artsGpu_t * artsGpu)
+{
+    uint64_t*  devSize = &artsGpu->devSize;
+    uint64_t* hostSize = &artsGpu->hostSize;
 
-    for (int j=0; j<artsNumGpus; j++)
+    uint64_t  oldDevSize = *devSize;
+    uint64_t oldHostSize = *hostSize;
+
+    cudaSetDevice(artsGpu->device);
+    if(artsTryLock(&artsGpu->deleteLock))
     {
-        cudaSetDevice(artsGpus[j].device);
-        if(artsTryLock(&artsGpus[j].deleteLock))
-        {
-            devSize   = artsLengthArrayList(artsGpus[j].deleteQueue);
-            hostSize  = artsLengthArrayList(artsGpus[j].deleteHostQueue);
-            artsUnlock(&artsGpus[j].deleteLock);
-        }
-
-        for(uint64_t i=oldDevSize; i<devSize; i++)
-        {
-            void ** ptr = (void**)artsGetFromArrayList(artsGpus[i].deleteQueue, i);
-            CHECKCORRECT(cudaFree(*ptr));
-        }
-
-        for(uint64_t i=oldHostSize; i<hostSize; i++)
-        {
-            void ** ptr = (void**)artsGetFromArrayList(artsGpus[i].deleteHostQueue, i);
-            CHECKCORRECT(cudaFreeHost(*ptr));
-        }
-
-        if(artsTryLock(&artsGpus[j].deleteLock))
-        {
-            if(devSize && artsLengthArrayList(artsGpus[j].deleteQueue) == devSize)
-            {
-                artsResetArrayList(artsGpus[j].deleteQueue);
-                devSize = 0;
-            }
-            if(hostSize && artsLengthArrayList(artsGpus[j].deleteHostQueue) == hostSize)
-            {
-                artsResetArrayList(artsGpus[j].deleteHostQueue);
-                hostSize = 0;
-            }
-            artsUnlock(&artsGpus[j].deleteLock);
-        }
+        *devSize   = artsLengthArrayList(artsGpu->deleteQueue);
+        *hostSize  = artsLengthArrayList(artsGpu->deleteHostQueue);
+        artsUnlock(&artsGpu->deleteLock);
     }
-    cudaSetDevice(savedDevice);
+
+    for(uint64_t i=oldDevSize; i<*devSize; i++)
+    {
+        void ** ptr = (void**)artsGetFromArrayList(artsGpu->deleteQueue, i);
+        if (ptr)
+            CHECKCORRECT(cudaFree(*ptr));
+    }
+
+    for(uint64_t i=oldHostSize; i<*hostSize; i++)
+    {
+        void ** ptr = (void**)artsGetFromArrayList(artsGpu->deleteHostQueue, i);
+        if (ptr)
+            CHECKCORRECT(cudaFreeHost(*ptr));
+    }
+
+    if(artsTryLock(&artsGpu->deleteLock))
+    {
+        if(*devSize && artsLengthArrayList(artsGpu->deleteQueue) == *devSize)
+        {
+            artsResetArrayList(artsGpu->deleteQueue);
+            *devSize = 0;
+        }
+        if(*hostSize && artsLengthArrayList(artsGpu->deleteHostQueue) == *hostSize)
+        {
+            artsResetArrayList(artsGpu->deleteHostQueue);
+            *hostSize = 0;
+        }
+        artsUnlock(&artsGpu->deleteLock);
+    }
 }

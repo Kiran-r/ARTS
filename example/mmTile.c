@@ -44,7 +44,7 @@
 #define GPUMM 1
 #define MATSIZE 1024
 #define TILESIZE 16
-#define VERIFY 1
+#define VERIFY 0
 
 uint64_t start = 0;
 

@@ -347,12 +347,8 @@ void artsFreeGpuMemory(artsGpu_t * artsGpu)
     uint64_t oldHostSize = *hostSize;
 
     cudaSetDevice(artsGpu->device);
-    if(artsTryLock(&artsGpu->deleteLock))
-    {
-        *devSize   = artsLengthArrayList(artsGpu->deleteQueue);
-        *hostSize  = artsLengthArrayList(artsGpu->deleteHostQueue);
-        artsUnlock(&artsGpu->deleteLock);
-    }
+    *devSize   = artsLengthArrayList(artsGpu->deleteQueue);
+    *hostSize  = artsLengthArrayList(artsGpu->deleteHostQueue);
 
     for(uint64_t i=oldDevSize; i<*devSize; i++)
     {
@@ -368,18 +364,14 @@ void artsFreeGpuMemory(artsGpu_t * artsGpu)
             CHECKCORRECT(cudaFreeHost(*ptr));
     }
 
-    if(artsTryLock(&artsGpu->deleteLock))
+    if(*devSize && artsLengthArrayList(artsGpu->deleteQueue) == *devSize)
     {
-        if(*devSize && artsLengthArrayList(artsGpu->deleteQueue) == *devSize)
-        {
-            artsResetArrayList(artsGpu->deleteQueue);
-            *devSize = 0;
-        }
-        if(*hostSize && artsLengthArrayList(artsGpu->deleteHostQueue) == *hostSize)
-        {
-            artsResetArrayList(artsGpu->deleteHostQueue);
-            *hostSize = 0;
-        }
-        artsUnlock(&artsGpu->deleteLock);
+        artsResetArrayList(artsGpu->deleteQueue);
+        *devSize = 0;
+    }
+    if(*hostSize && artsLengthArrayList(artsGpu->deleteHostQueue) == *hostSize)
+    {
+        artsResetArrayList(artsGpu->deleteHostQueue);
+        *hostSize = 0;
     }
 }

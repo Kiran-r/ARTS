@@ -103,7 +103,7 @@ int main(void)
     }
     
     PRINTF("DELETING\n");
-    artsFreeGpuMemory();
+    artsFreeGpuMemory(artsGpu);
     
     PRINTF("DESTROYING\n");
     artsCleanupGpus();

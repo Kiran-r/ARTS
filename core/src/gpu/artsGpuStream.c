@@ -276,6 +276,15 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
             //hostDepv now holds devDb + offset
             CHECKCORRECT(cudaMemcpyAsync(hostDepv[i].ptr, depv[i].ptr, size, cudaMemcpyHostToDevice, artsGpu->stream));
         }
+
+        // Route tests (Start)
+        artsGpuRouteTableAddItemRace(hostDepv[i].ptr, hostDepv[i].guid, 1, true, artsGpu->device);
+        uint64_t test_ret = artsGpuRouteTableLookupDb(depv[i].guid);
+        printf("Inserted %"PRIu64"\n", test_ret);
+        artsGpuRouteTableReturnDb(hostDepv[i].guid, true, artsGpu->device);
+        test_ret = artsGpuRouteTableLookupDb(depv[i].guid);
+        printf("Deleted %"PRIu64"\n", test_ret);
+        // Route tests (End)
     }
 
     DPRINTF("Filled GPU DBs\n");
@@ -325,7 +334,8 @@ void artsGpuStreamBusy(artsGpu_t* artsGpu)
     CHECKCORRECT(cudaStreamQuery(artsGpu->stream));
 }
 
-artsGpu_t * artsGpuScheduled(unsigned id) {
+artsGpu_t * artsGpuScheduled(unsigned id)
+{
     // Loop over all devices to find available GPUs and return free artsGpu_t
     int start = (int) id % artsNumGpus;
     for (int i=start, j=0; j<artsNumGpus; ++j, i=(i+1)%artsNumGpus) {
@@ -376,4 +386,13 @@ void artsFreeGpuMemory(artsGpu_t * artsGpu)
         artsResetArrayList(artsGpu->deleteHostQueue);
         *hostSize = 0;
     }
+}
+
+void artsGpuFree(void * data, unsigned int gpu)
+{
+    int savedDevice;
+    cudaGetDevice(&savedDevice);
+    cudaSetDevice((int)gpu);
+    cudaFree(data);
+    cudaSetDevice(savedDevice);
 }

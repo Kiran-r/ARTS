@@ -103,6 +103,10 @@ int artsRouteTableSetRank(artsGuid_t key, int rank);
 void ** artsRouteTableGetOOList(artsGuid_t key, struct artsOutOfOrderList ** list);
 void artsRouteTableDecItem(artsGuid_t key, void * data);
 void ** artsRouteTableReserve(artsGuid_t key, bool * dec, itemState * state);
+bool internalRouteTableAddItemRace(struct artsRouteTable * routeTable, void * item, artsGuid_t key, unsigned int rank, bool used);
+bool artsGpuRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, bool used, unsigned int gpuId);
+uint64_t artsGpuRouteTableLookupDb(artsGuid_t key);
+bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int gpuId);
 #ifdef __cplusplus
 }
 #endif

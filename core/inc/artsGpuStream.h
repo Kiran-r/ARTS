@@ -91,6 +91,7 @@ artsGpu_t * artsGpuScheduled(unsigned id);
 void artsStoreNewEdts(void * edt);
 void artsHandleNewEdts();
 void artsFreeGpuMemory(artsGpu_t * artsGpu);
+void artsGpuFree(void * data, unsigned int gpu);
 
 extern int artsNumGpus;
 extern artsGpu_t * artsGpus;

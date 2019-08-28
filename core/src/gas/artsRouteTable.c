@@ -45,6 +45,9 @@
 #include "artsDbList.h"
 #include "artsDebug.h"
 #include "artsCounter.h"
+#ifdef USE_GPU
+#include "artsGpuStream.h"
+#endif
 
 #define DPRINTF
 //#define DPRINTF(...) PRINTF(__VA_ARGS__)
@@ -93,9 +96,14 @@ struct artsRouteTable
     volatile unsigned writerLock;
 } __attribute__ ((aligned));
 
-void freeItem(struct artsRouteItem * item)
+void freeItem(struct artsRouteItem * item, unsigned int gpu)
 {
-    artsFree(item->data);
+#ifdef USE_GPU
+    if (gpu)
+        artsGpuFree(item->data, gpu-1);
+    else
+#endif
+        artsFree(item->data);
     artsOutOfOrderListDelete(&item->ooList);
     item->data = NULL;
     item->key = 0;
@@ -266,7 +274,7 @@ bool incItem(struct artsRouteItem * item, unsigned int count)
     return false;
 }
 
-bool decItem(struct artsRouteItem * item)
+bool decItem(struct artsRouteItem * item, unsigned int gpu)
 {
 //    uint64_t local = item->lock;
 //    if(getCount(local) == 0)
@@ -274,7 +282,7 @@ bool decItem(struct artsRouteItem * item)
     uint64_t local = artsAtomicSubU64(&item->lock, 1);
     if(shouldDelete(local))
     {
-        freeItem(item);
+        freeItem(item, gpu);
         return true;
     }
     return false;
@@ -503,15 +511,20 @@ struct artsRouteItem * artsRouteTableSearchForEmpty(struct artsRouteTable * rout
     return NULL;
 }
 
-void * artsRouteTableAddItem(void* item, artsGuid_t key, unsigned int rank, bool used)
+void * internalRouteTableAddItem(struct artsRouteTable * routeTable, void* item, artsGuid_t key, unsigned int rank, bool used)
 {
-    struct artsRouteTable * routeTable = artsGetRouteTable(key);
     struct artsRouteItem * location = artsRouteTableSearchForEmpty(routeTable, key, used);
 
     location->data = item;
     location->rank = rank;
     markWrite(location);
     return location;
+}
+
+void * artsRouteTableAddItem(void* item, artsGuid_t key, unsigned int rank, bool used)
+{
+    struct artsRouteTable * routeTable = artsGetRouteTable(key);
+    return internalRouteTableAddItem(routeTable, item, key, rank, used);
 }
 
 bool artsRouteTableRemoveItem(artsGuid_t key)
@@ -522,7 +535,7 @@ bool artsRouteTableRemoveItem(artsGuid_t key)
     {
         if(markDelete(item))
         {
-            freeItem(item);
+            freeItem(item, 0);
         }
     }
     return 0;
@@ -530,9 +543,8 @@ bool artsRouteTableRemoveItem(artsGuid_t key)
 
 //This locks the guid so it is useful when multiple people have the guid ahead of time
 //The guid doesn't need to be locked if no one knows about it
-bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, bool used)
+bool internalRouteTableAddItemRace(struct artsRouteTable * routeTable, void * item, artsGuid_t key, unsigned int rank, bool used)
 {
-    struct artsRouteTable * routeTable = artsGetRouteTable(key);
     unsigned int pos = (unsigned int)(((uint64_t)key) % (uint64_t)guidLockSize);
 
     bool ret = false;
@@ -558,7 +570,7 @@ bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, b
                 }
                 else
                 {
-                    found = artsRouteTableAddItem(item, key, rank, used);
+                    found = internalRouteTableAddItem(routeTable, item, key, rank, used);
                     ret = true;
                 }
                 guidLock[pos] = 0U;
@@ -569,6 +581,18 @@ bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, b
     }
 //    PRINTF("found: %lu %p\n", key, found);
     return ret;
+}
+
+bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, bool used)
+{
+    struct artsRouteTable * routeTable = artsGetRouteTable(key);
+    return internalRouteTableAddItemRace(routeTable, item, key, rank, used);
+}
+
+bool artsGpuRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, bool used, unsigned int gpuId)
+{
+    struct artsRouteTable * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
+    return internalRouteTableAddItemRace(routeTable, item, key, rank, used);
 }
 
 //This is used for the send aggregation
@@ -657,6 +681,19 @@ itemState artsRouteTableLookupItemWithState(artsGuid_t key, void *** data, itemS
     return noKey;
 }
 
+uint64_t artsGpuRouteTableLookupDb(artsGuid_t key)
+{
+    uint64_t ret = 0;
+    for (int i=0; i<artsNumGpus; ++i)
+    {
+        struct artsRouteTable * gpuRouteTable = artsNodeInfo.gpuRouteTable[i];
+        struct artsRouteItem * location = artsRouteTableSearchForKey(gpuRouteTable, key, availableKey);
+        if(location)
+            ret |= 1<<i;
+    }
+    return ret;
+}
+
 void * artsRouteTableLookupDb(artsGuid_t key, int * rank)
 {
     *rank = -1;
@@ -688,7 +725,28 @@ bool artsRouteTableReturnDb(artsGuid_t key, bool markToDelete)
                 artsAtomicCswapU64(&location->lock, availableItem, (availableItem | deleteItem));
             }
         }
-        return decItem(location);
+        return decItem(location, 0);
+    }
+    return false;
+}
+
+bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int gpuId)
+{
+    struct artsRouteTable * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
+    struct artsRouteItem * location = artsRouteTableSearchForKey(routeTable, key, availableKey);
+    if(location)
+    {
+        if(markToDelete)
+        {
+            //Only mark it for deletion if it is the last one
+            //Why make it unusable to other if there is still other
+            //tasks that may benifit
+            if(!getCount(location->lock))
+            {
+                artsAtomicCswapU64(&location->lock, availableItem, (availableItem | deleteItem));
+            }
+        }
+        return decItem(location, gpuId+1);
     }
     return false;
 }
@@ -793,7 +851,7 @@ void artsRouteTableDecItem(artsGuid_t key, void * data)
 {
     if(data)
     {
-        decItem(getItemFromData(key, data));
+        decItem(getItemFromData(key, data), 0);
     }
 }
 
@@ -827,7 +885,7 @@ bool artsRouteTableInvalidateItem(artsGuid_t key)
         markDelete(location);
         if(shouldDelete(location->lock))
         {
-            freeItem(location);
+            freeItem(location, 0);
             return true;
         }
         DPRINTF("Marked %lu as invalid %lu\n", key, location->lock);

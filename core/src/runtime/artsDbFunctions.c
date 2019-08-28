@@ -64,7 +64,7 @@ void * artsDbMalloc(artsType_t mode, unsigned int size)
 {
     void * ptr = NULL;
 #ifdef USE_GPU
-    if(artsNodeInfo.gpu && mode == ARTS_DB_GPU)
+    if(artsNodeInfo.gpu && (mode == ARTS_DB_GPU_READ || mode == ARTS_DB_GPU_WRITE))
         ptr = artsCudaMallocHost(size);
 #endif
     if(!ptr)
@@ -76,7 +76,7 @@ void artsDbFree(void * ptr)
 {
     struct artsDb * db = (struct artsDb*) ptr;
 #ifdef USE_GPU
-    if(artsNodeInfo.gpu && db->header.type == ARTS_DB_GPU)
+    if(artsNodeInfo.gpu && (db->header.type == ARTS_DB_GPU_READ || db->header.type == ARTS_DB_GPU_WRITE))
     {
         artsCudaFreeHost(ptr);
         ptr = NULL;
@@ -347,7 +347,8 @@ void acquireDbs(struct artsEdt * edt)
 //                    }
                     break;
                 }
-                case ARTS_DB_GPU:
+                case ARTS_DB_GPU_READ:
+                case ARTS_DB_GPU_WRITE:
                 case ARTS_DB_READ:
                 case ARTS_DB_WRITE:
                     if(owner == artsGlobalRankId) //Owner Rank
@@ -365,7 +366,7 @@ void acquireDbs(struct artsEdt * edt)
                                 }
                                 else //Owner rank but someone else has valid copy
                                 {
-                                    if(depv[i].mode == ARTS_DB_READ || depv[i].mode == ARTS_DB_GPU )
+                                    if(depv[i].mode == ARTS_DB_READ || depv[i].mode == ARTS_DB_GPU_READ || depv[i].mode == ARTS_DB_GPU_WRITE)
                                         artsRemoteDbRequest(depv[i].guid, validRank, edt, i, depv[i].mode, true);
                                     else
                                         artsRemoteDbFullRequest(depv[i].guid, validRank, edt, i, depv[i].mode);

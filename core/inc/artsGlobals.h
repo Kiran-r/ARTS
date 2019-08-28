@@ -151,7 +151,8 @@ extern uint64_t artsGuidMax;
 "ARTS_DB_PIN", \
 "ARTS_DB_ONCE", \
 "ARTS_DB_ONCE_LOCAL", \
-"ARTS_DB_GPU", \
+"ARTS_DB_GPU_READ", \
+"ARTS_DB_GPU_WRITE", \
 "ARTS_LAST_TYPE", \
 "ARTS_SINGLE_VALUE", \
 "ARTS_PTR" }

@@ -174,7 +174,7 @@ void multiplyMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
     float * bTile = (float*) depv[1].ptr;
     float * cTile = NULL;
     
-    artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU);
+    artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU_WRITE);
     initMatrix(rowSize, cTile, false, true);
     
     uint64_t args[] = {TILE, toSignal, k, cTileGuid, i, j, k};
@@ -197,7 +197,7 @@ void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[
 //    PRINTF("%s: i: %u j: %u %lu\n", __func__, I, J, doneGuid);
     
     float * cTile;
-    artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU);
+    artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(float) * TILE * TILE, ARTS_DB_GPU_WRITE);
     initMatrix(rowSize, cTile, false, true);
     
     for(unsigned int i=0; i<depc; i++)

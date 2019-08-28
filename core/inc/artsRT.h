@@ -101,8 +101,9 @@ typedef enum
 //ARTS_DB_ONCE: This mode is the same as ARTS_DB_ONCE except we are guarenteing
 //That the DB is local to the EDT accessing it (i.e. edtGuid and dbGuid have the same route).
     ARTS_DB_ONCE_LOCAL,
-         
-    ARTS_DB_GPU,
+
+    ARTS_DB_GPU_READ,
+    ARTS_DB_GPU_WRITE,
             
 //End DB modes
     ARTS_LAST_TYPE,

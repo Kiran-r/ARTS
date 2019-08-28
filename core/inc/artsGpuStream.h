@@ -79,7 +79,7 @@ typedef struct
     uint64_t hostSize;
 } artsGpu_t;
 
-void artsInitGpus();
+void artsInitGpus(unsigned int entries, unsigned int tableSize);
 void artsCleanupGpus();
 void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr, artsGpu_t * artsGpu, bool op);
 void artsScheduleToGpu(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, void * edtPtr, artsGpu_t * artsGpu);

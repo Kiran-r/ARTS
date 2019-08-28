@@ -66,6 +66,7 @@ struct artsRuntimeShared
     struct artsDeque ** receiverDeque;
     struct artsDeque ** gpuDeque;
     struct artsRouteTable ** routeTable;
+    struct artsRouteTable ** gpuRouteTable;
     struct artsRouteTable * remoteRouteTable;
     volatile bool ** localSpin;
     unsigned int ** memoryMoves;

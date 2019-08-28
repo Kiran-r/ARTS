@@ -45,6 +45,7 @@
 #include "artsGpuRuntime.h"
 #include "artsGlobals.h"
 #include "artsDeque.h"
+#include "artsRouteTable.h"
 
 #define DPRINTF( ... )
 //#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
@@ -69,7 +70,7 @@ static cudaError_t artsCreateStreams (artsGpu_t * artsGpu) {
   return cudaSuccess;
 }
 
-void artsInitGpus()
+void artsInitGpus(unsigned int entries, unsigned int tableSize)
 {
     int savedDevice;
     artsGpu_t * artsGpu;
@@ -86,6 +87,7 @@ void artsInitGpus()
         DPRINTF("Setting %d\n", i);
         CHECKCORRECT(cudaSetDevice(i));
         CHECKCORRECT(artsCreateStreams(artsGpu));
+        artsNodeInfo.gpuRouteTable[i] = artsRouteTableListNew(1, entries, tableSize);
     }
 
     artsLock(&newEdtLock);

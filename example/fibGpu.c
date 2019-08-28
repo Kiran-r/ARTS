@@ -69,11 +69,11 @@ void fibFork(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t dep
     {
         //Create two DB of type ARTS_DB_GPU
         unsigned int * x  = NULL;
-        artsGuid_t     xGuid = artsDbCreate((void**) &x, sizeof(unsigned int), ARTS_DB_GPU);
+        artsGuid_t     xGuid = artsDbCreate((void**) &x, sizeof(unsigned int), ARTS_DB_GPU_WRITE);
         (*x) = (*resPtr) - 1;
         
         unsigned int * y  = NULL;
-        artsGuid_t     yGuid = artsDbCreate((void**) &y, sizeof(unsigned int), ARTS_DB_GPU);
+        artsGuid_t     yGuid = artsDbCreate((void**) &y, sizeof(unsigned int), ARTS_DB_GPU_WRITE);
         (*y) = (*resPtr) - 2;
         
         //Create a continuation edt to run on the GPU
@@ -113,7 +113,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     if(!nodeId && !workerId)
     {
         unsigned int * resPtr  = NULL;
-        artsGuid_t     resGuid = artsDbCreate((void**) &resPtr, sizeof(unsigned int), ARTS_DB_GPU);
+        artsGuid_t     resGuid = artsDbCreate((void**) &resPtr, sizeof(unsigned int), ARTS_DB_GPU_WRITE);
         if (argc < 2) {
           PRINTF("Format: ./fibGpu NUMBER\n");
           artsShutdown();

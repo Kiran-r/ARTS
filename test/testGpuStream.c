@@ -79,7 +79,7 @@ int main(void)
     artsGpu_t * artsGpu;
     
     PRINTF("INIT STREAM\n");
-    artsInitGpus();
+    artsInitGpus(1, 1);
     
     for(unsigned int i=0; i<SOMEARGS; i++)
     {
@@ -103,7 +103,7 @@ int main(void)
     }
     
     PRINTF("DELETING\n");
-    artsFreeGpuMemory();
+    artsFreeGpuMemory(artsGpu);
     
     PRINTF("DESTROYING\n");
     artsCleanupGpus();

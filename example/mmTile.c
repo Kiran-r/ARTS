@@ -164,9 +164,9 @@ void multiplyMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
     double * bTile = NULL;
     double * cTile = NULL;
     
-    artsGuid_t aTileGuid = artsDbCreate((void**) &aTile, sizeof(double) * tile_size * tile_size, ARTS_DB_GPU);
-    artsGuid_t bTileGuid = artsDbCreate((void**) &bTile, sizeof(double) * tile_size * tile_size, ARTS_DB_GPU);
-    artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(double) * tile_size * tile_size, ARTS_DB_GPU);
+    artsGuid_t aTileGuid = artsDbCreate((void**) &aTile, sizeof(double) * tile_size * tile_size, ARTS_DB_GPU_READ);
+    artsGuid_t bTileGuid = artsDbCreate((void**) &bTile, sizeof(double) * tile_size * tile_size, ARTS_DB_GPU_READ);
+    artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(double) * tile_size * tile_size, ARTS_DB_GPU_WRITE);
     
     copyBlock(i, k, tile_size, aTile, mat_size, aMat, true);
     copyBlock(k, j, tile_size, bTile, mat_size, bMat, true);
@@ -217,7 +217,7 @@ void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[
 
     double * cTile;
     unsigned int rowSize    = tile_size;
-    artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(double) * tile_size * tile_size, ARTS_DB_GPU);
+    artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(double) * tile_size * tile_size, ARTS_DB_GPU_WRITE);
     initMatrix(rowSize, cTile, false, true);
 
     for(unsigned int i=0; i<depc; i++)

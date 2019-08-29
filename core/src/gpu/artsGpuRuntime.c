@@ -58,7 +58,7 @@ void artsCudaFreeHost(void * ptr)
     cudaFreeHost(&ptr);
 }
 
-artsGuid_t artsEdtCreateGpuDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool op, bool hasDepv)
+artsGuid_t artsEdtCreateGpuDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv)
 {
 //    ARTSEDTCOUNTERTIMERSTART(edtCreateCounter);
     unsigned int depSpace = (hasDepv) ? depc * sizeof(artsEdtDep_t) : 0;
@@ -71,14 +71,13 @@ artsGuid_t artsEdtCreateGpuDep(artsEdt_t funcPtr, unsigned int route, uint32_t p
     edt->slot = slot;
     edt->dataGuid = dataGuid;
     edt->passthrough = false;
-    edt->op = op;
     artsGuid_t guid = NULL_GUID;
     artsEdtCreateInternal((artsEdt*) edt, ARTS_GPU_EDT, &guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
 //    ARTSEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return guid;
 }
 
-artsGuid_t artsEdtCreateGpuPTDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot, bool op, bool hasDepv)
+artsGuid_t artsEdtCreateGpuPTDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot, bool hasDepv)
 {
 //    ARTSEDTCOUNTERTIMERSTART(edtCreateCounter);
     unsigned int depSpace = (hasDepv) ? depc * sizeof(artsEdtDep_t) : 0;
@@ -91,19 +90,18 @@ artsGuid_t artsEdtCreateGpuPTDep(artsEdt_t funcPtr, unsigned int route, uint32_t
     edt->slot = slot;
     edt->dataGuid = passSlot;
     edt->passthrough = true;
-    edt->op = op;
     artsGuid_t guid = NULL_GUID;
     artsEdtCreateInternal((artsEdt*) edt, ARTS_GPU_EDT, &guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
 //    ARTSEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return guid;
 }
 
-artsGuid_t artsEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool op)
+artsGuid_t artsEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid)
 {
-    return artsEdtCreateGpuDep(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, op, true);
+    return artsEdtCreateGpuDep(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, true);
 }
 
-artsGuid_t artsEdtCreateGpuPT(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot, bool op)
+artsGuid_t artsEdtCreateGpuPT(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot)
 {
-    return artsEdtCreateGpuPTDep(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, passSlot, op, true);
+    return artsEdtCreateGpuPTDep(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, passSlot, true);
 }

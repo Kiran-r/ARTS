@@ -44,7 +44,7 @@
 #define GPUMM 1
 #define MATSIZE 1024
 #define TILESIZE 16
-#define VERIFY 0
+#define VERIFY 1
 
 uint64_t start = 0;
 
@@ -177,7 +177,7 @@ void multiplyMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
     dim3 grid(1, 1);
     
     uint64_t args[] = {tile_size};
-    artsGuid_t    mulGpuGuid = artsEdtCreateGpu(mmKernel, artsGetCurrentNode(), 1, args, 3, threads, grid, toSignal, k, cTileGuid, true);
+    artsGuid_t    mulGpuGuid = artsEdtCreateGpu(mmKernel, artsGetCurrentNode(), 1, args, 3, threads, grid, toSignal, k, cTileGuid);
     artsSignalEdt(mulGpuGuid, 0, aTileGuid);
     artsSignalEdt(mulGpuGuid, 1, bTileGuid);
     artsSignalEdt(mulGpuGuid, 2, cTileGuid);
@@ -326,7 +326,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
                 dim3 threads (tile_size, tile_size);
                 dim3 grid (1, 1);
 
-                artsGuid_t sumGuid = artsEdtCreateGpuPT (sumMMKernel, nodeId, 1, sumArgs, numBlocks, threads, grid, doneGuid, 3 + (i * numBlocks + j), 0, false);
+                artsGuid_t sumGuid = artsEdtCreateGpuPT (sumMMKernel, nodeId, 1, sumArgs, numBlocks, threads, grid, doneGuid, 3 + (i * numBlocks + j), 0);
 #else
                 uint64_t sumArgs[] = {doneGuid, i, j};
                 artsGuid_t sumGuid = artsEdtCreate(sumMM, nodeId, 3, sumArgs, numBlocks);

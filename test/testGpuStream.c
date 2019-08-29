@@ -91,7 +91,7 @@ int main(void)
     artsGpu = artsGpuScheduled(0);
     
     PRINTF("LAUNCHING 1 %u\n", SOMEARGS);
-    artsScheduleToGpuInternal(kernel, SOMEARGS, paramv, SOMEARGS, depv, grid, block, NULL, artsGpu, false);
+    artsScheduleToGpuInternal(kernel, SOMEARGS, paramv, SOMEARGS, depv, grid, block, NULL, artsGpu);
     
     PRINTF("WAITING\n");
     artsGpuSynchronize(artsGpu);

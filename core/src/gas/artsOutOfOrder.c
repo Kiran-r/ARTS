@@ -241,7 +241,7 @@ inline void artsOutOfOrderHandler(void * handleMe, void * memoryPtr)
         case ooDbRequestSatisfy:
         {
             struct ooDbRequestSatisfy * req = handleMe;
-            PRINTF("FILL %lu %u %p\n", req->edt, req->slot, memoryPtr);
+            DPRINTF("FILL %lu %u %p\n", req->edt, req->slot, memoryPtr);
             artsDbRequestCallback(req->edt, req->slot, (struct artsDb *)memoryPtr);
             break;
         }

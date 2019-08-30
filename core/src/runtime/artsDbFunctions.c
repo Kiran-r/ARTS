@@ -468,7 +468,7 @@ void releaseDbs(unsigned int depc, artsEdtDep_t * depv)
         else 
         {
             if(artsRouteTableReturnDb(depv[i].guid, depv[i].mode != ARTS_DB_PIN))
-                PRINTF("FREED A COPY!\n");
+                DPRINTF("FREED A COPY!\n");
         }
     }
 }

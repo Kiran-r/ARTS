@@ -45,6 +45,9 @@ target_link_libraries(testMain ${LIBS})
 add_executable(testRouteTable testRouteTable.c)
 target_link_libraries(testRouteTable ${LIBS})
 
+add_executable(testRouteTable2 testRouteTable2.c)
+target_link_libraries(testRouteTable2 ${LIBS})
+
 add_executable(testCDAG testCDAG.c)
 target_link_libraries(testCDAG ${LIBS})
 
@@ -128,3 +131,6 @@ endif()
 
 add_executable(testOOBug testOOBug.c)
 target_link_libraries(testOOBug ${LIBS})
+
+add_executable(testRouteTableIter testRouteTableIter.c)
+target_link_libraries(testRouteTableIter ${LIBS})

@@ -224,7 +224,7 @@ artsGuid_t artsGuidRangeNext(artsGuidRange * range)
     if(range)
     {
         if(range->index < range->size)
-            ret = artsGetGuid(range, range->index);
+            ret = artsGetGuid(range, range->index++);
     }
     return ret;
 }

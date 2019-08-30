@@ -63,8 +63,30 @@ typedef enum
     reservedKey,  //reserved only      
 } itemState;
 
-struct artsRouteItem;
-struct artsRouteTable;
+struct artsRouteItem
+{
+    artsGuid_t key;
+    void * data;
+    volatile uint64_t lock;
+    unsigned int rank;
+    struct artsOutOfOrderList ooList;
+} __attribute__ ((aligned));
+
+//Add padding around locks...
+struct artsRouteTable
+{
+    struct artsRouteItem * data;
+    unsigned int size;
+    unsigned int shift;
+    struct artsRouteTable * next;
+    volatile unsigned readerLock;
+    volatile unsigned writerLock;
+} __attribute__ ((aligned));
+
+typedef struct {
+    uint64_t index;
+    struct artsRouteTable * table;
+} artsRouteTableIterator;
 
 struct artsRouteTable *artsRouteTableListNew(unsigned int listSize, unsigned int routeTableSize, unsigned int shift);
 struct artsRouteTable *artsRouteTableListGetRouteTable(struct artsRouteTable * routeTableList, unsigned int position);
@@ -103,10 +125,15 @@ int artsRouteTableSetRank(artsGuid_t key, int rank);
 void ** artsRouteTableGetOOList(artsGuid_t key, struct artsOutOfOrderList ** list);
 void artsRouteTableDecItem(artsGuid_t key, void * data);
 void ** artsRouteTableReserve(artsGuid_t key, bool * dec, itemState * state);
-bool internalRouteTableAddItemRace(struct artsRouteTable * routeTable, void * item, artsGuid_t key, unsigned int rank, bool used);
-bool artsGpuRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, bool used, unsigned int gpuId);
+bool internalRouteTableAddItemRace(struct artsRouteTable * routeTable, void * item, artsGuid_t key, unsigned int rank, bool usedRes, bool usedAvail);
+bool artsGpuRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, unsigned int gpuId);
 uint64_t artsGpuRouteTableLookupDb(artsGuid_t key);
 bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int gpuId);
+artsRouteTableIterator * artsNewRouteTableIterator(struct artsRouteTable * table);
+struct artsRouteItem * artsRouteTableIterate(artsRouteTableIterator * iter);
+void artsPrintItem(struct artsRouteItem * item);
+struct artsRouteItem * getItemFromData(artsGuid_t key, void * data);
+
 #ifdef __cplusplus
 }
 #endif

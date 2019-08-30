@@ -88,8 +88,7 @@ struct artsRouteItem
     volatile uint64_t lock;
     unsigned int rank;
     struct artsOutOfOrderList ooList;
-};
-// } __attribute__ ((aligned));
+} __attribute__ ((aligned));
 
 //Add padding around locks...
 struct artsRouteTable
@@ -100,8 +99,7 @@ struct artsRouteTable
     struct artsRouteTable * next;
     volatile unsigned readerLock;
     volatile unsigned writerLock;
-};
-// } __attribute__ ((aligned));
+} __attribute__ ((aligned));
 
 typedef struct {
     uint64_t index;

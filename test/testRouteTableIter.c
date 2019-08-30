@@ -44,9 +44,6 @@
 #include "artsGlobals.h"
 #include "artsAtomics.h"
 
-#define reservedItem  0x8000000000000000
-#define availableItem 0x4000000000000000
-#define deleteItem    0x2000000000000000
 #define MYSIZE 10
 
 void printRT()

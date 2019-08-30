@@ -277,10 +277,10 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
         // Route tests (Start)
         artsGpuRouteTableAddItemRace(hostDepv[i].ptr, hostDepv[i].guid, 1, artsGpu->device);
         uint64_t test_ret = artsGpuRouteTableLookupDb(depv[i].guid);
-        printf("Inserted %"PRIu64"\n", test_ret);
+        printf("Inserted %lu\n", test_ret);
         artsGpuRouteTableReturnDb(hostDepv[i].guid, true, artsGpu->device);
         test_ret = artsGpuRouteTableLookupDb(depv[i].guid);
-        printf("Deleted %"PRIu64"\n", test_ret);
+        printf("Deleted %lu\n", test_ret);
         // Route tests (End)
     }
 

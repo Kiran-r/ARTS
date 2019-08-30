@@ -44,13 +44,13 @@
 #include "artsGlobals.h"
 #include "artsAtomics.h"
 
-#define reservedItem  0x8000000000000000
-#define availableItem 0x4000000000000000
-#define deleteItem    0x2000000000000000
 #define MYSIZE 10
 
-void printRT()
+//Run with only 1 node 1 worker!
+
+void printRT(char * message)
 {
+    PRINTF("Start: %s\n", message);
     artsRouteTableIterator * iter = artsNewRouteTableIterator(artsNodeInfo.routeTable[0]);
     struct artsRouteItem * item = artsRouteTableIterate(iter);
     while(item)
@@ -58,47 +58,30 @@ void printRT()
         artsPrintItem(item);
         item = artsRouteTableIterate(iter);
     }
+    PRINTF("End: %s\n", message);
 }
 
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
 {
-    printf("Init per node\n");
-    artsGuidRange * range = artsNewGuidRangeNode(ARTS_EDT, MYSIZE, nodeId);
+    int dummyRank;
+
+    printf("Start\n");
+    artsGuidRange * range = artsNewGuidRangeNode(ARTS_DB_READ, MYSIZE, nodeId);
     for(uint64_t i=0; i<MYSIZE; i++)
-    {
-        struct artsRouteItem * location = artsRouteTableAddItem((void*)range, artsGuidRangeNext(range), nodeId, 0);
-        if(!i)
-        {
-            PRINTF("SWAPPING\n");
-            artsAtomicCswapU64(&location->lock, availableItem, (availableItem | deleteItem));
-        }
-    }
+        artsDbCreateWithGuid(artsGuidRangeNext(range), 1024*sizeof(char));
+    printRT("After DB Init");
+
+    for(uint64_t i=0; i<MYSIZE; i++)
+        artsRouteTableLookupDb(artsGetGuid(range, i), &dummyRank);
+    printRT("After DB Lookup");
     
-    printRT();
+    for(uint64_t i=0; i<MYSIZE; i++)
+        internalRouteTableReturnDb(artsNodeInfo.routeTable[0], artsGetGuid(range, i), false, false, 0);
+    printRT("After DB Return with Mark");
 
-    int rank;
-    artsGuid_t guid = artsGetGuid(range, 0);
-    artsRouteTableLookupDb(guid, &rank);
-    artsRouteTableReturnDb(guid, true);
-
-    void * ptr = artsRouteTableLookupItem(guid);
-    PRINTF("Lookup %lu %p\n", guid, ptr);
-    artsPrintItem(getItemFromData(guid, ptr));
-
-    ptr = artsRouteTableLookupDb(guid, &rank);
-    PRINTF("DB Lookup %lu %p\n", guid, ptr);
-    artsPrintItem(getItemFromData(guid, ptr));
-
-    struct artsRouteItem * location = artsRouteTableAddItem((void*)range, guid, nodeId, 0);
-    // artsAtomicCswapU64(&location->lock, availableItem, (availableItem | deleteItem));
-
-    ptr = artsRouteTableLookupItem(guid);
-    PRINTF("Lookup2 %lu %p\n", guid, ptr);
-    artsPrintItem(getItemFromData(guid, ptr));
-
-    ptr = artsRouteTableLookupDb(guid, &rank);
-    PRINTF("DB Lookup2 %lu %p\n", guid, ptr);
-    artsPrintItem(getItemFromData(guid, ptr));
+    
+    internalCleanUpRouteTable(artsNodeInfo.routeTable[0], -1, true, -1);
+    printRT("After GC");
 
     artsShutdown();
 }

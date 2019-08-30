@@ -44,6 +44,24 @@ extern "C" {
 
 #include "artsOutOfOrderList.h"
 
+//These are for the lock for each item in the RT
+#define reservedItem  0x8000000000000000
+#define availableItem 0x4000000000000000
+#define deleteItem    0x2000000000000000
+#define statusMask    (reservedItem | availableItem | deleteItem)
+
+#define maxItem       0x1FFFFFFFFFFFFFFF
+#define countMask     ~(reservedItem | availableItem | deleteItem)
+#define checkMaxItem(x) (((x & countMask) + 1) < maxItem)
+#define getCount(x)   (x & countMask)
+
+#define isDel(x)       ( x & deleteItem )
+#define isRes(x)       ( (x & reservedItem ) && !(x & availableItem) && !(x & deleteItem) )
+#define isAvail(x)     ( (x & availableItem) && !(x & reservedItem ) && !(x & deleteItem) )
+#define isReq(x)  ( (x & reservedItem ) &&  (x & availableItem) && !(x & deleteItem) )
+
+#define shouldDelete(x) (isDel(x) && !getCount(x))
+
 struct artsRouteInvalidate
 {
     int size;
@@ -70,7 +88,8 @@ struct artsRouteItem
     volatile uint64_t lock;
     unsigned int rank;
     struct artsOutOfOrderList ooList;
-} __attribute__ ((aligned));
+};
+// } __attribute__ ((aligned));
 
 //Add padding around locks...
 struct artsRouteTable
@@ -81,7 +100,8 @@ struct artsRouteTable
     struct artsRouteTable * next;
     volatile unsigned readerLock;
     volatile unsigned writerLock;
-} __attribute__ ((aligned));
+};
+// } __attribute__ ((aligned));
 
 typedef struct {
     uint64_t index;
@@ -133,6 +153,9 @@ artsRouteTableIterator * artsNewRouteTableIterator(struct artsRouteTable * table
 struct artsRouteItem * artsRouteTableIterate(artsRouteTableIterator * iter);
 void artsPrintItem(struct artsRouteItem * item);
 struct artsRouteItem * getItemFromData(artsGuid_t key, void * data);
+bool internalRouteTableReturnDb(struct artsRouteTable * routeTable, artsGuid_t key, bool markToDelete, bool doDelete, unsigned int gpuId);
+uint64_t internalCleanUpRouteTable(struct artsRouteTable * routeTable, uint64_t sizeToClean, bool cleanZeros, int gpuId);
+uint64_t artsCleanUpGpuRouteTable(unsigned int sizeToClean, bool cleanZeros, unsigned int gpuId);
 
 #ifdef __cplusplus
 }

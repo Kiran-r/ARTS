@@ -134,3 +134,6 @@ target_link_libraries(testOOBug ${LIBS})
 
 add_executable(testRouteTableIter testRouteTableIter.c)
 target_link_libraries(testRouteTableIter ${LIBS})
+
+add_executable(testRouteTableIter2 testRouteTableIter2.c)
+target_link_libraries(testRouteTableIter2 ${LIBS})

@@ -57,22 +57,6 @@
 #define guidLockSize 1024
 volatile unsigned int guidLock[guidLockSize] = {0};
 
-#define reservedItem  0x8000000000000000
-#define availableItem 0x4000000000000000
-#define deleteItem    0x2000000000000000
-#define statusMask    (reservedItem | availableItem | deleteItem)
-
-#define maxItem       0x1FFFFFFFFFFFFFFF
-#define countMask     ~(reservedItem | availableItem | deleteItem)
-#define checkMaxItem(x) (((x & countMask) + 1) < maxItem)
-#define getCount(x)   (x & countMask)
-
-#define isDel(x)       ( x & deleteItem )
-#define isRes(x)       ( (x & reservedItem ) && !(x & availableItem) && !(x & deleteItem) )
-#define isAvail(x)     ( (x & availableItem) && !(x & reservedItem ) && !(x & deleteItem) )
-#define isReq(x)  ( (x & reservedItem ) &&  (x & availableItem) && !(x & deleteItem) )
-
-#define shouldDelete(x) (isDel(x) && !getCount(x))
 
 void freeItem(struct artsRouteItem * item, unsigned int gpu)
 {
@@ -689,51 +673,40 @@ void * artsRouteTableLookupDb(artsGuid_t key, int * rank)
     return ret;
 }
 
-bool artsRouteTableReturnDb(artsGuid_t key, bool markToDelete)
+bool internalRouteTableReturnDb(struct artsRouteTable * routeTable, artsGuid_t key, bool markToDelete, bool doDelete, unsigned int gpuId)
 {
-    struct artsRouteTable * routeTable = artsGetRouteTable(key);
     struct artsRouteItem * location = artsRouteTableSearchForKey(routeTable, key, availableKey);
     if(location)
     {
-        if(markToDelete && artsGuidGetRank(key) != artsGlobalRankId)
+        //Only mark it for deletion if it is the last one
+        //Why make it unusable to other if there is still other
+        //tasks that may benifit
+        if(markToDelete && (getCount(location->lock) == 1))
         {
-            //Only mark it for deletion if it is the last one
-            //Why make it unusable to other if there is still other
-            //tasks that may benifit
-            if(getCount(location->lock)==1)
-            {
-                //This should work if there is only one outstanding left... me.  The decItem needs to sub 1 to delete
-                artsAtomicCswapU64(&location->lock, availableItem+1, 1+(availableItem | deleteItem));
-            }
+            //This should work if there is only one outstanding left... me.  The decItem needs to sub 1 to delete
+            uint64_t compVal = availableItem + 1;
+            uint64_t newVal = (availableItem | deleteItem) + 1;
+            uint64_t oldVal = artsAtomicCswapU64(&location->lock, compVal, newVal);
+            //Successfully marked to delete, but we don't want to delete it now
+            if(!doDelete && (compVal == oldVal))
+                return false;
         }
-        return decItem(location, 0);
+        return decItem(location, gpuId);
     }
     return false;
+}
+
+bool artsRouteTableReturnDb(artsGuid_t key, bool markToDelete)
+{
+    struct artsRouteTable * routeTable = artsGetRouteTable(key);
+    bool isRemote = artsGuidGetRank(key) != artsGlobalRankId;
+    return internalRouteTableReturnDb(routeTable, key, isRemote, isRemote, 0);
 }
 
 bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int gpuId)
 {
     struct artsRouteTable * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
-    struct artsRouteItem * location = artsRouteTableSearchForKey(routeTable, key, availableKey);
-    if(location)
-    {
-        if(markToDelete)
-        {
-            //Only mark it for deletion if it is the last one
-            //Why make it unusable to other if there is still other
-            //tasks that may benifit
-            if(getCount(location->lock == 1))
-            {
-                //This should work if there is only one outstanding left... me.
-                //The decItem needs to sub 1 to delete and we will get rid of our hold
-                //We return delaying the delete until the cleanup!
-                artsAtomicCswapU64(&location->lock, availableItem+1, 1+(availableItem | deleteItem));
-                return false;
-            }
-        }
-        return decItem(location, gpuId+1);
-    }
-    return false;
+    return internalRouteTableReturnDb(routeTable, key, true, false, gpuId+1);
 }
 
 int artsRouteTableLookupRank(artsGuid_t key)
@@ -893,37 +866,57 @@ void artsPrintItem(struct artsRouteItem * item)
     }
 }
 
-// uint64_t internalCleanUpRouteTable(struct artsRouteTable * routeTable, uint64_t sizeToClean, bool cleanZeros, int gpuId)
-// {
-//     uint64_t freedSize = 0;
-//     artsRouteTableIterator iter;
-//     artsResetRouteTableIterator(&iter, routeTable);
+/*This takes three parameters to regulate what is deleted.  This will only clean up DBs!
+1.  sizeToClean - this is the desired space to clean up.  The gc will continue untill it
+    it reaches this size or it has made a full pass across the RT.  Passing -1 will make the gc
+    clean up the entire RT.
+2.  cleanZeros - this flag indicates if we should delete data that is not being used by anyone.
+    Will delete up to sizeToClean.
+3.  gpuId - the id of which GPU this RT belongs.  This is the contiguous id [0 - numGpus-1].
+    Pass -1 for a host RT.
+Returns the size of the memory freed!
+*/ 
+uint64_t internalCleanUpRouteTable(struct artsRouteTable * routeTable, uint64_t sizeToClean, bool cleanZeros, int gpuId)
+{
+    uint64_t freedSize = 0;
+    artsRouteTableIterator iter;
+    artsResetRouteTableIterator(&iter, routeTable);
 
-//     struct artsRouteItem * item = artsRouteTableIterate(&iter);
-//     while(item && freedSize < sizeToClean)
-//     {
-//         item = artsRouteTableIterate(&iter);
-//         artsType_t type = artsGuidGetType(item->key);
-//         //These are DB types
-//         if(type > ARTS_BUFFER && type < ARTS_LAST_TYPE)
-//         {
-//             struct artsDb * db = item->data;
-//             uint64_t dbSize = db->header.size;
+    struct artsRouteItem * item = artsRouteTableIterate(&iter);
+    while(item && freedSize < sizeToClean)
+    {
+        artsPrintItem(item);
+        artsType_t type = artsGuidGetType(item->key);
+        //These are DB types
+        if(type > ARTS_BUFFER && type < ARTS_LAST_TYPE)
+        {
+            struct artsDb * db = item->data;
+            uint64_t dbSize = db->header.size;
+            
+            if(isDel(item->lock))
+            {
+                if(decItem(item, gpuId+1))
+                    freedSize+=dbSize;
+            }
+            else if(cleanZeros && !getCount(item->lock))
+            {
+                artsAtomicCswapU64(&item->lock, availableItem, 1+(availableItem | deleteItem));
+                if(decItem(item, gpuId+1))
+                    freedSize+=dbSize;
+            }
+        }
+        item = artsRouteTableIterate(&iter);
+    }
+    return freedSize;
+}
 
-//             if(isDel(item->lock))
-//             {
-//                 if(decItem(item, gpuId+1))
-//                     freedSize+=dbSize;
-//             }
-//             else if(cleanZeros && !getCount(item->lock))
-//             {
-//                 artsAtomicCswapU64(&item->lock, availableItem, 1+(availableItem | deleteItem));
-//                 if(decItem(item, gpuId+1))
-//                     freedSize+=dbSize;
-//             }
-//         }
-//     }
-// }
+//See internalCleanUpRouteTable!
+uint64_t artsCleanUpGpuRouteTable(unsigned int sizeToClean, bool cleanZeros, unsigned int gpuId)
+{
+    struct artsRouteTable * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
+    return internalCleanUpRouteTable(routeTable, sizeToClean, cleanZeros, gpuId);
+}
+
 //To cleanup --------------------------------------------------------------------------->
 
 bool artsRouteTableUpdateItem(artsGuid_t key, void * data, unsigned int rank, itemState state)

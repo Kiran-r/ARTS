@@ -368,16 +368,6 @@ static inline struct artsRouteTable * artsGetRouteTable(artsGuid_t guid)
     return artsNodeInfo.remoteRouteTable;
 }
 
-//static inline struct artsRouteTable * artsGetRouteTable(artsGuid_t guid)
-//{
-//    artsGuid raw = (artsGuid) guid;
-//    uint64_t key = raw.fields.key;
-//    uint64_t index = key % numTables;
-//    if(index < artsNodeInfo.workerThreadCount) 
-//        return artsNodeInfo.routeTable[index];        
-//    return artsNodeInfo.remoteRouteTable;
-//}
-
 void artsRouteTableNew(struct artsRouteTable * routeTable, unsigned int size, unsigned int shift)
 {
     routeTable->data =
@@ -419,6 +409,11 @@ struct artsRouteItem * artsRouteTableSearchForKey(struct artsRouteTable *routeTa
         current = next;
     }
     return NULL;
+}
+
+struct artsRouteItem * artsGpuRouteTableSearchForKey(artsGuid_t key, int gpuId)
+{
+    return artsRouteTableSearchForKey(artsNodeInfo.gpuRouteTable[gpuId], key, availableKey);
 }
 
 struct artsRouteItem * artsRouteTableSearchForEmpty(struct artsRouteTable * routeTable, artsGuid_t key, bool markUsed)
@@ -645,7 +640,7 @@ itemState artsRouteTableLookupItemWithState(artsGuid_t key, void *** data, itemS
     return noKey;
 }
 
-uint64_t artsGpuRouteTableLookupDb(artsGuid_t key)
+uint64_t artsLookupGpuDb(artsGuid_t key)
 {
     uint64_t ret = 0;
     for (int i=0; i<artsNodeInfo.gpu; ++i)
@@ -658,11 +653,10 @@ uint64_t artsGpuRouteTableLookupDb(artsGuid_t key)
     return ret;
 }
 
-void * artsRouteTableLookupDb(artsGuid_t key, int * rank)
+void * internalRouteTableLookupDb(struct artsRouteTable * routeTable, artsGuid_t key, int * rank)
 {
     *rank = -1;
     void * ret = NULL;
-    struct artsRouteTable * routeTable = artsGetRouteTable(key);
     struct artsRouteItem * location = artsRouteTableSearchForKey(routeTable, key, availableKey);
     if(location)
     {
@@ -671,6 +665,18 @@ void * artsRouteTableLookupDb(artsGuid_t key, int * rank)
             ret = location->data;
     }
     return ret;
+}
+
+void * artsRouteTableLookupDb(artsGuid_t key, int * rank)
+{
+    struct artsRouteTable * routeTable = artsGetRouteTable(key);
+    return internalRouteTableLookupDb(routeTable, key, rank);
+}
+
+void * artsGpuRouteTableLookupDb(artsGuid_t key, int * rank, int gpuId)
+{
+    struct artsRouteTable * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
+    return internalRouteTableLookupDb(routeTable, key, rank);
 }
 
 bool internalRouteTableReturnDb(struct artsRouteTable * routeTable, artsGuid_t key, bool markToDelete, bool doDelete, unsigned int gpuId)

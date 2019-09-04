@@ -126,7 +126,7 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsInitIntrospector(config);
 #ifdef USE_GPU
     if(config->gpu) // TODO: Multi-Node init
-        artsInitGpus(config->routeTableEntries, config->routeTableSize);
+        artsInitGpus(config->routeTableEntries, config->routeTableSize, config->gpu);
 #endif
 }
 
@@ -427,6 +427,9 @@ static inline void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
     uint64_t     * paramv = (uint64_t *)(edt + 1);
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
 
+    // TODO: Fix this function to avoid cleaning everything
+    // artsFreeGpuMemory(artsGpu);
+
     prepDbs(depc, depv);
 
 //    I don't think we will need this since gpu can't do any epoch creation
@@ -572,18 +575,14 @@ bool artsGpuSchedulerLoop()
     struct artsEdt * edtFound = NULL;
     //First part run GPU stuff
     if(!(edtFound = artsDequePopFront(artsThreadInfo.myGpuDeque)))
-    {
         if(!edtFound)
             edtFound = artsRuntimeStealGpuTask();
-    }
-    if(edtFound) {
-        artsGpu = artsGpuScheduled(artsThreadInfo.groupId);
+    if(edtFound)
+    {
+        /*artsGpu = artsFindGpu(edtFound, artsThreadInfo.groupId);
         if (artsGpu)
-        {
-            artsFreeGpuMemory(artsGpu);
-            artsRunGpu(edtFound, artsGpu);
-        }
-        else
+            artsRunGpu(edtFound, artsGpu);*/
+        if (!artsFindGpu(edtFound, artsThreadInfo.groupId))
             artsDequePushFront(artsThreadInfo.myGpuDeque, edtFound, 0);
     }
 //#endif

@@ -79,7 +79,7 @@ int main(void)
     artsGpu_t * artsGpu;
     
     PRINTF("INIT STREAM\n");
-    artsInitGpus(1, 1);
+    artsInitGpus(1, 1, 1);
     
     for(unsigned int i=0; i<SOMEARGS; i++)
     {

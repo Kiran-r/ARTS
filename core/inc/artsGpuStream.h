@@ -70,19 +70,21 @@ typedef struct
 typedef struct 
 {
     int device;
-    volatile unsigned int scheduled;  //Per Device
-    cudaStream_t stream;                //Per Device
-    volatile unsigned int deleteLock; //Per Device
-    artsArrayList * deleteQueue;        //Per Device
-    artsArrayList * deleteHostQueue;    //Per Device
+    volatile size_t memUtil;            // Memory Utilization in device
+    volatile unsigned int scheduled;    // Count(Edts) on device
+    cudaStream_t stream;
+    volatile unsigned int deleteLock;
+    artsArrayList * deleteQueue;
+    artsArrayList * deleteHostQueue;
     uint64_t devSize;
     uint64_t hostSize;
 } artsGpu_t;
 
-void artsInitGpus(unsigned int entries, unsigned int tableSize);
+void artsInitGpus(unsigned int entries, unsigned int tableSize, int numGpus);
 void artsCleanupGpus();
 void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr, artsGpu_t * artsGpu);
 void artsScheduleToGpu(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, void * edtPtr, artsGpu_t * artsGpu);
+struct artsRouteItem * artsGpuRouteTableSearchForKey(artsGuid_t key, int gpuId);
 
 void artsGpuSynchronize(artsGpu_t * artsGpu);
 void artsGpuStreamBusy(artsGpu_t* artsGpu);
@@ -92,6 +94,10 @@ void artsStoreNewEdts(void * edt);
 void artsHandleNewEdts();
 void artsFreeGpuMemory(artsGpu_t * artsGpu);
 void artsGpuFree(void * data, unsigned int gpu);
+void * artsGpuHostToDeviceDbs (uint32_t depc, uint64_t * paramv, artsEdtDep_t * depv, int gpuId, artsGuid_t * edtGuid, artsGpu_t * artsGpu, void ** devParamv);
+void artsScheduleKernelToGpu(artsEdt_t fnPtr, uint32_t paramc, uint64_t * gpuParamv, uint32_t depc, artsEdtDep_t * gpuDepv, dim3 grid, dim3 block, artsGpu_t * artsGpu);
+void artsGpuDeviceToHostDbs (uint32_t paramc,  uint32_t depc, artsEdtDep_t * depv, artsEdtDep_t * devDepv, artsGpu_t * artsGpu, void * writeDbs);
+bool artsFindGpu(void * data, unsigned int seed);
 
 extern int artsNumGpus;
 extern artsGpu_t * artsGpus;

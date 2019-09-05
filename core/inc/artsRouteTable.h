@@ -145,7 +145,7 @@ void artsRouteTableDecItem(artsGuid_t key, void * data);
 void ** artsRouteTableReserve(artsGuid_t key, bool * dec, itemState * state);
 bool internalRouteTableAddItemRace(struct artsRouteTable * routeTable, void * item, artsGuid_t key, unsigned int rank, bool usedRes, bool usedAvail);
 bool artsGpuRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, unsigned int gpuId);
-void * artsGpuRouteTableLookupDb(artsGuid_t key, int * rank, int gpuId);
+void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId);
 void * internalRouteTableLookupDb(struct artsRouteTable * routeTable, artsGuid_t key, int * rank);
 bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int gpuId);
 artsRouteTableIterator * artsNewRouteTableIterator(struct artsRouteTable * table);

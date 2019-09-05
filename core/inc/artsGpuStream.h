@@ -97,7 +97,7 @@ void artsGpuFree(void * data, unsigned int gpu);
 void * artsGpuHostToDeviceDbs (uint32_t depc, uint64_t * paramv, artsEdtDep_t * depv, int gpuId, artsGuid_t * edtGuid, artsGpu_t * artsGpu, void ** devParamv);
 void artsScheduleKernelToGpu(artsEdt_t fnPtr, uint32_t paramc, uint64_t * gpuParamv, uint32_t depc, artsEdtDep_t * gpuDepv, dim3 grid, dim3 block, artsGpu_t * artsGpu);
 void artsGpuDeviceToHostDbs (uint32_t paramc,  uint32_t depc, artsEdtDep_t * depv, artsEdtDep_t * devDepv, artsGpu_t * artsGpu, void * writeDbs);
-bool artsFindGpu(void * data, unsigned int seed);
+artsGpu_t * artsFindGpu(void * data, unsigned int seed);
 
 extern int artsNumGpus;
 extern artsGpu_t * artsGpus;

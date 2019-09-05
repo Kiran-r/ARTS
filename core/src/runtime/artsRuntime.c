@@ -377,6 +377,7 @@ static inline void artsRunEdt(void *edtPacket)
     decOustandingEdts(1); //This is for debugging purposes
 }
 
+//TODO: WHY IS THIS HERE... SHOULDN'T IT BE IN ARTSGPUSTREAM.C
 void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, artsGuid_t dataGuid)
 {
 #ifdef USE_GPU
@@ -562,27 +563,22 @@ bool artsDefaultSchedulerLoop()
 
 bool artsGpuSchedulerLoop()
 {
-/*TODO: This will push all gpu stuff from GPU ready queue
- without looking to see how full the GPU is... We need to
- add logic to limit/state for how much gets pushed*/
 //#ifdef USE_GPU
     //Clear some memory
 
     artsGpu_t * artsGpu;
     artsHandleNewEdts(); // Make it specific to a artsGpu_t
-    // Default device and stream
-//  if(!artsStreamScheduled(0,0))
+
     struct artsEdt * edtFound = NULL;
-    //First part run GPU stuff
     if(!(edtFound = artsDequePopFront(artsThreadInfo.myGpuDeque)))
         if(!edtFound)
             edtFound = artsRuntimeStealGpuTask();
     if(edtFound)
     {
-        /*artsGpu = artsFindGpu(edtFound, artsThreadInfo.groupId);
+        artsGpu = artsFindGpu(edtFound, artsThreadInfo.groupId);
         if (artsGpu)
-            artsRunGpu(edtFound, artsGpu);*/
-        if (!artsFindGpu(edtFound, artsThreadInfo.groupId))
+            artsRunGpu(edtFound, artsGpu);
+        else
             artsDequePushFront(artsThreadInfo.myGpuDeque, edtFound, 0);
     }
 //#endif

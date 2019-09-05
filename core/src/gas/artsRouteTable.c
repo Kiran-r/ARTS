@@ -49,7 +49,7 @@
 #include "artsGpuStream.h"
 #endif
 
-#define DPRINTF
+ #define DPRINTF
 //#define DPRINTF(...) PRINTF(__VA_ARGS__)
 
 #define collisionResolves 8
@@ -673,10 +673,11 @@ void * artsRouteTableLookupDb(artsGuid_t key, int * rank)
     return internalRouteTableLookupDb(routeTable, key, rank);
 }
 
-void * artsGpuRouteTableLookupDb(artsGuid_t key, int * rank, int gpuId)
+void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId)
 {
+    int dummyRank;
     struct artsRouteTable * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
-    return internalRouteTableLookupDb(routeTable, key, rank);
+    return internalRouteTableLookupDb(routeTable, key, &dummyRank);
 }
 
 bool internalRouteTableReturnDb(struct artsRouteTable * routeTable, artsGuid_t key, bool markToDelete, bool doDelete, unsigned int gpuId)

@@ -56,13 +56,9 @@ extern "C" {
     
 typedef struct
 {
-    volatile unsigned int * scheduleCounter;
-    volatile unsigned int * deleteLock;
+    unsigned int gpuId;
     volatile unsigned int * newEdtLock;
-    artsArrayList * deleteQueue;
-    artsArrayList * deleteHostQueue;
     artsArrayList * newEdts;
-    void * devDB;
     void * devClosure;
     struct artsEdt * edt;
 } artsGpuCleanUp_t;
@@ -73,11 +69,6 @@ typedef struct
     volatile size_t memUtil;            // Memory Utilization in device
     volatile unsigned int scheduled;    // Count(Edts) on device
     cudaStream_t stream;
-    volatile unsigned int deleteLock;
-    artsArrayList * deleteQueue;
-    artsArrayList * deleteHostQueue;
-    uint64_t devSize;
-    uint64_t hostSize;
 } artsGpu_t;
 
 void artsInitGpus(unsigned int entries, unsigned int tableSize, int numGpus);
@@ -92,7 +83,6 @@ artsGpu_t * artsGpuScheduled(unsigned id);
 
 void artsStoreNewEdts(void * edt);
 void artsHandleNewEdts();
-void artsFreeGpuMemory(artsGpu_t * artsGpu);
 void artsGpuFree(void * data, unsigned int gpu);
 void * artsGpuHostToDeviceDbs (uint32_t depc, uint64_t * paramv, artsEdtDep_t * depv, int gpuId, artsGuid_t * edtGuid, artsGpu_t * artsGpu, void ** devParamv);
 void artsScheduleKernelToGpu(artsEdt_t fnPtr, uint32_t paramc, uint64_t * gpuParamv, uint32_t depc, artsEdtDep_t * gpuDepv, dim3 grid, dim3 block, artsGpu_t * artsGpu);

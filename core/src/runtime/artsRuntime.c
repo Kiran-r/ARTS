@@ -422,7 +422,7 @@ static inline void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
 {
 #ifdef USE_GPU
     struct artsGpuEdt * edt = edtPacket;
-    artsEdt_t func = edt->wrapperEdt.funcPtr;
+    artsEdt_t      func = edt->wrapperEdt.funcPtr;
     uint32_t       paramc = edt->wrapperEdt.paramc;
     uint32_t       depc   = edt->wrapperEdt.depc;
     uint64_t     * paramv = (uint64_t *)(edt + 1);

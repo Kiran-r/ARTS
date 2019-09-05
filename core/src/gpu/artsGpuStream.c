@@ -55,20 +55,13 @@
 int artsNumGpus = 0;
 artsGpu_t * artsGpus;
 
-volatile unsigned int newEdtLock = 0; //Can be shared across streams and devices
-artsArrayList * newEdts = NULL; //Can be shared across streams and devices
-
-volatile unsigned int * tlNewEdtLock;
-artsArrayList * tlNewEdts;
-//__thread artsGpu_t artsGpu;
-
+__thread volatile unsigned int * newEdtLock = 0; //Can be shared across streams and devices
+__thread artsArrayList * newEdts = NULL; //Can be shared across streams and devices
 
 static cudaError_t artsCreateStreams (artsGpu_t * artsGpu) {
   DPRINTF("Creating Stream on %d\n", artsGpu->device);
   CHECKCORRECT(cudaStreamCreate(&artsGpu->stream)); // Make it scalable
   DPRINTF("Created Stream on %d\n", artsGpu->device);
-  artsGpu->deleteQueue     = artsNewArrayList(sizeof(void*), 32);
-  artsGpu->deleteHostQueue = artsNewArrayList(sizeof(void*), 32);
   artsGpu->scheduled = 0U;
   return cudaSuccess;
 }
@@ -94,22 +87,22 @@ void artsInitGpus(unsigned int entries, unsigned int tableSize, int numGpus)
         artsNodeInfo.gpuRouteTable[i] = artsRouteTableListNew(1, entries, tableSize);
     }
 
-    artsLock(&newEdtLock);
-    newEdts         = artsNewArrayList(sizeof(void*), 32);
-    artsUnlock(&newEdtLock);
+    newEdtLock = (unsigned int*) artsCalloc(sizeof(unsigned int));
+    newEdts = artsNewArrayList(sizeof(void*), 32);
+
     cudaSetDevice(savedDevice);
 }
 
 void artsStoreNewEdts(void * edt)
 {
-    artsLock(tlNewEdtLock);
-    artsPushToArrayList(tlNewEdts, &edt);
-    artsUnlock(tlNewEdtLock);
+    artsLock(newEdtLock);
+    artsPushToArrayList(newEdts, &edt);
+    artsUnlock(newEdtLock);
 }
 
 void artsHandleNewEdts()
 {
-    artsLock(&newEdtLock);
+    artsLock(newEdtLock);
     uint64_t size = artsLengthArrayList(newEdts);
     if(size)
     {
@@ -123,7 +116,7 @@ void artsHandleNewEdts()
         }
         artsResetArrayList(newEdts);
     }    
-    artsUnlock(&newEdtLock);
+    artsUnlock(newEdtLock);
 }
 
 void artsCleanupGpus()
@@ -142,21 +135,41 @@ void artsCleanupGpus()
 void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data)
 {
     artsGpuCleanUp_t * gc = (artsGpuCleanUp_t*) data;
+    artsGpu_t * gpu = &artsGpus[gc->gpuId];
+
     //Shouldn't have to touch newly ready edts regardless of streams and devices
     struct artsGpuEdt * edt = (struct artsGpuEdt *) gc->edt;
-    if(gc->edt)
+    uint32_t       paramc   = edt->wrapperEdt.paramc;
+    uint32_t       depc     = edt->wrapperEdt.depc;
+    uint64_t     * paramv   = (uint64_t *)(edt + 1);
+    artsEdtDep_t * depv     = (artsEdtDep_t *)(paramv + paramc);
+
+    for(unsigned int i=0; i<depc; i++)
     {
-        tlNewEdtLock = gc->newEdtLock;
-        tlNewEdts    = gc->newEdts;
-        artsGpuHostWrapUp(gc->edt, edt->endGuid, edt->slot, edt->dataGuid);
+        //True says to mark it for deletion... Change this to false to further delay delete!
+        if(depv[i].ptr)
+            artsGpuRouteTableReturnDb(depv[i].guid, true, gc->gpuId);
     }
-    
-    //This should change for multi devices
-    artsLock(gc->deleteLock);
-    artsPushToArrayList(gc->deleteQueue,     &gc->devDB);
-    artsPushToArrayList(gc->deleteQueue,     &gc->devClosure);
-    artsPushToArrayList(gc->deleteHostQueue, &gc);
-    artsUnlock(gc->deleteLock);
+
+    //Definitely mark the dev closure to be deleted as there is no reuse!
+    artsGpuRouteTableReturnDb(edt->wrapperEdt.currentEdt, true, gc->gpuId);
+
+    bool set = 0;
+    //This function is being called by some cuda runtime thread that did not initialize its newEdt array
+    if(!newEdts && !newEdtLock)
+    {
+        DPRINTF("Setting thread local newEdt and newEdtLock\n");
+        newEdtLock = gc->newEdtLock;
+        newEdts    = gc->newEdts;
+        set = 1;
+    }
+    artsGpuHostWrapUp(gc->edt, edt->endGuid, edt->slot, edt->dataGuid);
+    if(set)
+    {
+        DPRINTF("Unsetting thread local newEdt and newEdtLock\n");
+        newEdtLock = NULL;
+        newEdts    = NULL;
+    }
     DPRINTF("FINISHED GPU CALLS %s\n", cudaGetErrorString(status));
 }
 
@@ -170,7 +183,6 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
 
     static volatile unsigned int Gpulock;
 
-    void * devDB       = NULL;
     void * devClosure  = NULL;
     void * hostClosure = NULL;
 
@@ -186,26 +198,16 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     //Get size of closure
     size_t devClosureSize = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc;
     size_t hostClosureSize = devClosureSize + sizeof(artsGpuCleanUp_t);
+    DPRINTF("devClosureSize: %u hostClosureSize: %u\n", devClosureSize, hostClosureSize);
 
-    //Get size of DBs
-    uint64_t totalDBSize = 0;
-    for(unsigned int i=0; i<depc; i++)
+    //Allocate Closure for GPU
+    if(devClosureSize)
     {
-        if(depv[i].ptr)
-        {
-            struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
-            totalDBSize += db->header.size - sizeof(struct artsDb);
-            DPRINTF("SIZE[%u]: %u\n", i, db->header.size - sizeof(struct artsDb));
-        }
-        else
-            DPRINTF("SIZE[%u]: %p\n", i, depv[i].ptr);
+        CHECKCORRECT(cudaMalloc(&devClosure, devClosureSize));
+        devParamv = (uint64_t*) devClosure;
+        devDepv = (artsEdtDep_t *)(devParamv + paramc);
+        DPRINTF("Allocated dev closure\n");
     }
-
-    DPRINTF("totalDBSize: %u devClosureSize: %u hostClosureSize: %u\n", totalDBSize, devClosureSize, hostClosureSize);
-
-    artsLock(&Gpulock);
-    cudaSetDevice(artsGpu->device);
-    artsUnlock(&Gpulock);
 
     if(hostClosureSize)
     {
@@ -214,21 +216,21 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
         hostGCPtr = (artsGpuCleanUp_t *) hostClosure;
         hostParamv = (uint64_t*)(hostGCPtr + 1);
         hostDepv = (artsEdtDep_t *)(hostParamv + paramc);
+        DPRINTF("Allocated host closure\n");
 
         //Fill Host closure
-        hostGCPtr->scheduleCounter = &artsGpu->scheduled;
-        hostGCPtr->deleteLock = &artsGpu->deleteLock;
-        hostGCPtr->newEdtLock = &newEdtLock;
-        hostGCPtr->deleteQueue = artsGpu->deleteQueue;
-        hostGCPtr->deleteHostQueue = artsGpu->deleteHostQueue;
+        hostGCPtr->gpuId = artsGpu->device;
+        hostGCPtr->newEdtLock = newEdtLock;
         hostGCPtr->newEdts = newEdts;
-        hostGCPtr->devDB = devDB;
         hostGCPtr->devClosure = devClosure;
         hostGCPtr->edt = (struct artsEdt*)edtPtr;
         for(unsigned int i=0; i<paramc; i++)
             hostParamv[i] = paramv[i];
-    
         DPRINTF("Filled host closure\n");
+
+        artsGuid_t edtGuid = hostGCPtr->edt->currentEdt;
+        artsGpuRouteTableAddItemRace(devClosure, edtGuid, artsGpu->device);
+        DPRINTF("Added edtGuid: %lu to gpu: %d routing table\n", edtGuid, artsGpu->device);        
     }
 
     //Allocate space for DB on GPU and Move Data
@@ -262,16 +264,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
         hostDepv[i].guid = depv[i].guid;
         hostDepv[i].mode = depv[i].mode;    
     }
-
-    //Allocate Closure for GPU
-    if(devClosureSize)
-    {
-        CHECKCORRECT(cudaMalloc(&devClosure, devClosureSize));
-        devParamv = (uint64_t*) devClosure;
-        devDepv = (artsEdtDep_t *)(devParamv + paramc);
-        artsGuid_t edtGuid = ((struct artsEdt*)edtPtr)->currentEdt;
-        artsGpuRouteTableAddItemRace(devClosure, edtGuid, artsGpu->device);
-    }
+    DPRINTF("Allocated, added, and moved dbs\n");
     
     CHECKCORRECT(cudaMemcpyAsync(devClosure, (void*)hostParamv, devClosureSize, cudaMemcpyHostToDevice, artsGpu->stream));
     DPRINTF("Filled GPU Closure\n");
@@ -297,6 +290,12 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     // CHECKCORRECT(cudaStreamAddCallback(artsGpu->stream, artsGpuUnschedule, (void*)artsGpu, 0));
     CHECKCORRECT(cudaStreamAddCallback(artsGpu->stream, artsWrapUp, hostClosure, 0));
 #endif
+}
+
+void artsScheduleToGpu(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, void * edtPtr, artsGpu_t * artsGpu)
+{
+    struct artsGpuEdt * edt = (struct artsGpuEdt *)edtPtr;
+    artsScheduleToGpuInternal(fnPtr, paramc, paramv, depc, depv, edt->grid, edt->block, edtPtr, artsGpu);
 }
 
 void artsGpuSynchronize(artsGpu_t * artsGpu)
@@ -357,49 +356,6 @@ artsGpu_t * artsFindGpu(void * edtPacket, unsigned seed)
     return ret;
 }
 
-/* This is some really crappy problem
- * CudaFree can't run at the same time as the host callback, artsWrapUp.
- * Host callback can lock arrayList if the free already has lock.
- * Thus deadlock!  Instead we do this fancy split.  
- */
-void artsFreeGpuMemory(artsGpu_t * artsGpu)
-{
-    uint64_t*  devSize = &artsGpu->devSize;
-    uint64_t* hostSize = &artsGpu->hostSize;
-
-    uint64_t  oldDevSize = *devSize;
-    uint64_t oldHostSize = *hostSize;
-
-    cudaSetDevice(artsGpu->device);
-    *devSize   = artsLengthArrayList(artsGpu->deleteQueue);
-    *hostSize  = artsLengthArrayList(artsGpu->deleteHostQueue);
-
-    for(uint64_t i=oldDevSize; i<*devSize; i++)
-    {
-        void ** ptr = (void**)artsGetFromArrayList(artsGpu->deleteQueue, i);
-        if (ptr)
-            CHECKCORRECT(cudaFree(*ptr));
-    }
-
-    for(uint64_t i=oldHostSize; i<*hostSize; i++)
-    {
-        void ** ptr = (void**)artsGetFromArrayList(artsGpu->deleteHostQueue, i);
-        if (ptr)
-            CHECKCORRECT(cudaFreeHost(*ptr));
-    }
-
-    if(*devSize && artsLengthArrayList(artsGpu->deleteQueue) == *devSize)
-    {
-        artsResetArrayList(artsGpu->deleteQueue);
-        *devSize = 0;
-    }
-    if(*hostSize && artsLengthArrayList(artsGpu->deleteHostQueue) == *hostSize)
-    {
-        artsResetArrayList(artsGpu->deleteHostQueue);
-        *hostSize = 0;
-    }
-}
-
 void artsGpuFree(void * data, unsigned int gpu)
 {
     int savedDevice;
@@ -410,18 +366,11 @@ void artsGpuFree(void * data, unsigned int gpu)
 }
 
 //------------------------------------------------Kiran-------------------------------------------------------------//
-void artsScheduleToGpu(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, void * edtPtr, artsGpu_t * artsGpu)
-{
-    struct artsGpuEdt * edt = (struct artsGpuEdt *)edtPtr;
-    artsScheduleToGpuInternal(fnPtr, paramc, paramv, depc, depv, edt->grid, edt->block, edtPtr, artsGpu);
-}
 
 void CUDART_CB artsGpuUnschedule(cudaStream_t stream, cudaError_t status, void * data)
 {
     artsGpu_t * artsGpu = (artsGpu_t *) data;
     artsAtomicUnschedule(&artsGpu->scheduled);
-
-
 }
 
 artsGpu_t * artsGpuScheduled(unsigned int seed)

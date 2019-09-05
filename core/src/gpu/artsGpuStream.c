@@ -244,7 +244,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
                 size_t size = db->header.size - sizeof(struct artsDb);
                 CHECKCORRECT(cudaMalloc(&dataPtr, size));
 
-                bool ret = artsGpuRouteTableAddItemRace(dataPtr, depv[i].guid, artsGlobalRankId, artsGpu->device);
+                bool ret = artsGpuRouteTableAddItemRace(dataPtr, depv[i].guid, artsGpu->device);
                 if (!ret) //Someone beat us to creating the data... So we must free
                     cudaFree(dataPtr);
                 else //We won, so move data
@@ -269,6 +269,8 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
         CHECKCORRECT(cudaMalloc(&devClosure, devClosureSize));
         devParamv = (uint64_t*) devClosure;
         devDepv = (artsEdtDep_t *)(devParamv + paramc);
+        artsGuid_t edtGuid = ((struct artsEdt*)edtPtr)->currentEdt;
+        artsGpuRouteTableAddItemRace(devClosure, edtGuid, artsGpu->device);
     }
     
     CHECKCORRECT(cudaMemcpyAsync(devClosure, (void*)hostParamv, devClosureSize, cudaMemcpyHostToDevice, artsGpu->stream));
@@ -450,7 +452,7 @@ void ** artsGpuHostToDeviceDbs (uint32_t depc, uint32_t paramc, uint64_t * param
                 struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
                 size_t size = db->header.size - sizeof(struct artsDb);
                 CHECKCORRECT(cudaMalloc(&dataPtr, size));
-                bool ret = artsGpuRouteTableAddItemRace(dataPtr, depv[i].guid, artsGlobalRankId, artsGpu->device);
+                bool ret = artsGpuRouteTableAddItemRace(dataPtr, depv[i].guid, artsGpu->device);
                 if (!ret)
                     cudaFree(dataPtr);
                 else
@@ -469,7 +471,7 @@ void ** artsGpuHostToDeviceDbs (uint32_t depc, uint32_t paramc, uint64_t * param
     size_t  paramSize = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc;
     CHECKCORRECT(cudaMalloc(&devParamv, paramSize));
     CHECKCORRECT(cudaMemcpyAsync(devParamv, paramv, paramSize, cudaMemcpyHostToDevice, artsGpu->stream));
-    artsGpuRouteTableAddItemRace(devParamv, edtGuid, artsGlobalRankId, gpuId);
+    artsGpuRouteTableAddItemRace(devParamv, edtGuid, artsGpu->device);
 
     return writeDbs;
 }

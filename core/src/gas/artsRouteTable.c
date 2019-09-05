@@ -547,11 +547,11 @@ bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, b
     return internalRouteTableAddItemRace(routeTable, item, key, rank, used, false);
 }
 
-bool artsGpuRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, unsigned int gpuId)
+bool artsGpuRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int gpuId)
 {
     struct artsRouteTable * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
     //For the gpus it should always mark as used
-    return internalRouteTableAddItemRace(routeTable, item, key, rank, true, true);
+    return internalRouteTableAddItemRace(routeTable, item, key, artsGlobalRankId, true, true);
 }
 
 //This is used for the send aggregation

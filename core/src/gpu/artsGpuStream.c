@@ -227,7 +227,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
         DPRINTF("Filled host closure\n");
 
         artsGuid_t edtGuid = hostGCPtr->edt->currentEdt;
-        artsGpuRouteTableAddItemRace(devClosure, hostClosureSize, edtGuid, artsGpu->device);
+        artsGpuRouteTableAddItemRace(hostGCPtr, hostClosureSize, edtGuid, artsGpu->device);
         DPRINTF("Added edtGuid: %lu size: %u to gpu: %d routing table\n", edtGuid, hostClosureSize, artsGpu->device);        
     }
 
@@ -243,17 +243,18 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
                 struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
                 size_t size = db->header.size - sizeof(struct artsDb);
                 CHECKCORRECT(cudaMalloc(&dataPtr, size));
-
-                if(artsGpuRouteTableAddItemRace(dataPtr, size, depv[i].guid, artsGpu->device)) 
+                void * newDataPtr = artsGpuRouteTableAddItemRace(dataPtr, size, depv[i].guid, artsGpu->device);
+                if(newDataPtr == dataPtr) //We won, so move data
                 {
-                    //We won, so move data
                     DPRINTF("Adding %lu %u id: %d\n", depv[i].guid, size, artsGpu->device);
                     CHECKCORRECT(cudaMemcpyAsync(dataPtr, depv[i].ptr, size, cudaMemcpyHostToDevice, artsGpu->stream));
                     artsAtomicAdd(&misses, 1U);
                 }
                 else //Someone beat us to creating the data... So we must free
                 {
+                    //Bug here...
                     cudaFree(dataPtr);
+                    dataPtr = newDataPtr;
                     artsAtomicAdd(&falseMisses, 1U);
                 }
             }
@@ -361,17 +362,18 @@ void freeGpuItem(artsRouteItem_t * item)
 {
     artsType_t type = artsGuidGetType(item->key);
     artsItemWrapper_t * wrapper = (artsItemWrapper_t*) item->data;
-    if(type == ARTS_EDT)
+    if(type == ARTS_GPU_EDT)
     {
         artsGpuCleanUp_t * hostGCPtr = (artsGpuCleanUp_t *) wrapper->realData;
-        cudaFree(hostGCPtr->devClosure);
-        artsFree(hostGCPtr);
-        wrapper->realData = NULL;
+        DPRINTF("FREEING DEV PTR: %p\n", hostGCPtr->devClosure);
+        CHECKCORRECT(cudaFree(hostGCPtr->devClosure));
+        DPRINTF("FREEING HOST PTR: %p\n", hostGCPtr);
+        CHECKCORRECT(cudaFreeHost(hostGCPtr));
     }
-    else if(type > ARTS_BUFFER && type < ARTS_LAST_TYPE) //DBs
-        cudaFree(wrapper->realData);
-        wrapper->realData = NULL;
+    else if(type > ARTS_BUFFER && type < ARTS_LAST_TYPE)  //DBs
+        CHECKCORRECT(cudaFree(wrapper->realData));
 
+    wrapper->realData = NULL;
     item->key = 0;
     item->lock = 0;
 }

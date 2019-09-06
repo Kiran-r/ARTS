@@ -93,12 +93,15 @@ uint64_t artsGpuLookupDb(artsGuid_t key)
     return ret;
 }
 
-bool artsGpuRouteTableAddItemRace(void * item, unsigned int size, artsGuid_t key, unsigned int gpuId)
+void * artsGpuRouteTableAddItemRace(void * item, unsigned int size, artsGuid_t key, unsigned int gpuId)
 {
     //This is a bypass thread local variable to make the api nice...
     gpuItemSizeBypass = size;
     artsRouteTable_t * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
-    return internalRouteTableAddItemRace(routeTable, item, key, artsGlobalRankId, true, true);
+    bool ret;
+    artsRouteItem_t * entry = internalRouteTableAddItemRace(&ret, routeTable, item, key, artsGlobalRankId, true, true);
+    artsItemWrapper_t * wrapper = (artsItemWrapper_t*) entry->data;
+    return wrapper->realData;
 }
 
 void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId)

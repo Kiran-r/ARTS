@@ -483,11 +483,10 @@ bool artsRouteTableRemoveItem(artsGuid_t key)
 
 //This locks the guid so it is useful when multiple people have the guid ahead of time
 //The guid doesn't need to be locked if no one knows about it
-bool internalRouteTableAddItemRace(artsRouteTable_t * routeTable, void * item, artsGuid_t key, unsigned int rank, bool usedRes, bool usedAvail)
+artsRouteItem_t * internalRouteTableAddItemRace(bool * addedItem, artsRouteTable_t * routeTable, void * item, artsGuid_t key, unsigned int rank, bool usedRes, bool usedAvail)
 {
     unsigned int pos = (unsigned int)(((uint64_t)key) % (uint64_t)guidLockSize);
-
-    bool ret = false;
+    *addedItem = false;
     artsRouteItem_t * found = NULL;
     while(!found)
     {
@@ -505,7 +504,7 @@ bool internalRouteTableAddItemRace(artsRouteTable_t * routeTable, void * item, a
                         markWrite(found);
                         if(usedRes)
                             incItem(found, 1);
-                        ret = true;
+                        *addedItem = true;
                     }
                     else if(usedAvail && checkItemState(found, availableKey))
                         incItem(found, 1);
@@ -513,7 +512,7 @@ bool internalRouteTableAddItemRace(artsRouteTable_t * routeTable, void * item, a
                 else
                 {
                     found = internalRouteTableAddItem(routeTable, item, key, rank, usedRes);
-                    ret = true;
+                    *addedItem = true;
                 }
                 guidLock[pos] = 0U;
             }
@@ -522,13 +521,15 @@ bool internalRouteTableAddItemRace(artsRouteTable_t * routeTable, void * item, a
             found = artsRouteTableSearchForKey(routeTable, key, availableKey);
     }
 //    PRINTF("found: %lu %p\n", key, found);
-    return ret;
+    return found;
 }
 
 bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, bool used)
 {
+    bool ret;
     artsRouteTable_t * routeTable = artsGetRouteTable(key);
-    return internalRouteTableAddItemRace(routeTable, item, key, rank, used, false);
+    internalRouteTableAddItemRace(&ret, routeTable, item, key, rank, used, false);
+    return ret;
 }
 
 //This is used for the send aggregation

@@ -112,8 +112,6 @@ struct artsRouteTable
     newRouteTable_t newFunc;
 } __attribute__ ((aligned));
 
-
-
 typedef struct {
     uint64_t index;
     artsRouteTable_t * table;
@@ -124,7 +122,7 @@ bool decItem(artsRouteTable_t * routeTable, artsRouteItem_t * item);
 artsRouteTable_t * artsNewRouteTable(unsigned int routeTableSize, unsigned int shift);
 
 void * artsRouteTableAddItem(void* item, artsGuid_t key, unsigned int route, bool used);
-bool internalRouteTableAddItemRace(artsRouteTable_t * routeTable, void * item, artsGuid_t key, unsigned int rank, bool usedRes, bool usedAvail);
+artsRouteItem_t * internalRouteTableAddItemRace(bool * addedItem, artsRouteTable_t * routeTable, void * item, artsGuid_t key, unsigned int rank, bool usedRes, bool usedAvail);
 bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int route, bool used);
 
 void * artsRouteTableLookupItem(artsGuid_t key);

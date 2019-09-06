@@ -49,7 +49,7 @@
 void printRT()
 {
     artsRouteTableIterator * iter = artsNewRouteTableIterator(artsNodeInfo.routeTable[0]);
-    struct artsRouteItem * item = artsRouteTableIterate(iter);
+    artsRouteItem_t * item = artsRouteTableIterate(iter);
     while(item)
     {
         artsPrintItem(item);
@@ -63,7 +63,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     artsGuidRange * range = artsNewGuidRangeNode(ARTS_EDT, MYSIZE, nodeId);
     for(uint64_t i=0; i<MYSIZE; i++)
     {
-        struct artsRouteItem * location = artsRouteTableAddItem((void*)range, artsGuidRangeNext(range), nodeId, 0);
+        artsRouteItem_t * location = artsRouteTableAddItem((void*)range, artsGuidRangeNext(range), nodeId, 0);
         if(!i)
         {
             PRINTF("SWAPPING\n");
@@ -86,7 +86,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     PRINTF("DB Lookup %lu %p\n", guid, ptr);
     artsPrintItem(getItemFromData(guid, ptr));
 
-    struct artsRouteItem * location = artsRouteTableAddItem((void*)range, guid, nodeId, 0);
+    artsRouteItem_t * location = artsRouteTableAddItem((void*)range, guid, nodeId, 0);
     // artsAtomicCswapU64(&location->lock, availableItem, (availableItem | deleteItem));
 
     ptr = artsRouteTableLookupItem(guid);

@@ -358,7 +358,7 @@ artsGpu_t * artsFindGpu(void * edtPacket, unsigned seed)
     return ret;
 }
 
-void freeGpuItem(struct artsRouteItem * item)
+void freeGpuItem(artsRouteItem_t * item)
 {
     artsType_t type = artsGuidGetType(item->key);
     artsItemWrapper * wrapper = (artsItemWrapper*) item->data;

@@ -52,7 +52,7 @@ void printRT(char * message)
 {
     PRINTF("Start: %s\n", message);
     artsRouteTableIterator * iter = artsNewRouteTableIterator(artsNodeInfo.routeTable[0]);
-    struct artsRouteItem * item = artsRouteTableIterate(iter);
+    artsRouteItem_t * item = artsRouteTableIterate(iter);
     while(item)
     {
         artsPrintItem(item);

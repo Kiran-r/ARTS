@@ -47,6 +47,7 @@ extern "C" {
 #include "artsRT.h"
 #include "artsAtomics.h"
 #include "artsArrayList.h"
+#include "artsGpuRouteTable.h"
 
 #define CHECKCORRECT(x) {                                   \
   cudaError_t err;                                          \
@@ -82,7 +83,7 @@ artsGpu_t * artsGpuScheduled(unsigned id);
 
 void artsStoreNewEdts(void * edt);
 void artsHandleNewEdts();
-void freeGpuItem(struct artsRouteItem * item);
+void freeGpuItem(artsRouteItem_t * item);
 artsGpu_t * artsFindGpu(void * data, unsigned int seed);
 
 extern int artsNumGpus;

@@ -91,8 +91,8 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.deque = (struct artsDeque**) artsMalloc(sizeof(struct artsDeque*)*totalThreads);
     artsNodeInfo.receiverDeque = (struct artsDeque**) artsMalloc(sizeof(struct artsDeque*)*receiverThreads);
     artsNodeInfo.gpuDeque = (struct artsDeque**) artsMalloc(sizeof(struct artsDeque*)*totalThreads);
-    artsNodeInfo.routeTable = (struct artsRouteTable**) artsCalloc(sizeof(struct artsRouteTable*)*totalThreads);
-    artsNodeInfo.gpuRouteTable = (struct artsRouteTable**) artsCalloc(sizeof(struct artsRouteTable*)*config->gpu);
+    artsNodeInfo.routeTable = (artsRouteTable_t**) artsCalloc(sizeof(artsRouteTable_t*)*totalThreads);
+    artsNodeInfo.gpuRouteTable = (artsRouteTable_t**) artsCalloc(sizeof(artsRouteTable_t*)*config->gpu);
     artsNodeInfo.remoteRouteTable = artsNewRouteTable(config->routeTableEntries, config->routeTableSize);
     artsNodeInfo.localSpin = (volatile bool**) artsCalloc(sizeof(bool*)*totalThreads);
     artsNodeInfo.memoryMoves = (unsigned int**) artsCalloc(sizeof(unsigned int*)*totalThreads);

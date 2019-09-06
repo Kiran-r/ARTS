@@ -53,11 +53,11 @@ typedef struct
 
 typedef struct
 {
-    struct artsRouteTable routingTable;
+    artsRouteTable_t routingTable;
     artsItemWrapper * wrappers;
 } artsGpuRouteTable;
 
-struct artsRouteTable * artsGpuNewRouteTable(unsigned int routeTableSize, unsigned int shift);
+artsRouteTable_t * artsGpuNewRouteTable(unsigned int routeTableSize, unsigned int shift);
 
 uint64_t artsGpuLookupDb(artsGuid_t key);
 bool artsGpuRouteTableAddItemRace(void * item, unsigned int size, artsGuid_t key, unsigned int gpuId);

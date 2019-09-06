@@ -372,6 +372,7 @@ artsRouteTable_t * artsNewRouteTable(unsigned int routeTableSize, unsigned int s
     routeTable->shift = shift;
     routeTable->setFunc = setItem;
     routeTable->freeFunc = freeItem;
+    routeTable->newFunc = artsNewRouteTable;
     return routeTable;
 }
 
@@ -433,7 +434,7 @@ artsRouteItem_t * artsRouteTableSearchForEmpty(artsRouteTable_t * routeTable, ar
             if(writerTryTableLock(current))
             {
                 DPRINTF("LS Resize %d %d %p %p %d %ld\n", keyVal, 2*current->size, current, routeTable);
-                next = current->next = artsNewRouteTable(2*current->size, current->shift+1);
+                next = current->next = current->newFunc(2*current->size, current->shift+1);
                 writeTableUnlock(current);
             }
             else

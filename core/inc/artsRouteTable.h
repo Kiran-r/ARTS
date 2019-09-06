@@ -92,8 +92,11 @@ typedef struct __attribute__ ((aligned))
     struct artsOutOfOrderList ooList;
 } artsRouteItem_t;
 
+typedef struct artsRouteTable artsRouteTable_t;
+
 typedef void (*setRouteItem_t) (artsRouteItem_t * item, void * data);
 typedef void (*freeRouteItem_t) (artsRouteItem_t * item);
+typedef artsRouteTable_t * (*newRouteTable_t) (unsigned int routeTableSize, unsigned int shift);
 
 //Add padding around locks...
 struct artsRouteTable
@@ -106,9 +109,10 @@ struct artsRouteTable
     volatile unsigned writerLock;
     setRouteItem_t setFunc;
     freeRouteItem_t freeFunc;
+    newRouteTable_t newFunc;
 } __attribute__ ((aligned));
 
-typedef struct artsRouteTable artsRouteTable_t;
+
 
 typedef struct {
     uint64_t index;

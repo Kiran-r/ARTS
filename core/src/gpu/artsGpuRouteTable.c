@@ -71,6 +71,7 @@ artsRouteTable_t * artsGpuNewRouteTable(unsigned int routeTableSize, unsigned in
     gpuRouteTable->routingTable.shift = shift;
     gpuRouteTable->routingTable.setFunc = setGpuItem;
     gpuRouteTable->routingTable.freeFunc = freeGpuItem;
+    gpuRouteTable->routingTable.newFunc = artsGpuNewRouteTable;
 
     gpuRouteTable->wrappers = (artsItemWrapper_t *) artsCalloc(totalElems * sizeof(artsItemWrapper_t));
     for(unsigned int i=0; i<totalElems; i++)

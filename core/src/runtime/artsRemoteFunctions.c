@@ -242,7 +242,7 @@ void artsRemoteHandleUpdateDb(void * ptr)
     {
         struct artsDb ** dataPtr;
         bool write = packet->header.size > sizeof(struct artsRemoteUpdateDbPacket);
-        itemState state = artsRouteTableLookupItemWithState(packet->guid, (void***)&dataPtr, allocatedKey, write);
+        itemState_t state = artsRouteTableLookupItemWithState(packet->guid, (void***)&dataPtr, allocatedKey, write);
         struct artsDb * db = (dataPtr) ? *dataPtr : NULL;
 //        PRINTF("DB: %p %lu %u %u %d\n", db, packet->guid, packet->header.size, sizeof(struct artsRemoteUpdateDbPacket), state);
         if(write)
@@ -457,7 +457,7 @@ void artsRemoteHandleDbRecieved(struct artsRemoteDbSendPacket * packet)
     struct artsDb * packetDb = (struct artsDb *)(packet+1);    
     struct artsDb * dbRes = NULL;
     struct artsDb ** dataPtr = NULL;
-    itemState state = artsRouteTableLookupItemWithState(packetDb->guid, (void***)&dataPtr, allocatedKey, true);
+    itemState_t state = artsRouteTableLookupItemWithState(packetDb->guid, (void***)&dataPtr, allocatedKey, true);
     
     struct artsDb * tPtr = (dataPtr) ? *dataPtr : NULL;
     struct artsDbList * dbList = NULL;
@@ -494,7 +494,7 @@ void artsRemoteHandleDbRecieved(struct artsRemoteDbSendPacket * packet)
             
         default:
             PRINTF("Got a DB but current key state is %d looking again\n", state);
-            itemState state = artsRouteTableLookupItemWithState(packetDb->guid, (void*)&tPtr, anyKey, false);
+            itemState_t state = artsRouteTableLookupItemWithState(packetDb->guid, (void*)&tPtr, anyKey, false);
             PRINTF("The current state after re-checking is %d\n", state);
             break;
     }
@@ -576,7 +576,7 @@ void artsRemoteDbFullSend(struct artsRemoteDbFullRequestPacket * pack)
 void artsRemoteHandleDbFullRecieved(struct artsRemoteDbFullSendPacket * packet)
 {
     bool dec;
-    itemState state;
+    itemState_t state;
     struct artsDb * packetDb = (struct artsDb *)(packet+1);    
     void ** dataPtr = artsRouteTableReserve(packetDb->guid, &dec, &state);
     struct artsDb * dbRes = (dataPtr) ? *dataPtr : NULL;    

@@ -52,7 +52,7 @@ void printRT(char * message)
 {
     PRINTF("Start: %s\n", message);
     artsRouteTableIterator * iter = artsNewRouteTableIterator(artsNodeInfo.routeTable[0]);
-    struct artsRouteItem * item = artsRouteTableIterate(iter);
+    artsRouteItem_t * item = artsRouteTableIterate(iter);
     while(item)
     {
         artsPrintItem(item);
@@ -76,11 +76,11 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     printRT("After DB Lookup");
     
     for(uint64_t i=0; i<MYSIZE; i++)
-        internalRouteTableReturnDb(artsNodeInfo.routeTable[0], artsGetGuid(range, i), false, false, 0);
+        internalRouteTableReturnDb(artsNodeInfo.routeTable[0], artsGetGuid(range, i), false, false);
     printRT("After DB Return with Mark");
 
     
-    internalCleanUpRouteTable(artsNodeInfo.routeTable[0], -1, true, -1);
+    artsCleanUpRouteTable(artsNodeInfo.routeTable[0], -1, true);
     printRT("After GC");
 
     artsShutdown();

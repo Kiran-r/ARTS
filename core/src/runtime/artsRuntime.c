@@ -60,6 +60,7 @@
 #ifdef USE_GPU
 #include "artsGpuRuntime.h"
 #include "artsGpuStream.h"
+#include "artsGpuRouteTable.h"
 #endif
 
 #define DPRINTF( ... )
@@ -91,9 +92,9 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.deque = (struct artsDeque**) artsMalloc(sizeof(struct artsDeque*)*totalThreads);
     artsNodeInfo.receiverDeque = (struct artsDeque**) artsMalloc(sizeof(struct artsDeque*)*receiverThreads);
     artsNodeInfo.gpuDeque = (struct artsDeque**) artsMalloc(sizeof(struct artsDeque*)*totalThreads);
-    artsNodeInfo.routeTable = (struct artsRouteTable**) artsCalloc(sizeof(struct artsRouteTable*)*totalThreads);
-    artsNodeInfo.gpuRouteTable = (struct artsRouteTable**) artsCalloc(sizeof(struct artsRouteTable*)*config->gpu);
-    artsNodeInfo.remoteRouteTable = artsRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
+    artsNodeInfo.routeTable = (artsRouteTable_t**) artsCalloc(sizeof(artsRouteTable_t*)*totalThreads);
+    artsNodeInfo.gpuRouteTable = (artsRouteTable_t**) artsCalloc(sizeof(artsRouteTable_t*)*config->gpu);
+    artsNodeInfo.remoteRouteTable = artsNewRouteTable(config->routeTableEntries, config->routeTableSize);
     artsNodeInfo.localSpin = (volatile bool**) artsCalloc(sizeof(bool*)*totalThreads);
     artsNodeInfo.memoryMoves = (unsigned int**) artsCalloc(sizeof(unsigned int*)*totalThreads);
     artsNodeInfo.atomicWaits = (struct atomicCreateBarrierInfo **) artsCalloc(sizeof(struct atomicCreateBarrierInfo*)*totalThreads);
@@ -126,7 +127,7 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsInitIntrospector(config);
 #ifdef USE_GPU
     if(config->gpu) // TODO: Multi-Node init
-        artsInitGpus(config->routeTableEntries, config->routeTableSize);
+        artsNodeInitGpus(config->routeTableEntries, config->routeTableSize, config->gpu);
 #endif
 }
 
@@ -181,7 +182,11 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
     artsNodeInfo.gpuDeque[unit->id] = artsThreadInfo.myGpuDeque = (config->gpu) ? artsDequeNew(config->dequeSize) : NULL;
     if(unit->worker)
     {
-        artsNodeInfo.routeTable[unit->id] =  artsRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
+        artsNodeInfo.routeTable[unit->id] =  artsNewRouteTable(config->routeTableEntries, config->routeTableSize);
+#ifdef USE_GPU
+    if(config->gpu) // TODO: Multi-Node init
+        artsWorkerInitGpus();
+#endif
     }
 
     if(unit->networkSend || unit->networkReceive)
@@ -377,70 +382,6 @@ static inline void artsRunEdt(void *edtPacket)
     decOustandingEdts(1); //This is for debugging purposes
 }
 
-void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, artsGuid_t dataGuid)
-{
-#ifdef USE_GPU
-    //This function should be used similarly to the second half of run edt
-    //We will run this on the host but using the streams
-    struct artsGpuEdt * edt = edtPacket;
-    uint32_t       paramc = edt->wrapperEdt.paramc;
-    uint32_t       depc   = edt->wrapperEdt.depc;
-    uint64_t     * paramv = (uint64_t *)(edt + 1);
-    artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
-
-//    Still need GPU counters
-//    ARTSCOUNTERTIMERENDINCREMENT(edtCounter);
-//    artsUpdatePerformanceMetric(artsEdtThroughput, artsThread, 1, false);
-
-//    Again I don't think we need this
-//    artsUnsetThreadLocalEdtInfo();
-
-    //Signal next
-    DPRINTF("TO SIGNAL: %lu -> %lu\n", toSignal, dataGuid);
-    if(toSignal)
-    {
-        if (edt->passthrough)
-            artsSignalEdt(toSignal, slot, depv[dataGuid].guid);
-        else
-        {
-            artsType_t mode = artsGuidGetType(toSignal);
-            if(mode == ARTS_EDT || mode == ARTS_GPU_EDT)
-                artsSignalEdt(toSignal, slot, dataGuid);
-            if(mode == ARTS_EVENT)
-                artsEventSatisfySlot(toSignal, dataGuid, slot);
-        }
-    }
-
-    releaseDbs(depc, depv);
-    artsEdtDelete(edtPacket);
-//    decOustandingEdts(1); //This is for debugging purposes
-#endif
-}
-
-static inline void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
-{
-#ifdef USE_GPU
-    struct artsGpuEdt * edt = edtPacket;
-    artsEdt_t func = edt->wrapperEdt.funcPtr;
-    uint32_t       paramc = edt->wrapperEdt.paramc;
-    uint32_t       depc   = edt->wrapperEdt.depc;
-    uint64_t     * paramv = (uint64_t *)(edt + 1);
-    artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
-
-    prepDbs(depc, depv);
-
-//    I don't think we will need this since gpu can't do any epoch creation
-//    artsSetThreadLocalEdtInfo(edt);
-
-//    TODO: Setup gpu counters
-//    ARTSCOUNTERTIMERSTART(edtCounter);
-
-//    This is where we need to actually launch data on the stream
-    artsScheduleToGpu(func, paramc, paramv, depc, depv, edtPacket, artsGpu);
-//    The rest of the work needs to be done by artsGpuWrapUp by host via stream
-#endif
-}
-
 inline struct artsEdt * artsRuntimeStealFromNetwork()
 {
     struct artsEdt *edt = NULL;
@@ -559,30 +500,21 @@ bool artsDefaultSchedulerLoop()
 
 bool artsGpuSchedulerLoop()
 {
-/*TODO: This will push all gpu stuff from GPU ready queue
- without looking to see how full the GPU is... We need to
- add logic to limit/state for how much gets pushed*/
 //#ifdef USE_GPU
     //Clear some memory
 
     artsGpu_t * artsGpu;
     artsHandleNewEdts(); // Make it specific to a artsGpu_t
-    // Default device and stream
-//  if(!artsStreamScheduled(0,0))
+
     struct artsEdt * edtFound = NULL;
-    //First part run GPU stuff
     if(!(edtFound = artsDequePopFront(artsThreadInfo.myGpuDeque)))
-    {
         if(!edtFound)
             edtFound = artsRuntimeStealGpuTask();
-    }
-    if(edtFound) {
-        artsGpu = artsGpuScheduled(artsThreadInfo.groupId);
+    if(edtFound)
+    {
+        artsGpu = artsFindGpu(edtFound, artsThreadInfo.groupId);
         if (artsGpu)
-        {
-            artsFreeGpuMemory(artsGpu);
             artsRunGpu(edtFound, artsGpu);
-        }
         else
             artsDequePushFront(artsThreadInfo.myGpuDeque, edtFound, 0);
     }

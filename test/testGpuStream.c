@@ -71,42 +71,37 @@ __global__ void kernel(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEd
 
 int main(void)
 {
-    dim3 grid(1);
-    dim3 block(SOMEARGS);
+    // dim3 grid(1);
+    // dim3 block(SOMEARGS);
     
-    uint64_t paramv[SOMEARGS];
-    artsEdtDep_t depv[SOMEARGS];
-    artsGpu_t * artsGpu;
+    // uint64_t paramv[SOMEARGS];
+    // artsEdtDep_t depv[SOMEARGS];
+    // artsGpu_t * artsGpu;
     
-    PRINTF("INIT STREAM\n");
-    artsInitGpus(1, 1);
+    // PRINTF("INIT STREAM\n");
+    // artsInitGpus(1, 1, 1);
     
-    for(unsigned int i=0; i<SOMEARGS; i++)
-    {
-        paramv[i] = i;
-        depv[i].guid = localDbCreate(&depv[i].ptr, sizeof(artsGuid_t), ARTS_DB_READ, 999);
-        depv[i].mode = ARTS_DB_READ;
-    }
-
-    artsGpu = artsGpuScheduled(0);
+    // for(unsigned int i=0; i<SOMEARGS; i++)
+    // {
+    //     paramv[i] = i;
+    //     depv[i].guid = localDbCreate(&depv[i].ptr, sizeof(artsGuid_t), ARTS_DB_READ, 999);
+    //     depv[i].mode = ARTS_DB_READ;
+    // }
     
-    PRINTF("LAUNCHING 1 %u\n", SOMEARGS);
-    artsScheduleToGpuInternal(kernel, SOMEARGS, paramv, SOMEARGS, depv, grid, block, NULL, artsGpu);
+    // PRINTF("LAUNCHING 1 %u\n", SOMEARGS);
+    // artsScheduleToGpuInternal(kernel, SOMEARGS, paramv, SOMEARGS, depv, grid, block, NULL, artsGpu);
     
-    PRINTF("WAITING\n");
-    artsGpuSynchronize(artsGpu);
+    // PRINTF("WAITING\n");
+    // artsGpuSynchronize(artsGpu);
     
-    for(unsigned int i=0; i<SOMEARGS; i++)
-    {
-        artsGuid_t * ptr = (artsGuid_t *) depv[i].ptr;
-        PRINTF("RES: %lu\n", *ptr);
-    }
+    // for(unsigned int i=0; i<SOMEARGS; i++)
+    // {
+    //     artsGuid_t * ptr = (artsGuid_t *) depv[i].ptr;
+    //     PRINTF("RES: %lu\n", *ptr);
+    // }
     
-    PRINTF("DELETING\n");
-    artsFreeGpuMemory(artsGpu);
-    
-    PRINTF("DESTROYING\n");
-    artsCleanupGpus();
+    // PRINTF("DESTROYING\n");
+    // artsCleanupGpus();
     return 0;
 }
 

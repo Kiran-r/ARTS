@@ -47,22 +47,20 @@ extern "C" {
 #include "artsRT.h"
 #include "artsAtomics.h"
 #include "artsArrayList.h"
+#include "artsGpuRouteTable.h"
+#include "artsGpuStream.h"
 
 #define CHECKCORRECT(x) {                                   \
   cudaError_t err;                                          \
   if( (err = (x)) != cudaSuccess )                          \
     PRINTF("FAILED %s: %s\n", #x, cudaGetErrorString(err)); \
 }
-    
+
 typedef struct
 {
-    volatile unsigned int * scheduleCounter;
-    volatile unsigned int * deleteLock;
+    unsigned int gpuId;
     volatile unsigned int * newEdtLock;
-    artsArrayList * deleteQueue;
-    artsArrayList * deleteHostQueue;
     artsArrayList * newEdts;
-    void * devDB;
     void * devClosure;
     struct artsEdt * edt;
 } artsGpuCleanUp_t;
@@ -70,16 +68,13 @@ typedef struct
 typedef struct 
 {
     int device;
-    volatile unsigned int scheduled;  //Per Device
-    cudaStream_t stream;                //Per Device
-    volatile unsigned int deleteLock; //Per Device
-    artsArrayList * deleteQueue;        //Per Device
-    artsArrayList * deleteHostQueue;    //Per Device
-    uint64_t devSize;
-    uint64_t hostSize;
+    volatile size_t memUtil;            // Memory Utilization in device
+    volatile unsigned int scheduled;    // Count(Edts) on device
+    cudaStream_t stream;
 } artsGpu_t;
 
-void artsInitGpus(unsigned int entries, unsigned int tableSize);
+void artsNodeInitGpus(unsigned int entries, unsigned int tableSize, int numGpus);
+void artsWorkerInitGpus();
 void artsCleanupGpus();
 void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr, artsGpu_t * artsGpu);
 void artsScheduleToGpu(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, void * edtPtr, artsGpu_t * artsGpu);
@@ -90,12 +85,13 @@ artsGpu_t * artsGpuScheduled(unsigned id);
 
 void artsStoreNewEdts(void * edt);
 void artsHandleNewEdts();
-void artsFreeGpuMemory(artsGpu_t * artsGpu);
-void artsGpuFree(void * data, unsigned int gpu);
+void freeGpuItem(artsRouteItem_t * item);
+artsGpu_t * artsFindGpu(void * data, unsigned int seed);
 
-extern int artsNumGpus;
-extern artsGpu_t * artsGpus;
-
+extern volatile unsigned int hits;
+extern volatile unsigned int misses;
+extern volatile unsigned int falseMisses;
+extern volatile unsigned int freeBytes;
 
 #ifdef __cplusplus
 }

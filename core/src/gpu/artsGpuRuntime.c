@@ -44,6 +44,7 @@
 #include "artsGpuRuntime.h"
 #include "artsGpuStream.h"
 #include "artsEdtFunctions.h"
+#include "artsDbFunctions.h"
 #include "artsGlobals.h"
 
 void * artsCudaMallocHost(unsigned int size)
@@ -62,9 +63,9 @@ artsGuid_t artsEdtCreateGpuDep(artsEdt_t funcPtr, unsigned int route, uint32_t p
 {
 //    ARTSEDTCOUNTERTIMERSTART(edtCreateCounter);
     unsigned int depSpace = (hasDepv) ? depc * sizeof(artsEdtDep_t) : 0;
-    unsigned int edtSpace = sizeof(struct artsGpuEdt) + paramc * sizeof(uint64_t) + depSpace;
+    unsigned int edtSpace = sizeof(artsGpuEdt_t) + paramc * sizeof(uint64_t) + depSpace;
 
-    struct artsGpuEdt * edt = (struct artsGpuEdt *) artsMalloc(edtSpace);
+    artsGpuEdt_t * edt = (artsGpuEdt_t *) artsMalloc(edtSpace);
     edt->grid = grid;
     edt->block = block;
     edt->endGuid = endGuid;
@@ -81,9 +82,9 @@ artsGuid_t artsEdtCreateGpuPTDep(artsEdt_t funcPtr, unsigned int route, uint32_t
 {
 //    ARTSEDTCOUNTERTIMERSTART(edtCreateCounter);
     unsigned int depSpace = (hasDepv) ? depc * sizeof(artsEdtDep_t) : 0;
-    unsigned int edtSpace = sizeof(struct artsGpuEdt) + paramc * sizeof(uint64_t) + depSpace;
+    unsigned int edtSpace = sizeof(artsGpuEdt_t) + paramc * sizeof(uint64_t) + depSpace;
 
-    struct artsGpuEdt * edt = (struct artsGpuEdt *) artsMalloc(edtSpace);
+    artsGpuEdt_t * edt = (artsGpuEdt_t *) artsMalloc(edtSpace);
     edt->grid = grid;
     edt->block = block;
     edt->endGuid = endGuid;
@@ -104,4 +105,53 @@ artsGuid_t artsEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t para
 artsGuid_t artsEdtCreateGpuPT(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot)
 {
     return artsEdtCreateGpuPTDep(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, passSlot, true);
+}
+
+void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
+{
+    artsGpuEdt_t * edt    = (artsGpuEdt_t *) edtPacket;
+    artsEdt_t      func   = edt->wrapperEdt.funcPtr;
+    uint32_t       paramc = edt->wrapperEdt.paramc;
+    uint32_t       depc   = edt->wrapperEdt.depc;
+    uint64_t     * paramv = (uint64_t *)(edt + 1);
+    artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
+
+    int savedDevice;
+    cudaGetDevice(&savedDevice);
+    CHECKCORRECT(cudaSetDevice(artsGpu->device));
+
+    unsigned int freeMemSize = artsGpuCleanUpRouteTable((unsigned int) -1, true, (unsigned int) artsGpu->device);
+    artsAtomicAdd(&freeBytes, freeMemSize);
+
+    prepDbs(depc, depv);
+    artsScheduleToGpu(func, paramc, paramv, depc, depv, edtPacket, artsGpu);
+
+    CHECKCORRECT(cudaSetDevice(savedDevice));
+}
+
+void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, artsGuid_t dataGuid)
+{
+    artsGpuEdt_t * edt    = (artsGpuEdt_t *)edtPacket;
+    uint32_t       paramc = edt->wrapperEdt.paramc;
+    uint32_t       depc   = edt->wrapperEdt.depc;
+    uint64_t     * paramv = (uint64_t *)(edt + 1);
+    artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
+    //Signal next
+    // DPRINTF("TO SIGNAL: %lu -> %lu\n", toSignal, dataGuid);
+    if(toSignal)
+    {
+        if (edt->passthrough)
+            artsSignalEdt(toSignal, slot, depv[dataGuid].guid);
+        else
+        {
+            artsType_t mode = artsGuidGetType(toSignal);
+            if(mode == ARTS_EDT || mode == ARTS_GPU_EDT)
+                artsSignalEdt(toSignal, slot, dataGuid);
+            if(mode == ARTS_EVENT)
+                artsEventSatisfySlot(toSignal, dataGuid, slot);
+        }
+    }
+
+    releaseDbs(depc, depv);
+    artsEdtDelete((struct artsEdt *)edtPacket);
 }

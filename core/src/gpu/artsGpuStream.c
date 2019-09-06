@@ -276,8 +276,9 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     CHECKCORRECT(cudaMemcpyAsync(devClosure, (void*)hostParamv, devClosureSize, cudaMemcpyHostToDevice, artsGpu->stream));
     DPRINTF("Filled GPU Closure\n");
     
-    //Launch kernel
-    fnPtr<<<grid, block, 0, artsGpu->stream>>>(paramc, devParamv, depc, devDepv);
+    //Launch kernel. TODO(kiran): Support shared memory and library API calls.
+    void * kernelArgs[] = { &paramc, &devParamv, &depc, &devDepv };
+    cudaLaunchKernel((const void *)fnPtr, grid, block, (void**)kernelArgs, (size_t)0, artsGpu->stream);
     
     //Move data back
     for(unsigned int i=0; i<depc; i++)

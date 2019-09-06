@@ -152,12 +152,3 @@ unsigned int artsAtomicFetchAnd(volatile unsigned int * destination, unsigned in
     return __sync_fetch_and_and(destination, addVal);
 }
 
-unsigned int artsAtomicSchedule(volatile unsigned int * sched)
-{
-    return __atomic_add_fetch(sched, 1U, __ATOMIC_SEQ_CST);
-}
-
-unsigned int artsAtomicUnschedule(volatile unsigned int * sched)
-{
-    return __atomic_sub_fetch(sched, 1U, __ATOMIC_SEQ_CST);
-}

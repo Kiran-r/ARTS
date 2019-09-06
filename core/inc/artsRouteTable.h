@@ -62,6 +62,8 @@ extern "C" {
 
 #define shouldDelete(x) (isDel(x) && !getCount(x))
 
+#define collisionResolves 8
+
 struct artsRouteInvalidate
 {
     int size;
@@ -106,11 +108,8 @@ typedef struct {
     struct artsRouteTable * table;
 } artsRouteTableIterator;
 
-struct artsRouteTable *artsRouteTableListNew(unsigned int listSize, unsigned int routeTableSize, unsigned int shift);
-struct artsRouteTable *artsRouteTableListGetRouteTable(struct artsRouteTable * routeTableList, unsigned int position);
-void artsRouteTableListDelete(struct artsRouteTable *routeTableList);
-//void artsRouteTableNew(struct artsRouteTable *routeTable, unsigned int size, unsigned int shift, unsigned int func);
-void artsRouteTableDelete(struct artsRouteTable *routeTable);
+struct artsRouteTable * artsNewRouteTable(unsigned int routeTableSize, unsigned int shift);
+void artsRouteTableNew(struct artsRouteTable *routeTable, unsigned int size, unsigned int shift, unsigned int func);
 void * artsRouteTableAddItem(void* item, artsGuid_t key, unsigned int route, bool used);
 bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int route, bool used);
 bool artsRouteTableAddItemAtomic(void * item, artsGuid_t key, unsigned int route);
@@ -144,18 +143,15 @@ void ** artsRouteTableGetOOList(artsGuid_t key, struct artsOutOfOrderList ** lis
 void artsRouteTableDecItem(artsGuid_t key, void * data);
 void ** artsRouteTableReserve(artsGuid_t key, bool * dec, itemState * state);
 bool internalRouteTableAddItemRace(struct artsRouteTable * routeTable, void * item, artsGuid_t key, unsigned int rank, bool usedRes, bool usedAvail);
-bool artsGpuRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int gpuId);
-void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId);
 void * internalRouteTableLookupDb(struct artsRouteTable * routeTable, artsGuid_t key, int * rank);
-bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int gpuId);
 artsRouteTableIterator * artsNewRouteTableIterator(struct artsRouteTable * table);
 struct artsRouteItem * artsRouteTableIterate(artsRouteTableIterator * iter);
 void artsPrintItem(struct artsRouteItem * item);
+void artsResetRouteTableIterator(artsRouteTableIterator * iter, struct artsRouteTable * table);
 struct artsRouteItem * getItemFromData(artsGuid_t key, void * data);
-bool internalRouteTableReturnDb(struct artsRouteTable * routeTable, artsGuid_t key, bool markToDelete, bool doDelete, unsigned int gpuId);
-uint64_t internalCleanUpRouteTable(struct artsRouteTable * routeTable, uint64_t sizeToClean, bool cleanZeros, int gpuId);
-uint64_t artsCleanUpGpuRouteTable(unsigned int sizeToClean, bool cleanZeros, unsigned int gpuId);
-uint64_t artsLookupGpuDb(artsGuid_t key);
+bool internalRouteTableReturnDb(struct artsRouteTable * routeTable, artsGuid_t key, bool markToDelete, bool doDelete);
+uint64_t artsCleanUpRouteTable(struct artsRouteTable * routeTable, uint64_t sizeToClean, bool cleanZeros);
+struct artsRouteItem * artsRouteTableSearchForKey(struct artsRouteTable *routeTable, artsGuid_t key, itemState state);
 #ifdef __cplusplus
 }
 #endif

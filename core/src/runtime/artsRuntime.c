@@ -93,7 +93,7 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.gpuDeque = (struct artsDeque**) artsMalloc(sizeof(struct artsDeque*)*totalThreads);
     artsNodeInfo.routeTable = (struct artsRouteTable**) artsCalloc(sizeof(struct artsRouteTable*)*totalThreads);
     artsNodeInfo.gpuRouteTable = (struct artsRouteTable**) artsCalloc(sizeof(struct artsRouteTable*)*config->gpu);
-    artsNodeInfo.remoteRouteTable = artsRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
+    artsNodeInfo.remoteRouteTable = artsNewRouteTable(config->routeTableEntries, config->routeTableSize);
     artsNodeInfo.localSpin = (volatile bool**) artsCalloc(sizeof(bool*)*totalThreads);
     artsNodeInfo.memoryMoves = (unsigned int**) artsCalloc(sizeof(unsigned int*)*totalThreads);
     artsNodeInfo.atomicWaits = (struct atomicCreateBarrierInfo **) artsCalloc(sizeof(struct atomicCreateBarrierInfo*)*totalThreads);
@@ -181,7 +181,7 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
     artsNodeInfo.gpuDeque[unit->id] = artsThreadInfo.myGpuDeque = (config->gpu) ? artsDequeNew(config->dequeSize) : NULL;
     if(unit->worker)
     {
-        artsNodeInfo.routeTable[unit->id] =  artsRouteTableListNew(1, config->routeTableEntries, config->routeTableSize);
+        artsNodeInfo.routeTable[unit->id] =  artsNewRouteTable(config->routeTableEntries, config->routeTableSize);
     }
 
     if(unit->networkSend || unit->networkReceive)
@@ -429,7 +429,8 @@ static inline void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
 
     // TODO: Fix this function to avoid cleaning everything
-    // artsFreeGpuMemory(artsGpu);
+    // if(artsCleanUpGpuRouteTable(-1, true, artsGpu->device))
+    //     PRINTF("Deleted some stuff!!!\n");
 
     prepDbs(depc, depv);
 

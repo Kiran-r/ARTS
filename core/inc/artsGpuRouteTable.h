@@ -36,62 +36,37 @@
 ** WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the  **
 ** License for the specific language governing permissions and limitations   **
 ******************************************************************************/
-#ifndef ARTSGPUSTREAM_H
-#define ARTSGPUSTREAM_H
-
+#ifndef ARTSGPUROUTETABLE_H
+#define ARTSGPUROUTETABLE_H
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <cuda_runtime.h>    
-#include "artsRT.h"
-#include "artsAtomics.h"
-#include "artsArrayList.h"
-
-#define CHECKCORRECT(x) {                                   \
-  cudaError_t err;                                          \
-  if( (err = (x)) != cudaSuccess )                          \
-    PRINTF("FAILED %s: %s\n", #x, cudaGetErrorString(err)); \
-}
-    
-typedef struct
-{
-    unsigned int gpuId;
-    volatile unsigned int * newEdtLock;
-    artsArrayList * newEdts;
-    void * devClosure;
-    struct artsEdt * edt;
-} artsGpuCleanUp_t;
+#include "artsRouteTable.h"
 
 typedef struct 
 {
-    int device;
-    volatile size_t memUtil;            // Memory Utilization in device
-    volatile unsigned int scheduled;    // Count(Edts) on device
-    cudaStream_t stream;
-} artsGpu_t;
+    unsigned int size;
+    uint64_t timestamp;
+    void * realData;
+} artsItemWrapper;
 
-void artsInitGpus(unsigned int entries, unsigned int tableSize, int numGpus);
-void artsCleanupGpus();
-void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr, artsGpu_t * artsGpu);
-void artsScheduleToGpu(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, void * edtPtr, artsGpu_t * artsGpu);
+typedef struct
+{
+    struct artsRouteTable routingTable;
+    artsItemWrapper * wrappers;
+} artsGpuRouteTable;
 
-void artsGpuSynchronize(artsGpu_t * artsGpu);
-void artsGpuStreamBusy(artsGpu_t* artsGpu);
-artsGpu_t * artsGpuScheduled(unsigned id);
+struct artsRouteTable * artsGpuNewRouteTable(unsigned int routeTableSize, unsigned int shift);
 
-void artsStoreNewEdts(void * edt);
-void artsHandleNewEdts();
-void artsGpuFree(void * data, unsigned int gpu);
-artsGpu_t * artsFindGpu(void * data, unsigned int seed);
-
-extern int artsNumGpus;
-extern artsGpu_t * artsGpus;
-
+uint64_t artsLookupGpuDb(artsGuid_t key);
+bool artsGpuRouteTableAddItemRace(void * item, unsigned int size, artsGuid_t key, unsigned int gpuId);
+void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId);
+bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int gpuId);
+uint64_t artsCleanUpGpuRouteTable(unsigned int sizeToClean, bool cleanZeros, unsigned int gpuId);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* ARTSGPUSTREAM_H */
-
+#endif

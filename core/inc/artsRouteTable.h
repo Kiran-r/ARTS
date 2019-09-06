@@ -92,6 +92,9 @@ struct artsRouteItem
     struct artsOutOfOrderList ooList;
 } __attribute__ ((aligned));
 
+typedef void (*setRouteItem_t) (struct artsRouteItem * item, void * data);
+typedef void (*freeRouteItem_t) (struct artsRouteItem * item);
+
 //Add padding around locks...
 struct artsRouteTable
 {
@@ -101,6 +104,8 @@ struct artsRouteTable
     struct artsRouteTable * next;
     volatile unsigned readerLock;
     volatile unsigned writerLock;
+    setRouteItem_t setFunc;
+    freeRouteItem_t freeFunc;
 } __attribute__ ((aligned));
 
 typedef struct {
@@ -108,50 +113,52 @@ typedef struct {
     struct artsRouteTable * table;
 } artsRouteTableIterator;
 
+bool decItem(struct artsRouteTable * routeTable, struct artsRouteItem * item);
+
 struct artsRouteTable * artsNewRouteTable(unsigned int routeTableSize, unsigned int shift);
-void artsRouteTableNew(struct artsRouteTable *routeTable, unsigned int size, unsigned int shift, unsigned int func);
+
 void * artsRouteTableAddItem(void* item, artsGuid_t key, unsigned int route, bool used);
+bool internalRouteTableAddItemRace(struct artsRouteTable * routeTable, void * item, artsGuid_t key, unsigned int rank, bool usedRes, bool usedAvail);
 bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int route, bool used);
-bool artsRouteTableAddItemAtomic(void * item, artsGuid_t key, unsigned int route);
-bool artsRouteTableDeleteItem(artsGuid_t key);
+
+void * artsRouteTableLookupItem(artsGuid_t key);
+int artsRouteTableLookupRank(artsGuid_t key);
 bool artsRouteTableRemoveItem(artsGuid_t key);
 bool artsRouteTableInvalidateItem(artsGuid_t key);
-void * artsRouteTableLookupItem(artsGuid_t key);
-void * artsRouteTableLookupInvalidItem(artsGuid_t key);
-int artsRouteTableLookupRank(artsGuid_t key);
+
+struct artsRouteItem * artsRouteTableSearchForKey(struct artsRouteTable *routeTable, artsGuid_t key, itemState state);
 bool artsRouteTableUpdateItem(artsGuid_t key, void * data, unsigned int rank, itemState state);
 struct artsDbFrontierIterator * artsRouteTableGetRankDuplicates(artsGuid_t key, unsigned int rank);
 bool artsRouteTableAddSent(artsGuid_t key, void * edt, unsigned int slot, bool aggregate);
-bool artsRouteTableAddOO(artsGuid_t key, void * data, bool inc);
-void artsRouteTableFireOO(artsGuid_t key, void (*callback)(void *, void*) );
-void artsRouteTableFireSent(artsGuid_t key, void (*callback)(void *, void*) );
-unsigned int artsRouteTablePopEw(artsGuid_t key );
-bool artsRouteTablePushEw(artsGuid_t key, unsigned int rank );
 void artsRouteTableAddRankDuplicate(artsGuid_t key, unsigned int rank);
-void artsRouteTableResetSent(artsGuid_t key);
-void artsRouteTableResetOO(artsGuid_t key);
-bool artsRouteTableClearItem(artsGuid_t key);
-void * artsRouteTableCreateLocalEntry( struct artsRouteTable * routeTable, void * item, unsigned int rank );
-bool artsRouteTableLockGuid(artsGuid_t key);
-bool artsRouteTableLockGuidRace(artsGuid_t key, unsigned int rank);
+
 itemState artsRouteTableLookupItemWithState(artsGuid_t key, void *** data, itemState min, bool inc);
 itemState getItemState(struct artsRouteItem * item);
-bool artsRouteTableReturnDb(artsGuid_t key, bool markToDelete);
-void * artsRouteTableLookupDb(artsGuid_t key, int * rank);
+
 int artsRouteTableSetRank(artsGuid_t key, int rank);
-void ** artsRouteTableGetOOList(artsGuid_t key, struct artsOutOfOrderList ** list);
-void artsRouteTableDecItem(artsGuid_t key, void * data);
+
 void ** artsRouteTableReserve(artsGuid_t key, bool * dec, itemState * state);
-bool internalRouteTableAddItemRace(struct artsRouteTable * routeTable, void * item, artsGuid_t key, unsigned int rank, bool usedRes, bool usedAvail);
+
+void artsRouteTableDecItem(artsGuid_t key, void * data);
+struct artsRouteItem * getItemFromData(artsGuid_t key, void * data);
+
 void * internalRouteTableLookupDb(struct artsRouteTable * routeTable, artsGuid_t key, int * rank);
+void * artsRouteTableLookupDb(artsGuid_t key, int * rank);
+bool internalRouteTableReturnDb(struct artsRouteTable * routeTable, artsGuid_t key, bool markToDelete, bool doDelete);
+bool artsRouteTableReturnDb(artsGuid_t key, bool markToDelete);
+
+bool artsRouteTableAddOO(artsGuid_t key, void * data, bool inc);
+void artsRouteTableFireOO(artsGuid_t key, void (*callback)(void *, void*));
+void artsRouteTableResetOO(artsGuid_t key);
+void ** artsRouteTableGetOOList(artsGuid_t key, struct artsOutOfOrderList ** list);
+
 artsRouteTableIterator * artsNewRouteTableIterator(struct artsRouteTable * table);
+void artsResetRouteTableIterator(artsRouteTableIterator * iter, struct artsRouteTable * table);
 struct artsRouteItem * artsRouteTableIterate(artsRouteTableIterator * iter);
 void artsPrintItem(struct artsRouteItem * item);
-void artsResetRouteTableIterator(artsRouteTableIterator * iter, struct artsRouteTable * table);
-struct artsRouteItem * getItemFromData(artsGuid_t key, void * data);
-bool internalRouteTableReturnDb(struct artsRouteTable * routeTable, artsGuid_t key, bool markToDelete, bool doDelete);
+
 uint64_t artsCleanUpRouteTable(struct artsRouteTable * routeTable, uint64_t sizeToClean, bool cleanZeros);
-struct artsRouteItem * artsRouteTableSearchForKey(struct artsRouteTable *routeTable, artsGuid_t key, itemState state);
+
 #ifdef __cplusplus
 }
 #endif

@@ -45,26 +45,20 @@
 #include "artsDbList.h"
 #include "artsDebug.h"
 #include "artsCounter.h"
-#ifdef USE_GPU
 #include "artsGpuStream.h"
-#endif
 
  #define DPRINTF
 //#define DPRINTF(...) PRINTF(__VA_ARGS__)
 
+//Must be thread local
+__thread unsigned int gpuItemSizeBypass = 0;
 
-void freeItemGPU(struct artsRouteItem * item, unsigned int gpu, bool wrap)
+void setGpuItem(struct artsRouteItem * item, void * data)
 {
-#ifdef USE_GPU
-    if (gpu)
-        artsGpuFree(item->data, gpu-1);
-    else
-#endif
-        artsFree(item->data);
-    artsOutOfOrderListDelete(&item->ooList);
-    item->data = NULL;
-    item->key = 0;
-    item->lock = 0;
+    artsItemWrapper * wrapper = (artsItemWrapper*) item;
+    wrapper->realData = data;
+    wrapper->size = gpuItemSizeBypass;
+    gpuItemSizeBypass = 0;
 }
 
 struct artsRouteTable * artsGpuNewRouteTable(unsigned int routeTableSize, unsigned int shift)
@@ -74,6 +68,8 @@ struct artsRouteTable * artsGpuNewRouteTable(unsigned int routeTableSize, unsign
     gpuRouteTable->routingTable.data = (struct artsRouteItem *) artsCalloc(totalElems * sizeof(struct artsRouteItem)); 
     gpuRouteTable->routingTable.size = routeTableSize;
     gpuRouteTable->routingTable.shift = shift;
+    gpuRouteTable->routingTable.setFunc = setGpuItem;
+    gpuRouteTable->routingTable.freeFunc = freeGpuItem;
 
     gpuRouteTable->wrappers = (artsItemWrapper *) artsCalloc(totalElems * sizeof(artsItemWrapper));
     for(unsigned int i=0; i<totalElems; i++)
@@ -97,26 +93,24 @@ uint64_t artsGpuLookupDb(artsGuid_t key)
 
 bool artsGpuRouteTableAddItemRace(void * item, unsigned int size, artsGuid_t key, unsigned int gpuId)
 {
+    //This is a bypass thread local variable to make the api nice...
+    gpuItemSizeBypass = 0;
     struct artsRouteTable * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
-    // struct artsItemWrapper * wrapper = artsCalloc(sizeof(struct artsItemWrapper));
-    // wrapper->size = size;
-    //For the gpus it should always mark as used
-    //THIS NEEDS TO PASS A FUNCTION
-    return internalRouteTableAddItemRace(routeTable, &wrapper, key, artsGlobalRankId, true, true);
+    return internalRouteTableAddItemRace(routeTable, item, key, artsGlobalRankId, true, true);
 }
 
 void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId)
 {
     int dummyRank;
     struct artsRouteTable * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
-    struct artsItemWrapper * wrapper = internalRouteTableLookupDb(routeTable, key, &dummyRank);
+    artsItemWrapper * wrapper = (artsItemWrapper*) internalRouteTableLookupDb(routeTable, key, &dummyRank);
     return (wrapper) ? wrapper->realData : NULL;
 }
 
 bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int gpuId)
 {
     struct artsRouteTable * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
-    return internalRouteTableReturnDb(routeTable, key, true, false, gpuId+1);
+    return internalRouteTableReturnDb(routeTable, key, true, false);
 }
 
 /*This takes three parameters to regulate what is deleted.  This will only clean up DBs!
@@ -129,37 +123,37 @@ bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int g
     Pass -1 for a host RT.
 Returns the size of the memory freed!
 */
-uint64_t artsGpuCleanUpRouteTable(uint64_t sizeToClean, bool cleanZeros, int gpuId)
-{
-    struct artsRouteTable * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
+// uint64_t artsGpuCleanUpRouteTable(uint64_t sizeToClean, bool cleanZeros, int gpuId)
+// {
+//     struct artsRouteTable * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
 
-    uint64_t freedSize = 0;
-    artsRouteTableIterator iter;
-    artsResetRouteTableIterator(&iter, routeTable);
+//     uint64_t freedSize = 0;
+//     artsRouteTableIterator iter;
+//     artsResetRouteTableIterator(&iter, routeTable);
 
-    struct artsRouteItem * item = artsRouteTableIterate(&iter);
-    while(item && freedSize < sizeToClean)
-    {
-        artsPrintItem(item);
-        artsType_t type = artsGuidGetType(item->key);
-        struct artsItemWrapper * wrapper = item;
-        uint64_t size = wrapper->size;
-        if((type > ARTS_BUFFER && type < ARTS_LAST_TYPE) || type == ARTS_EDT)
-        {
-            int gpuFlag = (type == ARTS_EDT) ? 0 : gpuId+1;
-            if(isDel(item->lock))
-            {
-                if(decItem(item, gpuFlag))
-                    freedSize+=size;
-            }
-            else if(cleanZeros && !getCount(item->lock))
-            {
-                artsAtomicCswapU64(&item->lock, availableItem, 1+(availableItem | deleteItem));
-                if(decItem(item, gpuFlag))
-                    freedSize+=size;
-            }
-        }
-        item = artsRouteTableIterate(&iter);
-    }
-    return freedSize;
-}
+//     struct artsRouteItem * item = artsRouteTableIterate(&iter);
+//     while(item && freedSize < sizeToClean)
+//     {
+//         artsPrintItem(item);
+//         artsType_t type = artsGuidGetType(item->key);
+//         struct artsItemWrapper * wrapper = item;
+//         uint64_t size = wrapper->size;
+//         if((type > ARTS_BUFFER && type < ARTS_LAST_TYPE) || type == ARTS_EDT)
+//         {
+//             int gpuFlag = (type == ARTS_EDT) ? 0 : gpuId+1;
+//             if(isDel(item->lock))
+//             {
+//                 if(decItem(item, gpuFlag))
+//                     freedSize+=size;
+//             }
+//             else if(cleanZeros && !getCount(item->lock))
+//             {
+//                 artsAtomicCswapU64(&item->lock, availableItem, 1+(availableItem | deleteItem));
+//                 if(decItem(item, gpuFlag))
+//                     freedSize+=size;
+//             }
+//         }
+//         item = artsRouteTableIterate(&iter);
+//     }
+//     return freedSize;
+// }

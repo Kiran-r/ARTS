@@ -59,7 +59,7 @@ typedef struct
 
 struct artsRouteTable * artsGpuNewRouteTable(unsigned int routeTableSize, unsigned int shift);
 
-uint64_t artsLookupGpuDb(artsGuid_t key);
+uint64_t artsGpuLookupDb(artsGuid_t key);
 bool artsGpuRouteTableAddItemRace(void * item, unsigned int size, artsGuid_t key, unsigned int gpuId);
 void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId);
 bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int gpuId);

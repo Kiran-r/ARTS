@@ -82,7 +82,7 @@ artsGpu_t * artsGpuScheduled(unsigned id);
 
 void artsStoreNewEdts(void * edt);
 void artsHandleNewEdts();
-void artsGpuFree(void * data, unsigned int gpu);
+void freeGpuItem(struct artsRouteItem * item);
 artsGpu_t * artsFindGpu(void * data, unsigned int seed);
 
 extern int artsNumGpus;

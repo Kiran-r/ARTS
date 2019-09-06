@@ -149,12 +149,12 @@ void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data)
     for(unsigned int i=0; i<depc; i++)
     {
         //True says to mark it for deletion... Change this to false to further delay delete!
-        if(depv[i].ptr){}
-            // artsGpuRouteTableReturnDb(depv[i].guid, true, gc->gpuId);
+        if(depv[i].ptr)
+            artsGpuRouteTableReturnDb(depv[i].guid, true, gc->gpuId);
     }
 
     //Definitely mark the dev closure to be deleted as there is no reuse!
-    // artsGpuRouteTableReturnDb(edt->wrapperEdt.currentEdt, true, gc->gpuId);
+    artsGpuRouteTableReturnDb(edt->wrapperEdt.currentEdt, true, gc->gpuId);
 
     bool set = 0;
     //This function is being called by some cuda runtime thread that did not initialize its newEdt array
@@ -231,7 +231,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
         DPRINTF("Filled host closure\n");
 
         artsGuid_t edtGuid = hostGCPtr->edt->currentEdt;
-        // artsGpuRouteTableAddItemRace(devClosure, hostClosureSize, edtGuid, artsGpu->device);
+        artsGpuRouteTableAddItemRace(devClosure, hostClosureSize, edtGuid, artsGpu->device);
         DPRINTF("Added edtGuid: %lu to gpu: %d routing table\n", edtGuid, artsGpu->device);        
     }
 
@@ -240,7 +240,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     {
         if(depv[i].ptr)
         {
-            void * dataPtr = NULL; //artsGpuRouteTableLookupDb(depv[i].guid, artsGpu->device);
+            void * dataPtr = artsGpuRouteTableLookupDb(depv[i].guid, artsGpu->device);
             if (!dataPtr)
             {
                 //Actually allocate space
@@ -248,7 +248,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
                 size_t size = db->header.size - sizeof(struct artsDb);
                 CHECKCORRECT(cudaMalloc(&dataPtr, size));
 
-                bool ret = false; //artsGpuRouteTableAddItemRace(dataPtr, size, depv[i].guid, artsGpu->device);
+                bool ret = artsGpuRouteTableAddItemRace(dataPtr, size, depv[i].guid, artsGpu->device);
                 if (!ret) //Someone beat us to creating the data... So we must free
                     cudaFree(dataPtr);
                 else //We won, so move data
@@ -334,7 +334,7 @@ artsGpu_t * artsFindGpu(void * edtPacket, unsigned seed)
     uint64_t maskOr=0, maskAnd=0, mask;
     for (unsigned int i=0; i<depc; ++i)
     {
-        mask = 0; //artsLookupGpuDb(depv[i].guid);
+        mask = artsGpuLookupDb(depv[i].guid);
         maskAnd &= mask;
         maskOr |= mask;
     }
@@ -358,11 +358,16 @@ artsGpu_t * artsFindGpu(void * edtPacket, unsigned seed)
     return ret;
 }
 
-void artsGpuFree(void * data, unsigned int gpu)
+void freeGpuItem(struct artsRouteItem * item)
 {
-    int savedDevice;
-    cudaGetDevice(&savedDevice);
-    cudaSetDevice((int)gpu);
-    cudaFree(data);
-    cudaSetDevice(savedDevice);
+    artsType_t type = artsGuidGetType(item->key);
+    artsItemWrapper * wrapper = (artsItemWrapper*) item->data;
+    if(type == ARTS_EDT)
+    {
+        artsGpuCleanUp_t * hostGCPtr = (artsGpuCleanUp_t *) wrapper->realData;
+        cudaFree(hostGCPtr->devClosure);
+        artsFree(hostGCPtr);
+    }
+    else if(type > ARTS_BUFFER && type < ARTS_LAST_TYPE) //DBs
+        cudaFree(wrapper->realData);
 }

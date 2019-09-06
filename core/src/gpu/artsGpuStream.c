@@ -57,14 +57,16 @@ volatile unsigned int misses = 0;
 volatile unsigned int falseMisses = 0;
 volatile unsigned int freeBytes = 0;
 
+bool markDbFree = false;
 int artsNumGpus = 0;
 artsGpu_t * artsGpus;
 
 __thread volatile unsigned int * newEdtLock = 0;
 __thread artsArrayList * newEdts = NULL;
 
-void artsNodeInitGpus(unsigned int entries, unsigned int tableSize, int numGpus)
+void artsNodeInitGpus(unsigned int entries, unsigned int tableSize, int numGpus, bool freeDbAfterGpuRun)
 {
+    markDbFree = freeDbAfterGpuRun;
     int numAvailGpus = 0;
     CHECKCORRECT(cudaGetDeviceCount(&numAvailGpus));
     if(numAvailGpus < numGpus)
@@ -158,7 +160,7 @@ void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data)
         if(depv[i].ptr)
         {
             //True says to mark it for deletion... Change this to false to further delay delete!
-            artsGpuRouteTableReturnDb(depv[i].guid, true, gc->gpuId);
+            artsGpuRouteTableReturnDb(depv[i].guid, markDbFree, gc->gpuId);
             DPRINTF("Returning Db: %lu id: %d\n", depv[i].guid, gc->gpuId);
         }
     }

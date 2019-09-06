@@ -127,7 +127,7 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsInitIntrospector(config);
 #ifdef USE_GPU
     if(config->gpu) // TODO: Multi-Node init
-        artsNodeInitGpus(config->routeTableEntries, config->routeTableSize, config->gpu);
+        artsNodeInitGpus(config->gpuRouteTableEntries, config->gpuRouteTableSize, config->gpu, config->freeDbAfterGpuRun);
 #endif
 }
 

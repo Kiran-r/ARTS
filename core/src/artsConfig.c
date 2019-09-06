@@ -886,6 +886,18 @@ struct artsConfig * artsConfigLoad()
     else
         config->gpu = 0;
     
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"freeDbAfterGpuRun")) != NULL)
+        config->freeDbAfterGpuRun = strtol( foundVariable->value, &end , 10) > 0;
+    else
+        config->freeDbAfterGpuRun = true;
+    
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"gpuRouteTableSize")) != NULL)
+        config->gpuRouteTableSize = strtol( foundVariable->value, &end , 10);
+    else
+        config->gpuRouteTableSize = 12; //2^12
+    
+
+
     //WARNING: Slurm Launcher Set!  
     if (strncmp(config->launcher, "slurm", 5) == 0) 
     {
@@ -1046,14 +1058,15 @@ struct artsConfig * artsConfigLoad()
     }
 
     int routeTableEntries = 1;
-
-    if (config->launcher != NULL) { //&&
-        //(strncmp(config->launcher, "local", 5) != 0)) {
-      for (int i = 0; i < config->routeTableSize; i++)
+    for (int i = 0; i < config->routeTableSize; i++)
         routeTableEntries *= 2;
-      config->routeTableEntries = routeTableEntries;
-    }
+    config->routeTableEntries = routeTableEntries;
     
+    int gpuRouteTableEntries = 1;
+    for (int i = 0; i < config->gpuRouteTableSize; i++)
+        gpuRouteTableEntries *= 2;
+    config->gpuRouteTableEntries = gpuRouteTableEntries;
+
     if( (foundVariable = artsConfigFindVariable(&configVariables,"pin")) != NULL)
         config->pinThreads = strtol( foundVariable->value, &end , 10);
     else

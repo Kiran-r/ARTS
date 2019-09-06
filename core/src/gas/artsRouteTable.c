@@ -138,7 +138,7 @@ inline void printState(artsRouteItem_t * item)
 }
 
 //11000 & 11100 = 11000, 10000 & 11100 = 10000, 11100 & 11100 = 11000
-bool checkItemState(artsRouteItem_t * item, itemState state)
+bool checkItemState(artsRouteItem_t * item, itemState_t state)
 {
     if(item)
     {
@@ -170,12 +170,12 @@ bool checkItemState(artsRouteItem_t * item, itemState state)
     return false;
 }
 
-inline bool checkMinItemState(artsRouteItem_t * item, itemState state)
+inline bool checkMinItemState(artsRouteItem_t * item, itemState_t state)
 {
     if(item)
     {
         uint64_t local = item->lock;
-        itemState actualState = noKey;
+        itemState_t actualState = noKey;
 
         if(isDel(local))
             actualState = deletedKey;
@@ -194,7 +194,7 @@ inline bool checkMinItemState(artsRouteItem_t * item, itemState state)
     return false;
 }
 
-itemState getItemState(artsRouteItem_t * item)
+itemState_t getItemState(artsRouteItem_t * item)
 {
     if(item)
     {
@@ -375,7 +375,7 @@ artsRouteTable_t * artsNewRouteTable(unsigned int routeTableSize, unsigned int s
     return routeTable;
 }
 
-artsRouteItem_t * artsRouteTableSearchForKey(artsRouteTable_t *routeTable, artsGuid_t key, itemState state)
+artsRouteItem_t * artsRouteTableSearchForKey(artsRouteTable_t *routeTable, artsGuid_t key, itemState_t state)
 {
     artsRouteTable_t * current = routeTable;
     artsRouteTable_t * next;
@@ -595,7 +595,7 @@ void * artsRouteTableLookupItem(artsGuid_t key)
     return ret;
 }
 
-itemState artsRouteTableLookupItemWithState(artsGuid_t key, void *** data, itemState min, bool inc)
+itemState_t artsRouteTableLookupItemWithState(artsGuid_t key, void *** data, itemState_t min, bool inc)
 {
     void * ret = NULL;
     artsRouteTable_t * routeTable = artsGetRouteTable(key);
@@ -728,7 +728,7 @@ void ** artsRouteTableGetOOList(artsGuid_t key, struct artsOutOfOrderList ** lis
 }
 
 //This is just a wrapper for outside consumption...
-void ** artsRouteTableReserve(artsGuid_t key, bool * dec, itemState *state)
+void ** artsRouteTableReserve(artsGuid_t key, bool * dec, itemState_t *state)
 {
     bool res;
     *dec = false;
@@ -870,7 +870,7 @@ uint64_t artsCleanUpRouteTable(artsRouteTable_t * routeTable, uint64_t sizeToCle
 
 //To cleanup --------------------------------------------------------------------------->
 
-bool artsRouteTableUpdateItem(artsGuid_t key, void * data, unsigned int rank, itemState state)
+bool artsRouteTableUpdateItem(artsGuid_t key, void * data, unsigned int rank, itemState_t state)
 {
     artsRouteTable_t * routeTable = artsGetRouteTable(key);
     bool ret = false;

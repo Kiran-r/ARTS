@@ -81,7 +81,7 @@ typedef enum
     availableKey, //available only 
     requestedKey, //available but reserved (means so one else has the valid copy)
     reservedKey,  //reserved only      
-} itemState;
+} itemState_t;
 
 typedef struct __attribute__ ((aligned))
 {
@@ -128,18 +128,18 @@ int artsRouteTableLookupRank(artsGuid_t key);
 bool artsRouteTableRemoveItem(artsGuid_t key);
 bool artsRouteTableInvalidateItem(artsGuid_t key);
 
-artsRouteItem_t * artsRouteTableSearchForKey(artsRouteTable_t *routeTable, artsGuid_t key, itemState state);
-bool artsRouteTableUpdateItem(artsGuid_t key, void * data, unsigned int rank, itemState state);
+artsRouteItem_t * artsRouteTableSearchForKey(artsRouteTable_t *routeTable, artsGuid_t key, itemState_t state);
+bool artsRouteTableUpdateItem(artsGuid_t key, void * data, unsigned int rank, itemState_t state);
 struct artsDbFrontierIterator * artsRouteTableGetRankDuplicates(artsGuid_t key, unsigned int rank);
 bool artsRouteTableAddSent(artsGuid_t key, void * edt, unsigned int slot, bool aggregate);
 void artsRouteTableAddRankDuplicate(artsGuid_t key, unsigned int rank);
 
-itemState artsRouteTableLookupItemWithState(artsGuid_t key, void *** data, itemState min, bool inc);
-itemState getItemState(artsRouteItem_t * item);
+itemState_t artsRouteTableLookupItemWithState(artsGuid_t key, void *** data, itemState_t min, bool inc);
+itemState_t getitemState(artsRouteItem_t * item);
 
 int artsRouteTableSetRank(artsGuid_t key, int rank);
 
-void ** artsRouteTableReserve(artsGuid_t key, bool * dec, itemState * state);
+void ** artsRouteTableReserve(artsGuid_t key, bool * dec, itemState_t * state);
 
 void artsRouteTableDecItem(artsGuid_t key, void * data);
 artsRouteItem_t * getItemFromData(artsGuid_t key, void * data);

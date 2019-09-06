@@ -73,7 +73,7 @@ typedef struct
     cudaStream_t stream;
 } artsGpu_t;
 
-void artsNodeInitGpus(unsigned int entries, unsigned int tableSize, int numGpus, bool freeDbAfterGpuRun);
+void artsNodeInitGpus();
 void artsWorkerInitGpus();
 void artsCleanupGpus();
 void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr, artsGpu_t * artsGpu);

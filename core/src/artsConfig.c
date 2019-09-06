@@ -886,17 +886,30 @@ struct artsConfig * artsConfigLoad()
     else
         config->gpu = 0;
     
-    if( (foundVariable = artsConfigFindVariable(&configVariables,"freeDbAfterGpuRun")) != NULL)
-        config->freeDbAfterGpuRun = strtol( foundVariable->value, &end , 10) > 0;
-    else
-        config->freeDbAfterGpuRun = true;
-    
     if( (foundVariable = artsConfigFindVariable(&configVariables,"gpuRouteTableSize")) != NULL)
         config->gpuRouteTableSize = strtol( foundVariable->value, &end , 10);
     else
         config->gpuRouteTableSize = 12; //2^12
     
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"freeDbAfterGpuRun")) != NULL)
+        config->freeDbAfterGpuRun = strtol( foundVariable->value, &end , 10) > 0;
+    else
+        config->freeDbAfterGpuRun = false;
 
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"runGpuGcIdle")) != NULL)
+        config->runGpuGcIdle = strtol( foundVariable->value, &end , 10) > 0;
+    else
+        config->runGpuGcIdle = true;
+
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"runGpuGcPreEdt")) != NULL)
+        config->runGpuGcPreEdt = strtol( foundVariable->value, &end , 10) > 0;
+    else
+        config->runGpuGcPreEdt = false;
+
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"deleteZerosGpuGc")) != NULL)
+        config->deleteZerosGpuGc = strtol( foundVariable->value, &end , 10) > 0;
+    else
+        config->deleteZerosGpuGc = true;
 
     //WARNING: Slurm Launcher Set!  
     if (strncmp(config->launcher, "slurm", 5) == 0) 

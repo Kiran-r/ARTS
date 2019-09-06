@@ -57,40 +57,40 @@ volatile unsigned int misses = 0;
 volatile unsigned int falseMisses = 0;
 volatile unsigned int freeBytes = 0;
 
-bool markDbFree = false;
-int artsNumGpus = 0;
 artsGpu_t * artsGpus;
 
 __thread volatile unsigned int * newEdtLock = 0;
 __thread artsArrayList * newEdts = NULL;
 
-void artsNodeInitGpus(unsigned int entries, unsigned int tableSize, int numGpus, bool freeDbAfterGpuRun)
+void artsNodeInitGpus()
 {
-    markDbFree = freeDbAfterGpuRun;
     int numAvailGpus = 0;
     CHECKCORRECT(cudaGetDeviceCount(&numAvailGpus));
-    if(numAvailGpus < numGpus)
+    if(numAvailGpus < artsNodeInfo.gpu)
     {
-        PRINTF("Requested %d gpus but only %d available\n", numAvailGpus, numGpus);
-        artsNumGpus = numAvailGpus;
+        PRINTF("Requested %d gpus but only %d available\n", numAvailGpus, artsNodeInfo.gpu);
+        artsNodeInfo.gpu = numAvailGpus;
     }
-    else
-        artsNumGpus = numGpus;
 
-    DPRINTF("NUM DEV: %d\n", artsNumGpus);
-    artsGpus = (artsGpu_t *) artsCalloc(sizeof(artsGpu_t) * artsNumGpus);
+    DPRINTF("gpuRouteTableSize: %u gpuRouteTableEntries: %u freeDbAfterGpuRun: %u runGpuGcIdle: %u runGpuGcPreEdt: %u deleteZerosGpuGc: %u\n",
+        artsNodeInfo.gpuRouteTableSize, artsNodeInfo.gpuRouteTableEntries, 
+        artsNodeInfo.freeDbAfterGpuRun, artsNodeInfo.runGpuGcIdle, 
+        artsNodeInfo.runGpuGcPreEdt, artsNodeInfo.deleteZerosGpuGc);
+
+    DPRINTF("NUM DEV: %d\n", artsNodeInfo.gpu);
+    artsGpus = (artsGpu_t *) artsCalloc(sizeof(artsGpu_t) * artsNodeInfo.gpu);
 
     int savedDevice;
     cudaGetDevice(&savedDevice);
 
     // Initialize artsGpu with 1 stream/GPU
-    for (int i=0; i<artsNumGpus; ++i)
+    for (int i=0; i<artsNodeInfo.gpu; ++i)
     {
         artsGpus[i].device = i;
         DPRINTF("Setting %d\n", i);
         CHECKCORRECT(cudaSetDevice(i));
         CHECKCORRECT(cudaStreamCreate(&artsGpus[i].stream)); // Make it scalable
-        artsNodeInfo.gpuRouteTable[i] = artsGpuNewRouteTable(entries, tableSize);
+        artsNodeInfo.gpuRouteTable[i] = artsGpuNewRouteTable(artsNodeInfo.gpuRouteTableEntries, artsNodeInfo.gpuRouteTableSize);
     }
     CHECKCORRECT(cudaSetDevice(savedDevice));
 }
@@ -131,7 +131,7 @@ void artsCleanupGpus()
 {
     int savedDevice;
     cudaGetDevice(&savedDevice);
-    for (int i=0; i<artsNumGpus; i++)
+    for (int i=0; i<artsNodeInfo.gpu; i++)
     {
         CHECKCORRECT(cudaSetDevice(artsGpus[i].device));
         CHECKCORRECT(cudaStreamSynchronize(artsGpus[i].stream));
@@ -160,7 +160,7 @@ void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data)
         if(depv[i].ptr)
         {
             //True says to mark it for deletion... Change this to false to further delay delete!
-            artsGpuRouteTableReturnDb(depv[i].guid, markDbFree, gc->gpuId);
+            artsGpuRouteTableReturnDb(depv[i].guid, artsNodeInfo.freeDbAfterGpuRun, gc->gpuId);
             DPRINTF("Returning Db: %lu id: %d\n", depv[i].guid, gc->gpuId);
         }
     }
@@ -319,8 +319,8 @@ void artsGpuStreamBusy(artsGpu_t* artsGpu)
 int artsGpuLookUp(unsigned id)
 {
     // Loop over all devices to find available GPUs and return free artsGpu_t
-    int start = (int) id % artsNumGpus;
-    for (int i=start, j=0; j<artsNumGpus; ++j, i=(i+1)%artsNumGpus)
+    int start = (int) id % artsNodeInfo.gpu;
+    for (int i=start, j=0; j<artsNodeInfo.gpu; ++j, i=(i+1)%artsNodeInfo.gpu)
         if(artsAtomicFetchAdd(&artsGpus[i].scheduled, 1U))
             return i;
     return -1;
@@ -355,7 +355,7 @@ artsGpu_t * artsFindGpu(void * edtPacket, unsigned seed)
         gpu = artsGpuLookUp(seed);
 
     DPRINTF("Choosing gpu: %d\n", gpu);
-    if(gpu > -1 && gpu < artsNumGpus)
+    if(gpu > -1 && gpu < artsNodeInfo.gpu)
         ret = &artsGpus[gpu];
     return ret;
 }

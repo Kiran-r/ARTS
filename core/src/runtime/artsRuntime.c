@@ -78,7 +78,22 @@ struct artsRuntimeShared artsNodeInfo;
 __thread struct artsRuntimePrivate artsThreadInfo;
 
 typedef bool (*scheduler_t)();
-scheduler_t schedulerLoop[] = {artsDefaultSchedulerLoop, artsNetworkBeforeStealSchedulerLoop, artsNetworkFirstSchedulerLoop, artsGpuSchedulerLoop};
+#ifdef USE_GPU
+scheduler_t schedulerLoop[] = 
+    {
+        artsDefaultSchedulerLoop, 
+        artsNetworkBeforeStealSchedulerLoop, 
+        artsNetworkFirstSchedulerLoop, 
+        artsGpuSchedulerLoop
+    };
+#else
+scheduler_t schedulerLoop[] = 
+    {
+        artsDefaultSchedulerLoop, 
+        artsNetworkBeforeStealSchedulerLoop, 
+        artsNetworkFirstSchedulerLoop
+    };
+#endif
 
 void artsMainEdt(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
@@ -120,14 +135,20 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.shadLoopStride = config->shadLoopStride;
     artsNodeInfo.tMT = config->tMT;
     artsNodeInfo.gpu = config->gpu;
+    artsNodeInfo.gpuRouteTableSize = config->gpuRouteTableSize;
+    artsNodeInfo.gpuRouteTableEntries = config->gpuRouteTableEntries;
+    artsNodeInfo.freeDbAfterGpuRun = config->freeDbAfterGpuRun;
+    artsNodeInfo.runGpuGcIdle = config->runGpuGcIdle;
+    artsNodeInfo.runGpuGcPreEdt = config->runGpuGcPreEdt;
+    artsNodeInfo.deleteZerosGpuGc = config->deleteZerosGpuGc;
     artsNodeInfo.pinThreads = config->pinThreads;
     artsNodeInfo.keys = artsCalloc(sizeof(uint64_t*) * totalThreads);
     artsNodeInfo.globalGuidThreadId = artsCalloc(sizeof(uint64_t) * totalThreads);
     artsTMTNodeInit(workerThreads);
     artsInitIntrospector(config);
 #ifdef USE_GPU
-    if(config->gpu) // TODO: Multi-Node init
-        artsNodeInitGpus(config->gpuRouteTableEntries, config->gpuRouteTableSize, config->gpu, config->freeDbAfterGpuRun);
+    if(artsNodeInfo.gpu) // TODO: Multi-Node init
+        artsNodeInitGpus();
 #endif
 }
 
@@ -414,23 +435,6 @@ inline struct artsEdt * artsRuntimeStealFromWorker()
     return edt;
 }
 
-//inline struct artsEdt * artsRuntimeStealGpuTask()
-struct artsEdt * artsRuntimeStealGpuTask()
-{
-    struct artsEdt *edt = NULL;
-    if(artsNodeInfo.totalThreadCount > 1)
-    {
-        long unsigned int stealLoc;
-        do
-        {
-            stealLoc = jrand48(artsThreadInfo.drand_buf);
-            stealLoc = stealLoc % artsNodeInfo.totalThreadCount;
-        } while(stealLoc == artsThreadInfo.threadId);
-        edt = artsDequePopBack(artsNodeInfo.gpuDeque[stealLoc]);
-    }
-    return edt;
-}
-
 bool artsNetworkFirstSchedulerLoop()
 {
     struct artsEdt *edtFound;
@@ -496,30 +500,6 @@ bool artsDefaultSchedulerLoop()
 //        usleep(1);
     }
     return false;
-}
-
-bool artsGpuSchedulerLoop()
-{
-//#ifdef USE_GPU
-    //Clear some memory
-
-    artsGpu_t * artsGpu;
-    artsHandleNewEdts(); // Make it specific to a artsGpu_t
-
-    struct artsEdt * edtFound = NULL;
-    if(!(edtFound = artsDequePopFront(artsThreadInfo.myGpuDeque)))
-        if(!edtFound)
-            edtFound = artsRuntimeStealGpuTask();
-    if(edtFound)
-    {
-        artsGpu = artsFindGpu(edtFound, artsThreadInfo.groupId);
-        if (artsGpu)
-            artsRunGpu(edtFound, artsGpu);
-        else
-            artsDequePushFront(artsThreadInfo.myGpuDeque, edtFound, 0);
-    }
-//#endif
-    return artsDefaultSchedulerLoop();
 }
 
 int artsRuntimeLoop()

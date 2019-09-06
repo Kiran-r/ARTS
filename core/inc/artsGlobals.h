@@ -93,6 +93,12 @@ struct artsRuntimeShared
     unsigned int shadLoopStride;
     bool tMT;
     unsigned int gpu;
+    unsigned int gpuRouteTableSize;
+    unsigned int gpuRouteTableEntries;
+    bool freeDbAfterGpuRun;
+    bool runGpuGcIdle;
+    bool runGpuGcPreEdt;
+    bool deleteZerosGpuGc;
     unsigned int pinThreads;
     uint64_t ** keys;
     uint64_t * globalGuidThreadId;

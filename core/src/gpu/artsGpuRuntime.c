@@ -45,7 +45,12 @@
 #include "artsGpuStream.h"
 #include "artsEdtFunctions.h"
 #include "artsDbFunctions.h"
+#include "artsRuntime.h"
 #include "artsGlobals.h"
+#include "artsDeque.h"
+
+#define DPRINTF(...)
+// #define DPRINTF(...) PRINTF(__VA_ARGS__)
 
 void * artsCudaMallocHost(unsigned int size)
 {
@@ -120,8 +125,12 @@ void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
     cudaGetDevice(&savedDevice);
     CHECKCORRECT(cudaSetDevice(artsGpu->device));
 
-    unsigned int freeMemSize = artsGpuCleanUpRouteTable((unsigned int) -1, true, (unsigned int) artsGpu->device);
-    artsAtomicAdd(&freeBytes, freeMemSize);
+    if(artsNodeInfo.runGpuGcPreEdt)
+    {
+        DPRINTF("Running Pre Edt GPU GC: %u\n", artsGpu->device);
+        unsigned int freeMemSize = artsGpuCleanUpRouteTable((unsigned int) -1, artsNodeInfo.deleteZerosGpuGc, (unsigned int) artsGpu->device);
+        artsAtomicAdd(&freeBytes, freeMemSize);
+    }
 
     prepDbs(depc, depv);
     artsScheduleToGpu(func, paramc, paramv, depc, depv, edtPacket, artsGpu);
@@ -136,8 +145,9 @@ void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, arts
     uint32_t       depc   = edt->wrapperEdt.depc;
     uint64_t     * paramv = (uint64_t *)(edt + 1);
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
+    
+    DPRINTF("TO SIGNAL: %lu -> %lu\n", toSignal, dataGuid);
     //Signal next
-    // DPRINTF("TO SIGNAL: %lu -> %lu\n", toSignal, dataGuid);
     if(toSignal)
     {
         if (edt->passthrough)
@@ -154,4 +164,61 @@ void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, arts
 
     releaseDbs(depc, depv);
     artsEdtDelete((struct artsEdt *)edtPacket);
+
+}
+
+struct artsEdt * artsRuntimeStealGpuTask()
+{
+    struct artsEdt *edt = NULL;
+    if(artsNodeInfo.totalThreadCount > 1)
+    {
+        long unsigned int stealLoc;
+        do
+        {
+            stealLoc = jrand48(artsThreadInfo.drand_buf);
+            stealLoc = stealLoc % artsNodeInfo.totalThreadCount;
+        } while(stealLoc == artsThreadInfo.threadId);
+        edt = (struct artsEdt *) artsDequePopBack(artsNodeInfo.gpuDeque[stealLoc]);
+    }
+    return edt;
+}
+
+bool artsGpuSchedulerLoop()
+{
+    artsGpu_t * artsGpu;
+    artsHandleNewEdts();
+
+    struct artsEdt * edtFound = (struct artsEdt *) NULL;
+    if(!(edtFound = (struct artsEdt *)artsDequePopFront(artsThreadInfo.myGpuDeque)))
+    {
+        if(!edtFound)
+            edtFound = artsRuntimeStealGpuTask();
+    }
+
+    if(edtFound)
+    {
+        artsGpu = artsFindGpu(edtFound, artsThreadInfo.groupId);
+        if (artsGpu)
+            artsRunGpu(edtFound, artsGpu);
+        else
+            artsDequePushFront(artsThreadInfo.myGpuDeque, edtFound, 0);
+    }
+
+    bool ranCpuEdt = artsDefaultSchedulerLoop();
+    if(artsNodeInfo.runGpuGcIdle && !ranCpuEdt)
+    {
+        long unsigned int gpuId = jrand48(artsThreadInfo.drand_buf);
+        gpuId = gpuId % artsNodeInfo.gpu;
+        DPRINTF("Running Idle GPU GC: %u\n", gpuId);
+        int savedDevice;
+        cudaGetDevice(&savedDevice);
+        CHECKCORRECT(cudaSetDevice(artsGpu->device));
+
+        unsigned int freeMemSize = artsGpuCleanUpRouteTable((unsigned int) -1, artsNodeInfo.deleteZerosGpuGc, (unsigned int) artsGpu->device);
+        artsAtomicAdd(&freeBytes, freeMemSize);
+
+        CHECKCORRECT(cudaSetDevice(savedDevice));
+    }
+
+    return ranCpuEdt;
 }

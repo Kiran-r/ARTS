@@ -417,7 +417,7 @@ artsRouteItem_t * artsRouteTableSearchForEmpty(artsRouteTable_t * routeTable, ar
                 if(markReserve(&current->data[keyVal], markUsed))
                 {
                     current->data[keyVal].key = key;
-                    DPRINTF("%lu %p %lu\n", key, current, keyVal);
+                    DPRINTF("Set Key: %lu %p %lu\n", key, current, keyVal);
                     return &current->data[keyVal];
                 }
             }
@@ -795,7 +795,6 @@ artsRouteItem_t * artsRouteTableIterate(artsRouteTableIterator * iter)
     {
         for(uint64_t i=iter->index; i<current->size*collisionResolves; i++)
         {
-            DPRINTF("i: %lu ", i);
             // artsPrintItem(&current->data[i]);
             if(current->data[i].lock)
             {

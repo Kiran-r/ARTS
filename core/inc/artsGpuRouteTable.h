@@ -49,13 +49,14 @@ typedef struct
     unsigned int size;
     uint64_t timestamp;
     void * realData;
-} artsItemWrapper;
+} artsItemWrapper_t;
 
 typedef struct
 {
     artsRouteTable_t routingTable;
-    artsItemWrapper * wrappers;
-} artsGpuRouteTable;
+    artsItemWrapper_t * wrappers;
+    volatile unsigned int gcLock;
+} artsGpuRouteTable_t;
 
 artsRouteTable_t * artsGpuNewRouteTable(unsigned int routeTableSize, unsigned int shift);
 
@@ -63,7 +64,7 @@ uint64_t artsGpuLookupDb(artsGuid_t key);
 bool artsGpuRouteTableAddItemRace(void * item, unsigned int size, artsGuid_t key, unsigned int gpuId);
 void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId);
 bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int gpuId);
-uint64_t artsCleanUpGpuRouteTable(unsigned int sizeToClean, bool cleanZeros, unsigned int gpuId);
+unsigned int artsGpuCleanUpRouteTable(unsigned int sizeToClean, bool cleanZeros, unsigned int gpuId);
 
 #ifdef __cplusplus
 }

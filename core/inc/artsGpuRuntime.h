@@ -45,8 +45,9 @@ extern "C" {
 
 #include <cuda_runtime.h>    
 #include "artsRT.h"
+#include "artsGpuStream.h"
     
-struct artsGpuEdt
+typedef struct
 {
     struct artsEdt wrapperEdt;
     dim3 grid;
@@ -55,7 +56,7 @@ struct artsGpuEdt
     artsGuid_t dataGuid;
     uint32_t slot;
     bool passthrough;
-};
+} artsGpuEdt_t;
 
 void * artsCudaMallocHost(unsigned int size);
 void artsCudaFreeHost(void * ptr);
@@ -64,7 +65,9 @@ artsGuid_t artsEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t para
 artsGuid_t artsEdtCreateGpuPT(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot);
 artsGuid_t artsEdtCreateGpuPTDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot, bool hasDepv);
 
-void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, artsGuid_t dataGuid);
+void artsGpuHostWrapUp(void * edtPacket, artsGuid_t toSignal, uint32_t slot, artsGuid_t dataGuid);
+void artsRunGpu(void * edtPacket, artsGpu_t * artsGpu);
+
 #ifdef __cplusplus
 }
 #endif

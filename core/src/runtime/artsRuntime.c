@@ -60,6 +60,7 @@
 #ifdef USE_GPU
 #include "artsGpuRuntime.h"
 #include "artsGpuStream.h"
+#include "artsGpuRouteTable.h"
 #endif
 
 #define DPRINTF( ... )
@@ -126,7 +127,7 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsInitIntrospector(config);
 #ifdef USE_GPU
     if(config->gpu) // TODO: Multi-Node init
-        artsInitGpus(config->routeTableEntries, config->routeTableSize, config->gpu);
+        artsNodeInitGpus(config->routeTableEntries, config->routeTableSize, config->gpu);
 #endif
 }
 
@@ -182,6 +183,10 @@ void artsRuntimePrivateInit(struct threadMask * unit, struct artsConfig  * confi
     if(unit->worker)
     {
         artsNodeInfo.routeTable[unit->id] =  artsNewRouteTable(config->routeTableEntries, config->routeTableSize);
+#ifdef USE_GPU
+    if(config->gpu) // TODO: Multi-Node init
+        artsWorkerInitGpus();
+#endif
     }
 
     if(unit->networkSend || unit->networkReceive)
@@ -375,75 +380,6 @@ static inline void artsRunEdt(void *edtPacket)
     releaseDbs(depc, depv);
     artsEdtDelete(edtPacket);
     decOustandingEdts(1); //This is for debugging purposes
-}
-
-//TODO: WHY IS THIS HERE... SHOULDN'T IT BE IN ARTSGPUSTREAM.C
-void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, artsGuid_t dataGuid)
-{
-#ifdef USE_GPU
-    //This function should be used similarly to the second half of run edt
-    //We will run this on the host but using the streams
-    struct artsGpuEdt * edt = edtPacket;
-    uint32_t       paramc = edt->wrapperEdt.paramc;
-    uint32_t       depc   = edt->wrapperEdt.depc;
-    uint64_t     * paramv = (uint64_t *)(edt + 1);
-    artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
-
-//    Still need GPU counters
-//    ARTSCOUNTERTIMERENDINCREMENT(edtCounter);
-//    artsUpdatePerformanceMetric(artsEdtThroughput, artsThread, 1, false);
-
-//    Again I don't think we need this
-//    artsUnsetThreadLocalEdtInfo();
-
-    //Signal next
-    DPRINTF("TO SIGNAL: %lu -> %lu\n", toSignal, dataGuid);
-    if(toSignal)
-    {
-        if (edt->passthrough)
-            artsSignalEdt(toSignal, slot, depv[dataGuid].guid);
-        else
-        {
-            artsType_t mode = artsGuidGetType(toSignal);
-            if(mode == ARTS_EDT || mode == ARTS_GPU_EDT)
-                artsSignalEdt(toSignal, slot, dataGuid);
-            if(mode == ARTS_EVENT)
-                artsEventSatisfySlot(toSignal, dataGuid, slot);
-        }
-    }
-
-    releaseDbs(depc, depv);
-    artsEdtDelete(edtPacket);
-//    decOustandingEdts(1); //This is for debugging purposes
-#endif
-}
-
-static inline void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
-{
-#ifdef USE_GPU
-    struct artsGpuEdt * edt = edtPacket;
-    artsEdt_t      func = edt->wrapperEdt.funcPtr;
-    uint32_t       paramc = edt->wrapperEdt.paramc;
-    uint32_t       depc   = edt->wrapperEdt.depc;
-    uint64_t     * paramv = (uint64_t *)(edt + 1);
-    artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
-
-    // TODO: Fix this function to avoid cleaning everything
-    // if(artsCleanUpGpuRouteTable(-1, true, artsGpu->device))
-    //     PRINTF("Deleted some stuff!!!\n");
-
-    prepDbs(depc, depv);
-
-//    I don't think we will need this since gpu can't do any epoch creation
-//    artsSetThreadLocalEdtInfo(edt);
-
-//    TODO: Setup gpu counters
-//    ARTSCOUNTERTIMERSTART(edtCounter);
-
-//    This is where we need to actually launch data on the stream
-    artsScheduleToGpu(func, paramc, paramv, depc, depv, edtPacket, artsGpu);
-//    The rest of the work needs to be done by artsGpuWrapUp by host via stream
-#endif
 }
 
 inline struct artsEdt * artsRuntimeStealFromNetwork()

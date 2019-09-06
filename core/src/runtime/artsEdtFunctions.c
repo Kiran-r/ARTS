@@ -350,7 +350,7 @@ void * artsGetDepv(void * edtPtr)
 #ifdef USE_GPU
     if(edt->header.type == ARTS_GPU_EDT)
     {
-        struct artsGpuEdt * edtGpu = (struct artsGpuEdt *) edtPtr;
+        artsGpuEdt_t * edtGpu = (artsGpuEdt_t *) edtPtr;
         return (void*)((uint64_t*)(edtGpu+1) + paramc);
     }
 #endif

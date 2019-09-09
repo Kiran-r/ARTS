@@ -200,7 +200,87 @@ bool artsGpuSchedulerLoopRandom()
 
     if(edtFound)
     {
-        artsGpu = artsFindGpu(edtFound);
+        artsGpu = artsFindGpuRandom(edtFound);
+        if (artsGpu)
+            artsRunGpu(edtFound, artsGpu);
+        else
+            artsDequePushFront(artsThreadInfo.myGpuDeque, edtFound, 0);
+    }
+
+    bool ranCpuEdt = artsDefaultSchedulerLoop();
+    if(artsNodeInfo.runGpuGcIdle && !ranCpuEdt)
+    {
+        long unsigned int gpuId = jrand48(artsThreadInfo.drand_buf);
+        gpuId = gpuId % artsNodeInfo.gpu;
+        DPRINTF("Running Idle GPU GC: %u\n", gpuId);
+        int savedDevice;
+        cudaGetDevice(&savedDevice);
+        CHECKCORRECT(cudaSetDevice(artsGpu->device));
+
+        unsigned int freeMemSize = artsGpuCleanUpRouteTable((unsigned int) -1, artsNodeInfo.deleteZerosGpuGc, (unsigned int) artsGpu->device);
+        artsAtomicAdd(&freeBytes, freeMemSize);
+
+        CHECKCORRECT(cudaSetDevice(savedDevice));
+    }
+
+    return ranCpuEdt;
+}
+
+bool artsGpuSchedulerAllOrNothing()
+{
+    artsGpu_t * artsGpu;
+    artsHandleNewEdts();
+
+    struct artsEdt * edtFound = (struct artsEdt *) NULL;
+    if(!(edtFound = (struct artsEdt *)artsDequePopFront(artsThreadInfo.myGpuDeque)))
+    {
+        if(!edtFound)
+            edtFound = artsRuntimeStealGpuTask();
+    }
+
+    if(edtFound)
+    {
+        artsGpu = artsFindGpuAllOrNothing(edtFound);
+        if (artsGpu)
+            artsRunGpu(edtFound, artsGpu);
+        else
+            artsDequePushFront(artsThreadInfo.myGpuDeque, edtFound, 0);
+    }
+
+    bool ranCpuEdt = artsDefaultSchedulerLoop();
+    if(artsNodeInfo.runGpuGcIdle && !ranCpuEdt)
+    {
+        long unsigned int gpuId = jrand48(artsThreadInfo.drand_buf);
+        gpuId = gpuId % artsNodeInfo.gpu;
+        DPRINTF("Running Idle GPU GC: %u\n", gpuId);
+        int savedDevice;
+        cudaGetDevice(&savedDevice);
+        CHECKCORRECT(cudaSetDevice(artsGpu->device));
+
+        unsigned int freeMemSize = artsGpuCleanUpRouteTable((unsigned int) -1, artsNodeInfo.deleteZerosGpuGc, (unsigned int) artsGpu->device);
+        artsAtomicAdd(&freeBytes, freeMemSize);
+
+        CHECKCORRECT(cudaSetDevice(savedDevice));
+    }
+
+    return ranCpuEdt;
+}
+
+bool artsGpuSchedulerAtleastOne()
+{
+    artsGpu_t * artsGpu;
+    artsHandleNewEdts();
+
+    struct artsEdt * edtFound = (struct artsEdt *) NULL;
+    if(!(edtFound = (struct artsEdt *)artsDequePopFront(artsThreadInfo.myGpuDeque)))
+    {
+        if(!edtFound)
+            edtFound = artsRuntimeStealGpuTask();
+    }
+
+    if(edtFound)
+    {
+        artsGpu = artsFindGpuAtleastOne(edtFound);
         if (artsGpu)
             artsRunGpu(edtFound, artsGpu);
         else

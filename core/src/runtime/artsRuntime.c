@@ -84,7 +84,9 @@ scheduler_t schedulerLoop[] =
         artsDefaultSchedulerLoop, 
         artsNetworkBeforeStealSchedulerLoop, 
         artsNetworkFirstSchedulerLoop, 
-        artsGpuSchedulerLoopRandom
+        artsGpuSchedulerLoopRandom,
+        artsGpuSchedulerAllOrNothing,
+        artsGpuSchedulerAtleastOne
     };
 #else
 scheduler_t schedulerLoop[] = 

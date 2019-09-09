@@ -350,6 +350,76 @@ artsGpu_t * artsFindGpuRandom(void * edtPacket)
     return ret;
 }
 
+artsGpu_t * artsFindGpuAllOrNothing(void * edtPacket)
+{
+    artsGpu_t * ret = NULL;
+
+    artsGpuEdt_t * edt = (artsGpuEdt_t *) edtPacket;
+    uint32_t       paramc = edt->wrapperEdt.paramc;
+    uint32_t       depc   = edt->wrapperEdt.depc;
+    uint64_t     * paramv = (uint64_t *)(edt + 1);
+    artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
+    unsigned int   seed   = artsThreadInfo.groupId;
+
+    // Size to be allocated on the GPU
+    size_t devClosureSize = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc;
+
+    uint64_t maskAnd=0;
+    for (unsigned int i=0; i<depc; ++i)
+        maskAnd &= artsGpuLookupDb(depv[i].guid);
+
+    DPRINTF("MaskAnd: %p\n", maskAnd);
+
+    int gpu = -1;
+    if (maskAnd) // All DBs in GPU
+        gpu = __builtin_ctz(maskAnd);
+    else
+    {
+        DPRINTF("Finding first fit since no GPU was found w/ all DBs\n");
+        gpu = artsGpuLookUp(seed, devClosureSize);
+    }
+
+    DPRINTF("Choosing gpu: %d\n", gpu);
+    if(gpu > -1 && gpu < artsNodeInfo.gpu)
+        ret = &artsGpus[gpu];
+    return ret;
+}
+
+artsGpu_t * artsFindGpuAtleastOne(void * edtPacket)
+{
+    artsGpu_t * ret = NULL;
+
+    artsGpuEdt_t * edt = (artsGpuEdt_t *) edtPacket;
+    uint32_t       paramc = edt->wrapperEdt.paramc;
+    uint32_t       depc   = edt->wrapperEdt.depc;
+    uint64_t     * paramv = (uint64_t *)(edt + 1);
+    artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
+    unsigned int   seed   = artsThreadInfo.groupId;
+
+    // Size to be allocated on the GPU
+    size_t devClosureSize = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc;
+
+    uint64_t maskOr=0;
+    for (unsigned int i=0; i<depc; ++i)
+        maskOr |= artsGpuLookupDb(depv[i].guid);
+
+    DPRINTF("MaskOr: %p\n", maskOr);
+
+    int gpu = -1;
+    if (maskOr) // At least one DB in GPU
+        gpu = __builtin_ctz(maskOr);
+    else
+    {
+        DPRINTF("Finding first fit since no GPU was found w/ atleast one of the DBs\n");
+        gpu = artsGpuLookUp(seed, devClosureSize);
+    }
+
+    DPRINTF("Choosing gpu: %d\n", gpu);
+    if(gpu > -1 && gpu < artsNodeInfo.gpu)
+        ret = &artsGpus[gpu];
+    return ret;
+}
+
 artsGpu_t * artsFindGpu(void * edtPacket)
 {
     artsGpu_t * ret = NULL;

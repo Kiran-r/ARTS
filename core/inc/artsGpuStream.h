@@ -88,6 +88,9 @@ void artsStoreNewEdts(void * edt);
 void artsHandleNewEdts();
 void freeGpuItem(artsRouteItem_t * item);
 artsGpu_t * artsFindGpu(void * data);
+artsGpu_t * artsFindGpuRandom(void * edtPacket);
+artsGpu_t * artsFindGpuAllOrNothing(void * edtPacket);
+artsGpu_t * artsFindGpuAtleastOne(void * edtPacket);
 int artsGpuLookUp(unsigned id, size_t size);
 
 extern volatile unsigned int hits;

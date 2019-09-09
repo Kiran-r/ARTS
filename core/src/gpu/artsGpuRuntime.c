@@ -78,7 +78,7 @@ artsGuid_t artsEdtCreateGpuDep(artsEdt_t funcPtr, unsigned int route, uint32_t p
     edt->dataGuid = dataGuid;
     edt->passthrough = false;
     artsGuid_t guid = NULL_GUID;
-    artsEdtCreateInternal((artsEdt*) edt, ARTS_GPU_EDT, &guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
+    artsEdtCreateInternal((struct artsEdt *) edt, ARTS_GPU_EDT, &guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
 //    ARTSEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return guid;
 }
@@ -97,7 +97,7 @@ artsGuid_t artsEdtCreateGpuPTDep(artsEdt_t funcPtr, unsigned int route, uint32_t
     edt->dataGuid = passSlot;
     edt->passthrough = true;
     artsGuid_t guid = NULL_GUID;
-    artsEdtCreateInternal((artsEdt*) edt, ARTS_GPU_EDT, &guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
+    artsEdtCreateInternal((struct artsEdt *) edt, ARTS_GPU_EDT, &guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
 //    ARTSEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return guid;
 }
@@ -130,7 +130,10 @@ void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
         DPRINTF("Running Pre Edt GPU GC: %u\n", artsGpu->device);
         unsigned int freeMemSize = artsGpuCleanUpRouteTable((unsigned int) -1, artsNodeInfo.deleteZerosGpuGc, (unsigned int) artsGpu->device);
         artsAtomicAdd(&freeBytes, freeMemSize);
+        artsAtomicAddU64(&artsGpu->availGlobalMem, (uint64_t)freeMemSize);
     }
+
+    artsAtomicAdd(&artsGpu->scheduledEdts, 1U);
 
     prepDbs(depc, depv);
     artsScheduleToGpu(func, paramc, paramv, depc, depv, edtPacket, artsGpu);
@@ -183,7 +186,7 @@ struct artsEdt * artsRuntimeStealGpuTask()
     return edt;
 }
 
-bool artsGpuSchedulerLoop()
+bool artsGpuSchedulerLoopRandom()
 {
     artsGpu_t * artsGpu;
     artsHandleNewEdts();
@@ -197,7 +200,7 @@ bool artsGpuSchedulerLoop()
 
     if(edtFound)
     {
-        artsGpu = artsFindGpu(edtFound, artsThreadInfo.groupId);
+        artsGpu = artsFindGpu(edtFound);
         if (artsGpu)
             artsRunGpu(edtFound, artsGpu);
         else

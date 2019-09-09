@@ -68,8 +68,9 @@ typedef struct
 typedef struct 
 {
     int device;
-    volatile size_t memUtil;            // Memory Utilization in device
-    volatile unsigned int scheduled;    // Count(Edts) on device
+    volatile size_t availGlobalMem;
+    volatile size_t totalGlobalMem;
+    volatile unsigned int scheduledEdts;    // Count(Edts) on device
     cudaStream_t stream;
 } artsGpu_t;
 
@@ -86,7 +87,8 @@ artsGpu_t * artsGpuScheduled(unsigned id);
 void artsStoreNewEdts(void * edt);
 void artsHandleNewEdts();
 void freeGpuItem(artsRouteItem_t * item);
-artsGpu_t * artsFindGpu(void * data, unsigned int seed);
+artsGpu_t * artsFindGpu(void * data);
+int artsGpuLookUp(unsigned id, size_t size);
 
 extern volatile unsigned int hits;
 extern volatile unsigned int misses;

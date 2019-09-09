@@ -67,7 +67,7 @@ artsGuid_t artsEdtCreateGpuPTDep(artsEdt_t funcPtr, unsigned int route, uint32_t
 
 void artsGpuHostWrapUp(void * edtPacket, artsGuid_t toSignal, uint32_t slot, artsGuid_t dataGuid);
 void artsRunGpu(void * edtPacket, artsGpu_t * artsGpu);
-bool artsGpuSchedulerLoop();
+bool artsGpuSchedulerLoopRandom();
 
 #ifdef __cplusplus
 }

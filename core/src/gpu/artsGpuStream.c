@@ -81,7 +81,7 @@ void artsNodeInitGpus()
     artsGpus = (artsGpu_t *) artsCalloc(sizeof(artsGpu_t) * artsNodeInfo.gpu);
 
     int savedDevice;
-    cudaGetDevice(&savedDevice);
+    CHECKCORRECT(cudaGetDevice(&savedDevice));
 
     // Initialize artsGpu with 1 stream/GPU
     for (int i=0; i<artsNodeInfo.gpu; ++i)
@@ -91,6 +91,7 @@ void artsNodeInitGpus()
         CHECKCORRECT(cudaSetDevice(i));
         CHECKCORRECT(cudaStreamCreate(&artsGpus[i].stream)); // Make it scalable
         artsNodeInfo.gpuRouteTable[i] = artsGpuNewRouteTable(artsNodeInfo.gpuRouteTableEntries, artsNodeInfo.gpuRouteTableSize);
+        CHECKCORRECT(cudaMemGetInfo((size_t*)&artsGpus[i].availGlobalMem, (size_t*)&artsGpus[i].totalGlobalMem));
     }
     CHECKCORRECT(cudaSetDevice(savedDevice));
 }
@@ -146,7 +147,7 @@ void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data)
     artsGpuCleanUp_t * gc = (artsGpuCleanUp_t*) data;
     
     artsGpu_t * artsGpu = &artsGpus[gc->gpuId];
-    artsAtomicSub(&artsGpu->scheduled, 1U);
+    artsAtomicSub(&artsGpu->scheduledEdts, 1U);
 
     //Shouldn't have to touch newly ready edts regardless of streams and devices
     artsGpuEdt_t * edt      = (artsGpuEdt_t *) gc->edt;
@@ -204,6 +205,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     if(devClosureSize)
     {
         CHECKCORRECT(cudaMalloc(&devClosure, devClosureSize));
+        artsAtomicSubU64(&artsGpu->availGlobalMem, (uint64_t)devClosureSize);
         devParamv = (uint64_t*) devClosure;
         devDepv = (artsEdtDep_t *)(devParamv + paramc);
         DPRINTF("Allocated dev closure\n");
@@ -278,7 +280,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     
     //Launch kernel. TODO(kiran): Support shared memory and library API calls.
     void * kernelArgs[] = { &paramc, &devParamv, &depc, &devDepv };
-    cudaLaunchKernel((const void *)fnPtr, grid, block, (void**)kernelArgs, (size_t)0, artsGpu->stream);
+    CHECKCORRECT(cudaLaunchKernel((const void *)fnPtr, grid, block, (void**)kernelArgs, (size_t)0, artsGpu->stream));
     
     //Move data back
     for(unsigned int i=0; i<depc; i++)
@@ -317,17 +319,38 @@ void artsGpuStreamBusy(artsGpu_t* artsGpu)
 }
 
 //TODO: Make this more intelligent with memory usage (memUtil)
-int artsGpuLookUp(unsigned id)
+int artsGpuLookUp(unsigned id, size_t size)
 {
     // Loop over all devices to find available GPUs and return free artsGpu_t
     int start = (int) id % artsNodeInfo.gpu;
     for (int i=start, j=0; j<artsNodeInfo.gpu; ++j, i=(i+1)%artsNodeInfo.gpu)
-        if(artsAtomicFetchAdd(&artsGpus[i].scheduled, 1U))
+        if(size < artsGpus[i].availGlobalMem)
             return i;
     return -1;
 }
 
-artsGpu_t * artsFindGpu(void * edtPacket, unsigned seed)
+artsGpu_t * artsFindGpuRandom(void * edtPacket)
+{
+    artsGpu_t * ret = NULL;
+
+    artsGpuEdt_t * edt = (artsGpuEdt_t *) edtPacket;
+    uint32_t       paramc = edt->wrapperEdt.paramc;
+    uint32_t       depc   = edt->wrapperEdt.depc;
+    unsigned int   seed   = artsThreadInfo.groupId;
+
+    // Size to be allocated on the GPU
+    size_t devClosureSize = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc;
+
+    int gpu = -1;
+    gpu = artsGpuLookUp(seed, devClosureSize);
+
+    DPRINTF("Choosing gpu: %d\n", gpu);
+    if(gpu > -1 && gpu < artsNodeInfo.gpu)
+        ret = &artsGpus[gpu];
+    return ret;
+}
+
+artsGpu_t * artsFindGpu(void * edtPacket)
 {
     artsGpu_t * ret = NULL;
 
@@ -336,6 +359,10 @@ artsGpu_t * artsFindGpu(void * edtPacket, unsigned seed)
     uint32_t       depc   = edt->wrapperEdt.depc;
     uint64_t     * paramv = (uint64_t *)(edt + 1);
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
+    unsigned int   seed   = artsThreadInfo.groupId;
+
+    // Size to be allocated on the GPU
+    size_t devClosureSize = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc;
 
     uint64_t maskOr=0, maskAnd=0, mask;
     for (unsigned int i=0; i<depc; ++i)
@@ -353,7 +380,7 @@ artsGpu_t * artsFindGpu(void * edtPacket, unsigned seed)
     else if (maskOr) // At least one DB in GPU
         gpu = __builtin_ctz(maskOr);
     else
-        gpu = artsGpuLookUp(seed);
+        gpu = artsGpuLookUp(seed, devClosureSize);
 
     DPRINTF("Choosing gpu: %d\n", gpu);
     if(gpu > -1 && gpu < artsNodeInfo.gpu)

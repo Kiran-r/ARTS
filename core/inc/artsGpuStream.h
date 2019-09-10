@@ -48,7 +48,6 @@ extern "C" {
 #include "artsAtomics.h"
 #include "artsArrayList.h"
 #include "artsGpuRouteTable.h"
-#include "artsGpuStream.h"
 
 #define CHECKCORRECT(x) {                                   \
   cudaError_t err;                                          \
@@ -74,7 +73,11 @@ typedef struct
     cudaStream_t stream;
 } artsGpu_t;
 
+extern artsGpu_t * artsGpus;
+
 void artsNodeInitGpus();
+artsGpu_t * artsFindGpu(void * data);
+
 void artsWorkerInitGpus();
 void artsCleanupGpus();
 void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr, artsGpu_t * artsGpu);
@@ -87,11 +90,6 @@ artsGpu_t * artsGpuScheduled(unsigned id);
 void artsStoreNewEdts(void * edt);
 void artsHandleNewEdts();
 void freeGpuItem(artsRouteItem_t * item);
-artsGpu_t * artsFindGpu(void * data);
-artsGpu_t * artsFindGpuRandom(void * edtPacket);
-artsGpu_t * artsFindGpuAllOrNothing(void * edtPacket);
-artsGpu_t * artsFindGpuAtleastOne(void * edtPacket);
-int artsGpuLookUp(unsigned id, size_t size);
 
 extern volatile unsigned int hits;
 extern volatile unsigned int misses;

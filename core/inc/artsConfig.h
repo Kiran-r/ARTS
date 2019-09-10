@@ -106,6 +106,9 @@ struct artsConfig
     unsigned int tMT;  // @awmm temporal MT; # of MT aliases per core thread; 0 if disabled
     unsigned int coresPerNetworkThread;
     unsigned int gpu;
+    unsigned int gpuLocality;
+    unsigned int gpuFit;
+    bool gpuP2P;
     unsigned int gpuRouteTableSize;
     unsigned int gpuRouteTableEntries;
     bool freeDbAfterGpuRun;

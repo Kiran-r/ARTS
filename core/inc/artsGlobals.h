@@ -93,6 +93,9 @@ struct artsRuntimeShared
     unsigned int shadLoopStride;
     bool tMT;
     unsigned int gpu;
+    unsigned int gpuLocality;
+    unsigned int gpuFit;
+    unsigned int gpuP2P;
     unsigned int gpuRouteTableSize;
     unsigned int gpuRouteTableEntries;
     bool freeDbAfterGpuRun;

@@ -167,12 +167,12 @@ void multiplyMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
     
     unsigned int rowSize = tileSize;
     
-    unsigned int i = paramv[1];
-    unsigned int j = paramv[2];
+    // unsigned int i = paramv[1];
+    // unsigned int j = paramv[2];
     unsigned int k = paramv[3];
     
-    double * aTile = (double*) depv[0].ptr;
-    double * bTile = (double*) depv[1].ptr;
+    // double * aTile = (double*) depv[0].ptr;
+    // double * bTile = (double*) depv[1].ptr;
     double * cTile = NULL;
 
     artsGuid_t aTileGuid = depv[0].guid;

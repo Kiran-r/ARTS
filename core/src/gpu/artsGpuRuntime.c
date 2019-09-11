@@ -188,7 +188,7 @@ struct artsEdt * artsRuntimeStealGpuTask()
 
 bool artsGpuSchedulerLoop()
 {
-    artsGpu_t * artsGpu;
+    artsGpu_t * artsGpu = NULL;
     artsHandleNewEdts();
 
     struct artsEdt * edtFound = (struct artsEdt *) NULL;
@@ -212,6 +212,7 @@ bool artsGpuSchedulerLoop()
     {
         long unsigned int gpuId = jrand48(artsThreadInfo.drand_buf);
         gpuId = gpuId % artsNodeInfo.gpu;
+        artsGpu = &artsGpus[gpuId];
         DPRINTF("Running Idle GPU GC: %u\n", gpuId);
         int savedDevice;
         cudaGetDevice(&savedDevice);

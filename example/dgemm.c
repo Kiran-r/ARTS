@@ -1,4 +1,4 @@
-#include "cublas_v2.h"
+#include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,9 +6,22 @@
 #define m 6    // a - mxk matrix
 #define n 4    // b - kxn matrix
 #define k 5    // c - mxn matrix
+
+#define CHECKCUDA(x) {                                      \
+  cudaError_t err;                                          \
+  if( (err = (x)) != cudaSuccess )                          \
+    printf("FAILED %s: %s\n", #x, cudaGetErrorString(err)); \
+}
+
+#define CHECKCUBLAS(x) {                                    \
+  cublasStatus_t err;                                       \
+  if( (err = (x)) != CUBLAS_STATUS_SUCCESS )                \
+    printf("FAILED %s: %d\n", #x, err);                     \
+}
+
 int main(void) {
-    cudaError_t    cudaStat;                      // cudaMalloc status
-    cublasStatus_t stat;                          // CUBLAS functions status
+    //cudaError_t    cudaStat;                      // cudaMalloc status
+    //cublasStatus_t stat;                          // CUBLAS functions status
     cublasHandle_t handle;                        // CUBLAS context
     int            i, j;                          // i-row index ,j- column index
     float*         a;                             // mxk matrix a on the host
@@ -75,27 +88,27 @@ int main(void) {
     float* d_a;                                                 // d_a - a on the device
     float* d_b;                                                 // d_b - b on the device
     float* d_c;                                                 // d_c - c on the device
-    cudaStat = cudaMalloc((void**)&d_a, m * k * sizeof(*a));    // device
+    CHECKCUDA(cudaMalloc((void**)&d_a, m * k * sizeof(*a)));    // device
     // memory alloc for a
-    cudaStat = cudaMalloc((void**)&d_b, k * n * sizeof(*b));    // device
+    CHECKCUDA(cudaMalloc((void**)&d_b, k * n * sizeof(*b)));    // device
     // memory alloc for b
-    cudaStat = cudaMalloc((void**)&d_c, m * n * sizeof(*c));    // device
+    CHECKCUDA(cudaMalloc((void**)&d_c, m * n * sizeof(*c)));    // device
     // memory alloc for c
-    stat = cublasCreate(&handle);    // initialize CUBLAS context
+    CHECKCUBLAS(cublasCreate(&handle));    // initialize CUBLAS context
 
     // copy matrices from the host to the device
-    stat      = cublasSetMatrix(m, k, sizeof(*a), a, m, d_a, m);    //a -> d_a
-    stat      = cublasSetMatrix(k, n, sizeof(*b), b, k, d_b, k);    //b -> d_b
-    stat      = cublasSetMatrix(m, n, sizeof(*c), c, m, d_c, m);    //c -> d_c
+    CHECKCUBLAS(cublasSetMatrix(m, k, sizeof(*a), a, m, d_a, m));  //a -> d_a
+    CHECKCUBLAS(cublasSetMatrix(k, n, sizeof(*b), b, k, d_b, k));  //b -> d_b
+    CHECKCUBLAS(cublasSetMatrix(m, n, sizeof(*c), c, m, d_c, m));  //c -> d_c
     float al  = 1.0f;                                              // al =1
     float bet = 1.0f;                                              // bet =1
 
     // matrix - matrix multiplication : d_c = al*d_a *d_b + bet *d_c
     // d_a -mxk matrix , d_b -kxn matrix , d_c -mxn matrix ;
     // al ,bet -scalars
-    stat = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &al, d_a, m, d_b, k, &bet, d_c, m);
+    CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &al, d_a, m, d_b, k, &bet, d_c, m));
 
-    stat = cublasGetMatrix(m, n, sizeof(*c), d_c, m, c, m);    // cp d_c - >c
+    CHECKCUBLAS(cublasGetMatrix(m, n, sizeof(*c), d_c, m, c, m));    // cp d_c - >c
     printf("c after Sgemm :\n");
     for (i = 0; i < m; i++) {
         for (j = 0; j < n; j++) {

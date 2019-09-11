@@ -273,11 +273,11 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
         if(depv[i].ptr)
         {
             void * dataPtr = artsGpuRouteTableLookupDb(depv[i].guid, artsGpu->device);
+            struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
+            size_t size = db->header.size - sizeof(struct artsDb);
             if (!dataPtr)
             {
                 //Actually allocate space
-                struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
-                size_t size = db->header.size - sizeof(struct artsDb);
                 CHECKCORRECT(cudaMalloc(&dataPtr, size));
                 void * newDataPtr = artsGpuRouteTableAddItemRace(dataPtr, size, depv[i].guid, artsGpu->device);
                 if(newDataPtr == dataPtr) //We won, so move data
@@ -295,7 +295,10 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
                 }
             }
             else
+            {
+                artsAtomicAddSizet(&artsGpu->availGlobalMem, size);
                 artsAtomicAdd(&hits, 1U);
+            }
             
             hostDepv[i].ptr = dataPtr;
         }
@@ -488,6 +491,14 @@ int allOrNothing(void * edtPacket)
     uint64_t     * paramv = (uint64_t *)(edt + 1);
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
 
+    // Size to be allocated on the GPU
+    size_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc;
+    for (unsigned int i = 0; i < depc; i++)
+    {
+        struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
+        size += db->header.size - sizeof(struct artsDb);
+    }
+
     uint64_t mask=0;
     for (unsigned int i=0; i<depc; ++i)
         mask &= artsGpuLookupDb(depv[i].guid);
@@ -495,7 +506,7 @@ int allOrNothing(void * edtPacket)
     DPRINTF("Mask: %p\n", mask);
 
     if (mask) // All DBs in GPU
-        return __builtin_ctz(mask); // No need to fit since all Dbs are in a GPU
+        return fit(mask, size); // No need to fit since all Dbs are in a GPU
     else
         return random(edtPacket);
 }

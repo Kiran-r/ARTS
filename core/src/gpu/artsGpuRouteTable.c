@@ -148,13 +148,18 @@ unsigned int artsGpuCleanUpRouteTable(unsigned int sizeToClean, bool cleanZeros,
             DPRINTF("size %u\n", size);
             if(isDel(item->lock))
             {
-                if(decItem(routeTable, item))
+                uint64_t compVal = (availableItem | deleteItem);
+                uint64_t newVal  = (availableItem | deleteItem) + 1;
+                uint64_t oldVal  = artsAtomicCswapU64(&item->lock, compVal, newVal);
+                if((compVal == oldVal) && decItem(routeTable, item))
                     freedSize+=size;
             }
             else if(cleanZeros && !getCount(item->lock))
             {
-                artsAtomicCswapU64(&item->lock, availableItem, 1+(availableItem | deleteItem));
-                if(decItem(routeTable, item))
+                uint64_t compVal =  availableItem;
+                uint64_t newVal  = (availableItem | deleteItem) + 1;
+                uint64_t oldVal  = artsAtomicCswapU64(&item->lock, compVal, newVal);
+                if((compVal == oldVal) && decItem(routeTable, item))
                     freedSize+=size;
             }
             item = artsRouteTableIterate(&iter);

@@ -152,6 +152,7 @@ bool internalRouteTableReturnDb(artsRouteTable_t * routeTable, artsGuid_t key, b
 bool artsRouteTableReturnDb(artsGuid_t key, bool markToDelete);
 
 bool artsRouteTableAddOO(artsGuid_t key, void * data, bool inc);
+bool artsRouteTableAddOOExisting(artsGuid_t key, void * data, bool inc);
 void artsRouteTableFireOO(artsGuid_t key, void (*callback)(void *, void*));
 void artsRouteTableResetOO(artsGuid_t key);
 void ** artsRouteTableGetOOList(artsGuid_t key, struct artsOutOfOrderList ** list);

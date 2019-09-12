@@ -119,7 +119,15 @@ bool markDelete(artsRouteItem_t * item)
     return (res & deleteItem) != 0;
 }
 
-inline void printState(artsRouteItem_t * item)
+bool tryMarkDelete(artsRouteItem_t * item, uint64_t countVal)
+{
+    uint64_t compVal = availableItem + countVal;
+    uint64_t newVal = (availableItem | deleteItem);
+    uint64_t oldVal = artsAtomicCswapU64(&item->lock, compVal, newVal);
+    return (compVal == oldVal);
+}
+
+void printState(artsRouteItem_t * item)
 {
     if(item)
     {
@@ -214,15 +222,21 @@ itemState_t getItemState(artsRouteItem_t * item)
     return noKey;
 }
 
-bool incItem(artsRouteItem_t * item, unsigned int count)
+bool incItem(artsRouteItem_t * item, unsigned int count, artsGuid_t key, artsRouteTable_t * routeTable)
 {
     while(1)
     {
         uint64_t local = item->lock;
-        if(!(local & deleteItem) && checkMaxItem(local))
+        if(!(local & deleteItem) && checkMaxItem(local) && item->key == key)
         {
             if(local == artsAtomicCswapU64(&item->lock, local, local + count))
             {
+                if(item->key != key) //This is for an ABA problem
+                {
+                    DPRINTF("The key changed on us from %lu -> %lu\n", key, item->key);
+                    decItem(routeTable, item);
+                    return false;
+                }
                 return true;
             }
         }
@@ -236,7 +250,10 @@ bool decItem(artsRouteTable_t * routeTable, artsRouteItem_t * item)
 {
    uint64_t local = item->lock;
    if(getCount(local) == 0)
+   {
+       printState(item);
        artsDebugGenerateSegFault();
+   }
     local = artsAtomicSubU64(&item->lock, 1);
     if(shouldDelete(local))
     {
@@ -503,11 +520,11 @@ artsRouteItem_t * internalRouteTableAddItemRace(bool * addedItem, artsRouteTable
                         found->rank = rank;
                         markWrite(found);
                         if(usedRes)
-                            incItem(found, 1);
+                            incItem(found, 1, found->key, routeTable);
                         *addedItem = true;
                     }
                     else if(usedAvail && checkItemState(found, availableKey))
-                        incItem(found, 1);
+                        incItem(found, 1, found->key, routeTable);
                 }
                 else
                 {
@@ -518,7 +535,11 @@ artsRouteItem_t * internalRouteTableAddItemRace(bool * addedItem, artsRouteTable
             }
         }
         else
+        {
             found = artsRouteTableSearchForKey(routeTable, key, availableKey);
+            if(found && usedAvail)
+                incItem(found, 1, found->key, routeTable);
+        }
     }
 //    PRINTF("found: %lu %p\n", key, found);
     return found;
@@ -569,18 +590,18 @@ bool artsRouteTableAddSent(artsGuid_t key, void * edt, unsigned int slot, bool a
 {
     artsRouteItem_t * item = NULL;
     bool sendReq;
+    artsRouteTable_t * routeTable = artsGetRouteTable(key);
     //I shouldn't be able to get to here if the db hasn't already been created
     //and I am the owner node thus item can't be null... or so it should be
     if(artsGuidGetRank(key) == artsGlobalRankId)
     {
-        artsRouteTable_t * routeTable = artsGetRouteTable(key);
         item = artsRouteTableSearchForKey(routeTable, key, allocatedKey);
         sendReq = markRequested(item);
     }
     else
     {
         sendReq = artsRouteTableReserveItemRace(key, &item, true);
-        if(!sendReq && !incItem(item, 1))
+        if(!sendReq && !incItem(item, 1, item->key, routeTable))
             PRINTF("Item marked for deletion before it has arrived %u...", sendReq);
     }
     artsOutOfOrderHandleDbRequestWithOOList(&item->ooList, &item->data, edt, slot);
@@ -606,7 +627,7 @@ itemState_t artsRouteTableLookupItemWithState(artsGuid_t key, void *** data, ite
     {
         if(inc)
         {
-            if(!incItem(location, 1))
+            if(!incItem(location, 1, location->key, routeTable))
             {
                 *data = NULL;
                 return noKey;
@@ -626,7 +647,7 @@ void * internalRouteTableLookupDb(artsRouteTable_t * routeTable, artsGuid_t key,
     if(location)
     {
         *rank = location->rank;
-        if(incItem(location, 1))
+        if(incItem(location, 1, location->key, routeTable))
             ret = location->data;
     }
     return ret;
@@ -646,17 +667,20 @@ bool internalRouteTableReturnDb(artsRouteTable_t * routeTable, artsGuid_t key, b
         //Only mark it for deletion if it is the last one
         //Why make it unusable to other if there is still other
         //tasks that may benifit
-        if(markToDelete && (getCount(location->lock) == 1))
+        if(markToDelete && doDelete) //True True
         {
             //This should work if there is only one outstanding left... me.  The decItem needs to sub 1 to delete
-            uint64_t compVal = availableItem + 1;
-            uint64_t newVal = (availableItem | deleteItem) + 1;
-            uint64_t oldVal = artsAtomicCswapU64(&location->lock, compVal, newVal);
-            //Successfully marked to delete, but we don't want to delete it now
-            if(!doDelete && (compVal == oldVal))
-                return false;
+            tryMarkDelete(location, 1);
+            return decItem(routeTable, location);       
         }
-        return decItem(routeTable, location);
+        else if(markToDelete && !doDelete) //True False
+        {
+            decItem(routeTable, location);
+            tryMarkDelete(location, 0);
+            return false;
+        }
+        else //False True || False False
+            return decItem(routeTable, location);
     }
     return false;
 }
@@ -704,8 +728,22 @@ bool artsRouteTableAddOO(artsGuid_t key, void * data, bool inc)
     if(artsRouteTableReserveItemRace(key, &item, true) || checkItemState(item, reservedKey))
     {
         if(inc)
-            incItem(item, 1);
+            incItem(item, 1, item->key, artsGetRouteTable(key));
         bool res = artsOutOfOrderListAddItem( &item->ooList, data );
+        return res;
+    }
+    return false;
+}
+
+bool artsRouteTableAddOOExisting(artsGuid_t key, void * data, bool inc)
+{
+    artsRouteTable_t * routeTable = artsGetRouteTable(key);
+    artsRouteItem_t * item = artsRouteTableSearchForKey(routeTable, key, availableKey);
+    if(item)
+    {
+        if(inc)
+            incItem(item, 1, item->key, routeTable);
+        bool res = artsOutOfOrderListAddItem(&item->ooList, data);
         return res;
     }
     return false;
@@ -741,7 +779,7 @@ void ** artsRouteTableReserve(artsGuid_t key, bool * dec, itemState_t *state)
         if(!res)
         {
             //Check to make sure we can use it
-            if(incItem(item, 1))
+            if(incItem(item, 1, item->key, artsGetRouteTable(key)))
             {
                 *dec = true;
                 break;

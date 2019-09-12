@@ -48,6 +48,7 @@
 #include "artsDeque.h"
 #include "artsGpuRouteTable.h"
 #include "artsDebug.h"
+#include "artsEdtFunctions.h"
 
 #define DPRINTF( ... )
 // #define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
@@ -92,6 +93,20 @@ bool P2P; // Enable DB access across devices
 __thread volatile unsigned int * newEdtLock = 0;
 __thread artsArrayList * newEdts = NULL;
 
+//These are for the library version of GPU EDTs
+//The user can query to get these values
+//We still want to collect them for scheduling purposes
+__thread dim3 * artsLocalGrid;
+__thread dim3 * artsLocalBlock;
+__thread cudaStream_t * artsLocalStream;
+__thread int artsLocalGpuId;
+
+extern "C" 
+{
+    extern void initPerGpu(int devId, cudaStream_t * stream) __attribute__((weak));
+    extern void cleanPerGpu(int devId, cudaStream_t * stream) __attribute__((weak));
+}
+
 void artsNodeInitGpus()
 {
     int numAvailGpus = 0;
@@ -125,6 +140,8 @@ void artsNodeInitGpus()
         CHECKCORRECT(cudaStreamCreate(&artsGpus[i].stream)); // Make it scalable
         artsNodeInfo.gpuRouteTable[i] = artsGpuNewRouteTable(artsNodeInfo.gpuRouteTableEntries, artsNodeInfo.gpuRouteTableSize);
         CHECKCORRECT(cudaMemGetInfo((size_t*)&artsGpus[i].availGlobalMem, (size_t*)&artsGpus[i].totalGlobalMem));
+        if(initPerGpu)
+            initPerGpu(i, &artsGpus[i].stream);
     }
     CHECKCORRECT(cudaSetDevice(savedDevice));
 }
@@ -168,6 +185,8 @@ void artsCleanupGpus()
     for (int i=0; i<artsNodeInfo.gpu; i++)
     {
         CHECKCORRECT(cudaSetDevice(artsGpus[i].device));
+        if(cleanPerGpu)
+            cleanPerGpu(i, &artsGpus[i].stream);
         CHECKCORRECT(cudaStreamSynchronize(artsGpus[i].stream));
         CHECKCORRECT(cudaStreamDestroy(artsGpus[i].stream));
     }
@@ -313,9 +332,26 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     CHECKCORRECT(cudaMemcpyAsync(devClosure, (void*)hostParamv, devClosureSize, cudaMemcpyHostToDevice, artsGpu->stream));
     DPRINTF("Filled GPU Closure\n");
     
-    //Launch kernel. TODO(kiran): Support shared memory and library API calls.
-    void * kernelArgs[] = { &paramc, &devParamv, &depc, &devDepv };
-    CHECKCORRECT(cudaLaunchKernel((const void *)fnPtr, grid, block, (void**)kernelArgs, (size_t)0, artsGpu->stream));
+    artsGpuEdt_t * gpuEdt = (artsGpuEdt_t*) hostGCPtr->edt;
+    if(gpuEdt->lib)
+    {
+        artsLocalGrid = &gpuEdt->grid;
+        artsLocalBlock = &gpuEdt->block;
+        artsLocalStream = &artsGpu->stream;
+        artsLocalGpuId = artsGpu->device;
+        artsSetThreadLocalEdtInfo(hostGCPtr->edt);
+        artsRouteTableResetOO(hostGCPtr->edt->currentEdt);
+
+        hostGCPtr->edt->funcPtr(paramc, hostParamv, depc, hostDepv);
+
+        artsUnsetThreadLocalEdtInfo();
+    }
+    else
+    {
+        //Launch kernel. TODO(kiran): Support shared memory and library API calls.
+        void * kernelArgs[] = { &paramc, &devParamv, &depc, &devDepv };
+        CHECKCORRECT(cudaLaunchKernel((const void *)fnPtr, grid, block, (void**)kernelArgs, (size_t)0, artsGpu->stream));
+    }
     
     //Move data back
     for(unsigned int i=0; i<depc; i++)

@@ -48,6 +48,7 @@
 #include "artsRuntime.h"
 #include "artsGlobals.h"
 #include "artsDeque.h"
+#include "artsOutOfOrder.h"
 
 #define DPRINTF(...)
 // #define DPRINTF(...) PRINTF(__VA_ARGS__)
@@ -64,42 +65,61 @@ void artsCudaFreeHost(void * ptr)
     cudaFreeHost(&ptr);
 }
 
-artsGuid_t artsEdtCreateGpuDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv)
+dim3 * artsGetGpuGrid()
+{
+    return artsLocalGrid;
+}
+
+dim3 * artsGetGpuBlock()
+{
+    return artsLocalBlock;
+}
+
+cudaStream_t * artsGetGpuStream()
+{
+    return artsLocalStream;
+}
+
+int artsGetGpuId()
+{
+    return artsLocalGpuId;
+}
+
+unsigned int artsGetNumGpus()
+{
+    return artsNodeInfo.gpu;
+}
+
+artsGuid_t internalEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, 
+    artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv, bool passThrough, bool lib)
 {
 //    ARTSEDTCOUNTERTIMERSTART(edtCreateCounter);
     unsigned int depSpace = (hasDepv) ? depc * sizeof(artsEdtDep_t) : 0;
     unsigned int edtSpace = sizeof(artsGpuEdt_t) + paramc * sizeof(uint64_t) + depSpace;
 
     artsGpuEdt_t * edt = (artsGpuEdt_t *) artsMalloc(edtSpace);
+    edt->wrapperEdt.invalidateCount = 1;
     edt->grid = grid;
     edt->block = block;
     edt->endGuid = endGuid;
     edt->slot = slot;
     edt->dataGuid = dataGuid;
-    edt->passthrough = false;
+    edt->passthrough = passThrough;
+    edt->lib = lib;
     artsGuid_t guid = NULL_GUID;
     artsEdtCreateInternal((struct artsEdt *) edt, ARTS_GPU_EDT, &guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
 //    ARTSEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return guid;
 }
 
+artsGuid_t artsEdtCreateGpuDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv)
+{
+    return internalEdtCreateGpu(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, hasDepv, false, false);
+}
+
 artsGuid_t artsEdtCreateGpuPTDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot, bool hasDepv)
 {
-//    ARTSEDTCOUNTERTIMERSTART(edtCreateCounter);
-    unsigned int depSpace = (hasDepv) ? depc * sizeof(artsEdtDep_t) : 0;
-    unsigned int edtSpace = sizeof(artsGpuEdt_t) + paramc * sizeof(uint64_t) + depSpace;
-
-    artsGpuEdt_t * edt = (artsGpuEdt_t *) artsMalloc(edtSpace);
-    edt->grid = grid;
-    edt->block = block;
-    edt->endGuid = endGuid;
-    edt->slot = slot;
-    edt->dataGuid = passSlot;
-    edt->passthrough = true;
-    artsGuid_t guid = NULL_GUID;
-    artsEdtCreateInternal((struct artsEdt *) edt, ARTS_GPU_EDT, &guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
-//    ARTSEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
-    return guid;
+    return internalEdtCreateGpu(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, (artsGuid_t) passSlot, hasDepv, true, false);
 }
 
 artsGuid_t artsEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid)
@@ -110,6 +130,16 @@ artsGuid_t artsEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t para
 artsGuid_t artsEdtCreateGpuPT(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot)
 {
     return artsEdtCreateGpuPTDep(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, passSlot, true);
+}
+
+artsGuid_t artsEdtCreateGpuLib(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid)
+{
+    return internalEdtCreateGpu(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, true, false, true);
+}
+
+artsGuid_t artsEdtCreateGpuPTLib(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot)
+{
+    return internalEdtCreateGpu(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, slot, true, true, true);
 }
 
 void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
@@ -149,6 +179,12 @@ void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, arts
     uint64_t     * paramv = (uint64_t *)(edt + 1);
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
     
+    if(edt->lib)
+    {
+        edt->wrapperEdt.invalidateCount = 0;
+        artsRouteTableFireOO(edt->wrapperEdt.currentEdt, artsOutOfOrderHandler);
+    }
+
     DPRINTF("TO SIGNAL: %lu -> %lu\n", toSignal, dataGuid);
     //Signal next
     if(toSignal)

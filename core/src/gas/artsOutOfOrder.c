@@ -323,7 +323,7 @@ inline void artsOutOfOrderHandler(void * handleMe, void * memoryPtr)
 
 }
 
-void artsOutOfOrderSignalEdt (artsGuid_t waitOn, artsGuid_t edtPacket, artsGuid_t dataGuid, uint32_t slot, artsType_t mode)
+void artsOutOfOrderSignalEdt (artsGuid_t waitOn, artsGuid_t edtPacket, artsGuid_t dataGuid, uint32_t slot, artsType_t mode, bool force)
 {
     struct ooSignalEdt * edt = artsMalloc(sizeof(struct ooSignalEdt));
     edt->type = ooSignalEdt;
@@ -331,26 +331,37 @@ void artsOutOfOrderSignalEdt (artsGuid_t waitOn, artsGuid_t edtPacket, artsGuid_
     edt->dataGuid = dataGuid;
     edt->slot = slot;
     edt->mode = mode;
-    bool res =  artsRouteTableAddOO(waitOn, edt, false);
-    if(!res)
+    if(force)
+        artsRouteTableAddOOExisting(waitOn, edt, false);
+    else
     {
-        internalSignalEdt(edtPacket, slot, dataGuid, mode, NULL, 0);
-        artsFree(edt);
-    }   
+        bool res =  artsRouteTableAddOO(waitOn, edt, false);
+        if(!res)
+        {
+            internalSignalEdt(edtPacket, slot, dataGuid, mode, NULL, 0);
+            artsFree(edt);
+        }
+    } 
 }
 
-void artsOutOfOrderEventSatisfySlot(artsGuid_t waitOn, artsGuid_t eventGuid, artsGuid_t dataGuid, uint32_t slot )
+void artsOutOfOrderEventSatisfySlot(artsGuid_t waitOn, artsGuid_t eventGuid, artsGuid_t dataGuid, uint32_t slot, bool force)
 {
     struct ooEventSatisfySlot * event = artsMalloc( sizeof(struct ooEventSatisfySlot) );
     event->type = ooEventSatisfySlot;
     event->eventGuid = eventGuid;
     event->dataGuid = dataGuid;
     event->slot = slot;
-    bool res =  artsRouteTableAddOO(waitOn, event, false);
-    if(!res)
+    bool res;
+    if(force)
+        artsRouteTableAddOOExisting(waitOn, event, false);
+    else
     {
-        artsEventSatisfySlot(eventGuid, dataGuid, slot);
-        artsFree(event);
+        bool res = artsRouteTableAddOO(waitOn, event, false);
+        if(!res)
+        {
+            artsEventSatisfySlot(eventGuid, dataGuid, slot);
+            artsFree(event);
+        }
     }
 }
 

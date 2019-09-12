@@ -886,6 +886,21 @@ struct artsConfig * artsConfigLoad()
     else
         config->gpu = 0;
     
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"gpuLocality")) != NULL)
+        config->gpuLocality = strtol( foundVariable->value, &end , 10);
+    else
+        config->gpuLocality = 0;
+
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"gpuFit")) != NULL)
+        config->gpuFit = strtol( foundVariable->value, &end , 10);
+    else
+        config->gpuFit = 0;
+
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"gpuP2P")) != NULL)
+        config->gpuP2P = strtol( foundVariable->value, &end , 10) > 0;
+    else
+        config->gpuP2P = false;
+
     if( (foundVariable = artsConfigFindVariable(&configVariables,"gpuRouteTableSize")) != NULL)
         config->gpuRouteTableSize = strtol( foundVariable->value, &end , 10);
     else

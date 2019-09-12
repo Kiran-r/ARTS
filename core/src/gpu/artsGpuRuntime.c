@@ -107,7 +107,7 @@ artsGuid_t internalEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t 
     edt->passthrough = passThrough;
     edt->lib = lib;
     artsGuid_t guid = NULL_GUID;
-    artsEdtCreateInternal((artsEdt*) edt, ARTS_GPU_EDT, &guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
+    artsEdtCreateInternal((struct artsEdt *) edt, ARTS_GPU_EDT, &guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
 //    ARTSEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
     return guid;
 }
@@ -160,7 +160,10 @@ void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
         DPRINTF("Running Pre Edt GPU GC: %u\n", artsGpu->device);
         unsigned int freeMemSize = artsGpuCleanUpRouteTable((unsigned int) -1, artsNodeInfo.deleteZerosGpuGc, (unsigned int) artsGpu->device);
         artsAtomicAdd(&freeBytes, freeMemSize);
+        artsAtomicAddSizet(&artsGpu->availGlobalMem, freeMemSize);
     }
+
+    artsAtomicAdd(&artsGpu->scheduledEdts, 1U);
 
     prepDbs(depc, depv);
     artsScheduleToGpu(func, paramc, paramv, depc, depv, edtPacket, artsGpu);
@@ -233,7 +236,7 @@ bool artsGpuSchedulerLoop()
 
     if(edtFound)
     {
-        artsGpu = artsFindGpu(edtFound, artsThreadInfo.groupId);
+        artsGpu = artsFindGpu(edtFound);
         if (artsGpu)
             artsRunGpu(edtFound, artsGpu);
         else

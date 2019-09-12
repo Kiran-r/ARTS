@@ -137,6 +137,9 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.gpu = config->gpu;
     artsNodeInfo.gpuRouteTableSize = config->gpuRouteTableSize;
     artsNodeInfo.gpuRouteTableEntries = config->gpuRouteTableEntries;
+    artsNodeInfo.gpuLocality = config->gpuLocality;
+    artsNodeInfo.gpuFit = config->gpuFit;
+    artsNodeInfo.gpuP2P = config->gpuP2P;
     artsNodeInfo.freeDbAfterGpuRun = config->freeDbAfterGpuRun;
     artsNodeInfo.runGpuGcIdle = config->runGpuGcIdle;
     artsNodeInfo.runGpuGcPreEdt = config->runGpuGcPreEdt;

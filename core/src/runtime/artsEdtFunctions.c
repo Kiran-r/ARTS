@@ -366,7 +366,7 @@ void internalSignalEdt(artsGuid_t edtPacket, uint32_t slot, artsGuid_t dataGuid,
         if(mode == ARTS_PTR)
             artsOutOfOrderSignalEdtWithPtr(edtPacket, dataGuid, ptr, size, slot);
         else
-            artsOutOfOrderSignalEdt(currentEdt->currentEdt, edtPacket, dataGuid, slot, mode);
+            artsOutOfOrderSignalEdt(currentEdt->currentEdt, edtPacket, dataGuid, slot, mode, true);
     }
     else
     {
@@ -393,7 +393,7 @@ void internalSignalEdt(artsGuid_t edtPacket, uint32_t slot, artsGuid_t dataGuid,
                 if(mode == ARTS_PTR)
                     artsOutOfOrderSignalEdtWithPtr(edtPacket, dataGuid, ptr, size, slot);
                 else
-                    artsOutOfOrderSignalEdt(edtPacket, edtPacket, dataGuid, slot, mode);
+                    artsOutOfOrderSignalEdt(edtPacket, edtPacket, dataGuid, slot, mode, false);
             }
         }
         else

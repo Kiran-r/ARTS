@@ -56,6 +56,7 @@ typedef struct
     artsGuid_t dataGuid;
     uint32_t slot;
     bool passthrough;
+    bool lib;
 } artsGpuEdt_t;
 
 void * artsCudaMallocHost(unsigned int size);
@@ -64,6 +65,14 @@ artsGuid_t artsEdtCreateGpuDep(artsEdt_t funcPtr, unsigned int route, uint32_t p
 artsGuid_t artsEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid);
 artsGuid_t artsEdtCreateGpuPT(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot);
 artsGuid_t artsEdtCreateGpuPTDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot, bool hasDepv);
+artsGuid_t artsEdtCreateGpuLib(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid);
+artsGuid_t artsEdtCreateGpuPTLib(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot);
+
+dim3 * artsGetGpuGrid();
+dim3 * artsGetGpuBlock();
+cudaStream_t * artsGetGpuStream();
+int artsGetGpuId();
+unsigned int artsGetNumGpus();
 
 void artsGpuHostWrapUp(void * edtPacket, artsGuid_t toSignal, uint32_t slot, artsGuid_t dataGuid);
 void artsRunGpu(void * edtPacket, artsGpu_t * artsGpu);

@@ -100,7 +100,6 @@ extern artsGpu_t * artsGpus;
 
 extern volatile unsigned int hits;
 extern volatile unsigned int misses;
-extern volatile unsigned int falseMisses;
 extern volatile unsigned int freeBytes;
 
 #ifdef __cplusplus

@@ -162,7 +162,8 @@ void artsResetRouteTableIterator(artsRouteTableIterator * iter, artsRouteTable_t
 artsRouteItem_t * artsRouteTableIterate(artsRouteTableIterator * iter);
 void artsPrintItem(artsRouteItem_t * item);
 
-uint64_t artsCleanUpRouteTable(artsRouteTable_t * routeTable, uint64_t sizeToClean, bool cleanZeros);
+uint64_t artsCleanUpRouteTable(artsRouteTable_t * routeTable);
+void artsCleanUpDbs();
 
 #ifdef __cplusplus
 }

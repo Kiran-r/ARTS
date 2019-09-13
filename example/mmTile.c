@@ -40,6 +40,7 @@
 #include <stdlib.h>
 #include "arts.h"
 #include "artsGpuRuntime.h"
+#include "artsDebug.h"
 
 #define GPUMM 1
 #define MATSIZE 1024
@@ -94,7 +95,7 @@ void initMatrix(unsigned int rowSize, double * mat, bool identity, bool zero)
                     mat[i*rowSize + j] = 0;
             }
             else
-                mat[i*rowSize + j] =rand()%10;
+                mat[i*rowSize + j] = i*rowSize + j; //rand()%10;
         }
     }
 }
@@ -179,11 +180,8 @@ void multiplyMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
     artsGuid_t bTileGuid = depv[1].guid;
     artsGuid_t cTileGuid = artsDbCreate((void**) &cTile, sizeof(double) * tileSize * tileSize, ARTS_DB_GPU_WRITE);
 
-    double * aCheck = (double*) artsCalloc(sizeof(double)*tileSize*tileSize);
-    double * bCheck = (double*) artsCalloc(sizeof(double)*tileSize*tileSize);
-
     initMatrix(rowSize, cTile, false, true);
-    
+
 #if GPUMM
     dim3 threads(tileSize, tileSize);
     dim3 grid(1, 1);
@@ -239,7 +237,7 @@ void sumMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[
         {
             for(unsigned int k=0; k<rowSize; k++)
             {
-                cTile[j * rowSize + k] += toAdd[j * rowSize + k];
+               cTile[j * rowSize + k] += toAdd[j * rowSize + k];
             }
         }
     }
@@ -274,7 +272,7 @@ void finishBlockMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep
             if (temp[i * matSize + j] != cMat[i * matSize + j])
             {
                 printf("Failed at cMat[%u][%u]\n", i, j);
-                printf("Expected: %lf | Obtained: %lf\n", cMat[i * matSize + j], temp[i * matSize + j]);
+                printf("Expected: %lf | Obtained: %lf\n", temp[i * matSize + j], cMat[i * matSize + j]);
                 artsFree(temp);
                 artsShutdown();
                 return;
@@ -320,7 +318,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
         bMatrix = (double*) artsDbCreateWithGuid(bMatGuid, matSize * matSize * sizeof(double));
         cMatrix = (double*) artsDbCreateWithGuid(cMatGuid, matSize * matSize * sizeof(double));
         
-        initMatrix(matSize, aMatrix, false, false);
+        initMatrix(matSize, aMatrix, true, false);
         initMatrix(matSize, bMatrix, false, false);
         initMatrix(matSize, cMatrix, false, true);
         
@@ -333,12 +331,12 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 {
     unsigned int totalThreads = artsGetTotalNodes() * artsGetTotalWorkers();
     unsigned int globalThreadId = nodeId * artsGetTotalWorkers() + workerId;   
-       
-    for(unsigned int i=0; i<numBlocks; i++)
+  
+    if(!nodeId && !workerId)
     {
-        for(unsigned int j=0; j<numBlocks; j++)
+        for(unsigned int i=0; i<numBlocks; i++)
         {
-            if(!nodeId)
+            for(unsigned int j=0; j<numBlocks; j++)
             {
                 artsGuid_t aTileGuid = artsGetGuid(aTileGuids, i * numBlocks + j);
                 double * aTile = (double*) artsDbCreateWithGuid(aTileGuid, sizeof(double) * tileSize * tileSize);

@@ -158,6 +158,7 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
 void artsRuntimeGlobalCleanup()
 {
     artsIntrospectivePrintTotals(artsGlobalRankId);
+    artsCleanUpDbs();
     artsFree(artsNodeInfo.deque);
     artsFree(artsNodeInfo.gpuDeque);
     artsFree((void *)artsNodeInfo.localSpin);

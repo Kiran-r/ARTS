@@ -80,7 +80,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     printRT("After DB Return with Mark");
 
     
-    artsCleanUpRouteTable(artsNodeInfo.routeTable[0], -1, true);
+    artsCleanUpRouteTable(artsNodeInfo.routeTable[0]);
     printRT("After GC");
 
     artsShutdown();

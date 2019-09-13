@@ -45,6 +45,7 @@
 #include "artsDbList.h"
 #include "artsDebug.h"
 #include "artsCounter.h"
+#include "artsDbFunctions.h"
 
  #define DPRINTF
 //#define DPRINTF(...) PRINTF(__VA_ARGS__)
@@ -61,6 +62,7 @@ void setItem(artsRouteItem_t * item, void * data)
 
 void freeItem(artsRouteItem_t * item)
 {
+    PRINTF("WE SHOULD NOT BE HERE!\n");
     artsFree(item->data);
     artsOutOfOrderListDelete(&item->ooList);
     item->data = NULL;
@@ -732,6 +734,8 @@ bool artsRouteTableAddOO(artsGuid_t key, void * data, bool inc)
         bool res = artsOutOfOrderListAddItem( &item->ooList, data );
         return res;
     }
+    if(inc)
+        incItem(item, 1, item->key, artsGetRouteTable(key));
     return false;
 }
 
@@ -863,48 +867,37 @@ void artsPrintItem(artsRouteItem_t * item)
     }
 }
 
-/*This takes three parameters to regulate what is deleted.  This will only clean up DBs!
-1.  sizeToClean - this is the desired space to clean up.  The gc will continue untill it
-    it reaches this size or it has made a full pass across the RT.  Passing -1 will make the gc
-    clean up the entire RT.
-2.  cleanZeros - this flag indicates if we should delete data that is not being used by anyone.
-    Will delete up to sizeToClean.
-3.  gpuId - the id of which GPU this RT belongs.  This is the contiguous id [0 - numGpus-1].
-    Pass -1 for a host RT.
-Returns the size of the memory freed!
-*/ 
-uint64_t artsCleanUpRouteTable(artsRouteTable_t * routeTable, uint64_t sizeToClean, bool cleanZeros)
+
+uint64_t artsCleanUpRouteTable(artsRouteTable_t * routeTable)
 {
-    uint64_t freedSize = 0;
+    uint64_t freeSize = 0;
     artsRouteTableIterator iter;
     artsResetRouteTableIterator(&iter, routeTable);
 
     artsRouteItem_t * item = artsRouteTableIterate(&iter);
-    while(item && freedSize < sizeToClean)
+    while(item)
     {
-        artsPrintItem(item);
+        // artsPrintItem(item);
         artsType_t type = artsGuidGetType(item->key);
         //These are DB types
         if(type > ARTS_BUFFER && type < ARTS_LAST_TYPE)
         {
-            struct artsDb * db = item->data;
-            uint64_t dbSize = db->header.size;
-            
-            if(isDel(item->lock))
-            {
-                if(decItem(routeTable, item))
-                    freedSize+=dbSize;
-            }
-            else if(cleanZeros && !getCount(item->lock))
-            {
-                artsAtomicCswapU64(&item->lock, availableItem, 1+(availableItem | deleteItem));
-                if(decItem(routeTable, item))
-                    freedSize+=dbSize;
-            }
+            struct artsDb * db = (struct artsDb*) item->data;
+            freeSize += db->header.size;
+            artsDbFree(item->data);
         }
         item = artsRouteTableIterate(&iter);
     }
-    return freedSize;
+    return freeSize;
+}
+
+void artsCleanUpDbs()
+{
+    uint64_t freeSize = 0;
+    for(unsigned int i=0; i<artsNodeInfo.totalThreadCount; i++)
+        freeSize += artsCleanUpRouteTable(artsNodeInfo.routeTable[i]);
+    artsCleanUpRouteTable(artsNodeInfo.remoteRouteTable);
+    PRINTF("Cleaned %lu bytes\n", freeSize);
 }
 
 //To cleanup --------------------------------------------------------------------------->

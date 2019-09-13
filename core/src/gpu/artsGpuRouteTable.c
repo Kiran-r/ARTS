@@ -101,7 +101,17 @@ void * artsGpuRouteTableAddItemRace(void * item, unsigned int size, artsGuid_t k
     bool ret;
     artsRouteItem_t * entry = internalRouteTableAddItemRace(&ret, routeTable, item, key, artsGlobalRankId, true, true);
     artsItemWrapper_t * wrapper = (artsItemWrapper_t*) entry->data;
-    return wrapper->realData;
+    return (void *)wrapper->realData;
+}
+
+artsItemWrapper_t * artsGpuRouteTableReserveItemRace(bool * added, unsigned int size, artsGuid_t key, unsigned int gpuId)
+{
+    //This is a bypass thread local variable to make the api nice...
+    gpuItemSizeBypass = size;
+    artsRouteTable_t * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
+    artsRouteItem_t * entry = internalRouteTableAddItemRace(added, routeTable, NULL, key, artsGlobalRankId, true, true);
+    artsItemWrapper_t * wrapper = (artsItemWrapper_t*) entry->data;
+    return wrapper;
 }
 
 void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId)
@@ -109,7 +119,7 @@ void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId)
     int dummyRank;
     artsRouteTable_t * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
     artsItemWrapper_t * wrapper = (artsItemWrapper_t*) internalRouteTableLookupDb(routeTable, key, &dummyRank);
-    return (wrapper) ? wrapper->realData : NULL;
+    return (wrapper) ? (void*) wrapper->realData : NULL;
 }
 
 bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int gpuId)
@@ -165,6 +175,25 @@ unsigned int artsGpuCleanUpRouteTable(unsigned int sizeToClean, bool cleanZeros,
             item = artsRouteTableIterate(&iter);
         }
         artsUnlock(&gpuRouteTable->gcLock);
+    }
+    return freedSize;
+}
+
+unsigned int artsGpuFreeAll(unsigned int gpuId)
+{
+    unsigned int freedSize = 0;
+    artsRouteTable_t * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
+
+    artsRouteTableIterator iter;
+    artsResetRouteTableIterator(&iter, routeTable);
+
+    artsRouteItem_t * item = artsRouteTableIterate(&iter);
+    while(item)
+    {
+        artsItemWrapper_t * wrapper = (artsItemWrapper_t *) item->data;
+        freedSize += wrapper->size;
+        freeGpuItem(item);
+        item = artsRouteTableIterate(&iter);
     }
     return freedSize;
 }

@@ -49,20 +49,53 @@
 #include "artsGlobals.h"
 #include "artsDeque.h"
 #include "artsOutOfOrder.h"
+#include "artsDebug.h"
 
 #define DPRINTF(...)
 // #define DPRINTF(...) PRINTF(__VA_ARGS__)
 
+#define CHECKCORRECT(x) {                                   \
+  cudaError_t err;                                          \
+  if( (err = (x)) != cudaSuccess )                          \
+    PRINTF("FAILED %s: %s\n", #x, cudaGetErrorString(err)); \
+}
+
 void * artsCudaMallocHost(unsigned int size)
 {
-    void * ptr;
-    cudaMallocHost(&ptr, size);
+    void * ptr = NULL;
+    CHECKCORRECT(cudaMallocHost(&ptr, size));
+    // ptr = artsCalloc(size);
+    if(!ptr)
+    {
+        PRINTF("artsCudaMallocHost failed\n");
+        artsDebugPrintStack();
+        exit(1);
+    }
     return ptr;
 }
 
 void artsCudaFreeHost(void * ptr)
 {
-    cudaFreeHost(&ptr);
+    CHECKCORRECT(cudaFreeHost(ptr));
+    // artsFree(ptr);
+}
+
+void * artsCudaMalloc(unsigned int size)
+{
+    void * ptr = NULL;
+    CHECKCORRECT(cudaMalloc(&ptr, size));
+    if(!ptr)
+    {
+        PRINTF("artsCudaMalloc failed\n");
+        artsDebugPrintStack();
+        exit(1);
+    }
+    return ptr;
+}
+
+void artsCudaFree(void * ptr)
+{
+    CHECKCORRECT(cudaFree(ptr));
 }
 
 dim3 * artsGetGpuGrid()

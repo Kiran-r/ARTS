@@ -63,7 +63,6 @@ bool tryReserve(int gpu, size_t size);
 
 volatile unsigned int hits = 0;
 volatile unsigned int misses = 0;
-volatile unsigned int falseMisses = 0;
 volatile unsigned int freeBytes = 0;
 
 artsGpu_t * artsGpus;
@@ -180,6 +179,7 @@ void artsHandleNewEdts()
 
 void artsCleanupGpus()
 {
+    unsigned int freedSize = 0;
     int savedDevice;
     cudaGetDevice(&savedDevice);
     for (int i=0; i<artsNodeInfo.gpu; i++)
@@ -187,11 +187,12 @@ void artsCleanupGpus()
         CHECKCORRECT(cudaSetDevice(artsGpus[i].device));
         if(cleanPerGpu)
             cleanPerGpu(i, &artsGpus[i].stream);
+        freedSize += artsGpuFreeAll(artsGpus[i].device);
         CHECKCORRECT(cudaStreamSynchronize(artsGpus[i].stream));
         CHECKCORRECT(cudaStreamDestroy(artsGpus[i].stream));
     }
     CHECKCORRECT(cudaSetDevice(savedDevice));
-    PRINTF("HITS: %u MISSES: %u FALSE MISSES: %u FREED BYTES: %u\n", hits, misses, falseMisses, freeBytes);
+    PRINTF("HITS: %u MISSES: %u FREED BYTES: %u BYTES FREED ON EXIT %u\n", hits, misses, freeBytes, freedSize);
 }
 
 void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data)
@@ -256,7 +257,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     //Allocate Closure for GPU
     if(devClosureSize)
     {
-        CHECKCORRECT(cudaMalloc(&devClosure, devClosureSize));
+        devClosure = artsCudaMalloc(devClosureSize);
         devParamv = (uint64_t*) devClosure;
         devDepv = (artsEdtDep_t *)(devParamv + paramc);
         DPRINTF("Allocated dev closure\n");
@@ -265,7 +266,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     if(hostClosureSize)
     {
         //Allocate closure for host
-        CHECKCORRECT(cudaMallocHost(&hostClosure, hostClosureSize));
+        hostClosure = artsCudaMallocHost(hostClosureSize);
         hostGCPtr = (artsGpuCleanUp_t *) hostClosure;
         hostParamv = (uint64_t*)(hostGCPtr + 1);
         hostDepv = (artsEdtDep_t *)(hostParamv + paramc);
@@ -296,21 +297,24 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
             size_t size = db->header.size - sizeof(struct artsDb);
             if (!dataPtr)
             {
-                //Actually allocate space
-                CHECKCORRECT(cudaMalloc(&dataPtr, size));
-                void * newDataPtr = artsGpuRouteTableAddItemRace(dataPtr, size, depv[i].guid, artsGpu->device);
-                if(newDataPtr == dataPtr) //We won, so move data
+                bool successfulAdd = false;
+                artsItemWrapper_t * wrapper = artsGpuRouteTableReserveItemRace(&successfulAdd, size, depv[i].guid, artsGpu->device);
+                
+                if(successfulAdd) //We won, so allocate and move data
                 {
                     DPRINTF("Adding %lu %u id: %d\n", depv[i].guid, size, artsGpu->device);
+                    dataPtr = artsCudaMalloc(size);
                     CHECKCORRECT(cudaMemcpyAsync(dataPtr, depv[i].ptr, size, cudaMemcpyHostToDevice, artsGpu->stream));
+                    //Must have already launched the memcpy before setting realData or races will ensue
+                    wrapper->realData = dataPtr;
                     artsAtomicAdd(&misses, 1U);
                 }
                 else //Someone beat us to creating the data... So we must free
                 {
-                    //Bug here...
-                    cudaFree(dataPtr);
-                    dataPtr = newDataPtr;
-                    artsAtomicAdd(&falseMisses, 1U);
+                    while(!wrapper->realData); //Spin till the data memcpy is launched
+                    dataPtr = (void*) wrapper->realData;
+                    artsAtomicAddSizet(&artsGpu->availGlobalMem, size);
+                    artsAtomicAdd(&hits, 1U);
                 }
             }
             else
@@ -331,7 +335,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     
     CHECKCORRECT(cudaMemcpyAsync(devClosure, (void*)hostParamv, devClosureSize, cudaMemcpyHostToDevice, artsGpu->stream));
     DPRINTF("Filled GPU Closure\n");
-    
+
     artsGpuEdt_t * gpuEdt = (artsGpuEdt_t*) hostGCPtr->edt;
     if(gpuEdt->lib)
     {
@@ -361,6 +365,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
             struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
             size_t size = (size_t) (db->header.size - sizeof(struct artsDb));
             CHECKCORRECT(cudaMemcpyAsync(depv[i].ptr, hostDepv[i].ptr, size, cudaMemcpyDeviceToHost, artsGpu->stream));
+            // CHECKCORRECT(cudaStreamSynchronize(artsGpu->stream));
         }
     }
 
@@ -397,14 +402,15 @@ void freeGpuItem(artsRouteItem_t * item)
     {
         artsGpuCleanUp_t * hostGCPtr = (artsGpuCleanUp_t *) wrapper->realData;
         DPRINTF("FREEING DEV PTR: %p\n", hostGCPtr->devClosure);
-        CHECKCORRECT(cudaFree(hostGCPtr->devClosure));
+        artsCudaFree(hostGCPtr->devClosure);
         DPRINTF("FREEING HOST PTR: %p\n", hostGCPtr);
-        CHECKCORRECT(cudaFreeHost(hostGCPtr));
+        artsCudaFreeHost(hostGCPtr);
     }
     else if(type > ARTS_BUFFER && type < ARTS_LAST_TYPE)  //DBs
-        CHECKCORRECT(cudaFree(wrapper->realData));
+        artsCudaFree((void*)wrapper->realData);
 
     wrapper->realData = NULL;
+    wrapper->timestamp = 0;
     item->key = 0;
     item->lock = 0;
 }

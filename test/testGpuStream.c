@@ -48,8 +48,7 @@ artsGuid_t localDbCreate(void **addr, uint64_t size, artsType_t mode, artsGuid_t
 {
     unsigned int dbSize = size + sizeof(struct artsDb);
 //    void * ptr = artsMalloc(dbSize);
-    void * ptr = NULL;
-    cudaMallocHost(&ptr, dbSize);
+    void * ptr = artsCudaMallocHost(dbSize);
     if(ptr)
     {
         struct artsHeader *header = (struct artsHeader*)ptr;

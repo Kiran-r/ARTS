@@ -124,7 +124,7 @@ bool artsOutOfOrderListAddItem(struct artsOutOfOrderList * addToMe, void * item)
     }
     unsigned int pos = artsAtomicFetchAdd(&addToMe->count, 1U);
 
-    PRINTF("ADDING to OO LIST %u %u %p\n", pos, addToMe->count, &addToMe->count);
+    DPRINTF("ADDING to OO LIST %u %u %p\n", pos, addToMe->count, &addToMe->count);
     unsigned int numElements = pos / OOPERELEMENT;
     unsigned int elementPos = pos % OOPERELEMENT;
 

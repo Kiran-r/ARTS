@@ -26,9 +26,9 @@ options["gpuLocality"] = r3
 options["gpuP2P"] = r2
 
 config = configparser.ConfigParser()
+config.optionxform=str
 cfgTemplate = "arts.cfg"
 config.read(cfgTemplate)
-config.optionxform=str
 
 conf = config[config.sections()[0]]
 

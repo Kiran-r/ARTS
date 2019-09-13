@@ -210,6 +210,8 @@ add_subdirectory(test)
 add_subdirectory(example)
 
 configure_file(example/gpu-run.sh example/gpu-run.sh COPYONLY)
+configure_file(example/gpuRunAll.sh example/gpuRunAll.sh COPYONLY)
+configure_file(example/generateConfigFiles.py example/generateConfigFiles.py COPYONLY)
 configure_file(sampleConfigs/arts.cfg example/arts.cfg COPYONLY)
 configure_file(sampleConfigs/arts.insp example/arts.insp COPYONLY)
 configure_file(sampleConfigs/arts.cfg test/arts.cfg COPYONLY)

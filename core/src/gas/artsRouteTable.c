@@ -62,7 +62,6 @@ void setItem(artsRouteItem_t * item, void * data)
 
 void freeItem(artsRouteItem_t * item)
 {
-    PRINTF("WE SHOULD NOT BE HERE!\n");
     artsFree(item->data);
     artsOutOfOrderListDelete(&item->ooList);
     item->data = NULL;

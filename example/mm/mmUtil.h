@@ -36,54 +36,18 @@
 ** WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the  **
 ** License for the specific language governing permissions and limitations   **
 ******************************************************************************/
-#ifndef ARTSGPURUNTIME_H
-#define ARTSGPURUNTIME_H
-
+#ifndef MMUTIL_H
+#define ARTSGLOBALS_H
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <cuda_runtime.h>    
-#include "artsRT.h"
-#include "artsGpuStream.h"
-    
-typedef struct
-{
-    struct artsEdt wrapperEdt;
-    dim3 grid;
-    dim3 block;
-    artsGuid_t endGuid;
-    artsGuid_t dataGuid;
-    uint32_t slot;
-    bool passthrough;
-    bool lib;
-} artsGpuEdt_t;
-
-void * artsCudaMallocHost(unsigned int size);
-void artsCudaFreeHost(void * ptr);
-void * artsCudaMalloc(unsigned int size);
-void artsCudaFree(void * ptr);
-artsGuid_t artsEdtCreateGpuDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv);
-artsGuid_t artsEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid);
-artsGuid_t artsEdtCreateGpuPT(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot);
-artsGuid_t artsEdtCreateGpuPTDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot, bool hasDepv);
-artsGuid_t artsEdtCreateGpuLib(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block);
-artsGuid_t artsEdtCreateGpuPTWithGuid(artsEdt_t funcPtr, artsGuid_t guid, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot);
-
-dim3 * artsGetGpuGrid();
-dim3 * artsGetGpuBlock();
-cudaStream_t * artsGetGpuStream();
-int artsGetGpuId();
-unsigned int artsGetNumGpus();
-void artsPutInDbFromGpu(void * ptr, artsGuid_t dbGuid, unsigned int offset, unsigned int size, bool freeData);
-
-void artsGpuHostWrapUp(void * edtPacket, artsGuid_t toSignal, uint32_t slot, artsGuid_t dataGuid);
-void artsRunGpu(void * edtPacket, artsGpu_t * artsGpu);
-bool artsGpuSchedulerLoop();
+void printMatrix(unsigned int rowSize, double * mat);
+void initMatrix(unsigned int rowSize, double * mat, bool identity, bool zero);
+void copyBlock(unsigned int x, unsigned int y, unsigned int tileRowSize, double * tile, unsigned int rowSize, double * mat, bool toTile);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* ARTSGPURUNTIME_H */
-
+#endif

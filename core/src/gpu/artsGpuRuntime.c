@@ -172,16 +172,10 @@ artsGuid_t artsEdtCreateGpuPTWithGuid(artsEdt_t funcPtr, artsGuid_t guid, uint32
     return internalEdtCreateGpu(funcPtr, &guid, artsGuidGetRank(guid), paramc, paramv, depc, grid, block, endGuid, slot, (artsGuid_t) passSlot, true, true, false);
 }
 
-artsGuid_t artsEdtCreateGpuLib(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid)
+artsGuid_t artsEdtCreateGpuLib(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block)
 {
     artsGuid_t guid = NULL_GUID;
-    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, true, false, true);
-}
-
-artsGuid_t artsEdtCreateGpuPTLib(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot)
-{
-    artsGuid_t guid = NULL_GUID;
-    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, endGuid, slot, slot, true, true, true);
+    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, NULL_GUID, 0, NULL_GUID, true, false, true);
 }
 
 void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)

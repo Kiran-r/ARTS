@@ -185,7 +185,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         dim3 grid (1, 1);
 
         artsGuid_t doneGuid = artsEdtCreate(done, 0, 0, NULL, 1);
-        artsGuid_t workGuid = artsEdtCreateGpuLib(work, 0, 1, (uint64_t*)&doneGuid, 0, grid, threads, NULL_GUID, 0, NULL_GUID);
+        artsGuid_t workGuid = artsEdtCreateGpuLib(work, 0, 1, (uint64_t*)&doneGuid, 0, grid, threads);
     }
 }
 

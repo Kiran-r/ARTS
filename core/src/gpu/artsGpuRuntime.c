@@ -123,7 +123,7 @@ unsigned int artsGetNumGpus()
     return artsNodeInfo.gpu;
 }
 
-artsGuid_t internalEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, 
+artsGuid_t internalEdtCreateGpu(artsEdt_t funcPtr, artsGuid_t * guid, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, 
     artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv, bool passThrough, bool lib)
 {
 //    ARTSEDTCOUNTERTIMERSTART(edtCreateCounter);
@@ -139,20 +139,22 @@ artsGuid_t internalEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t 
     edt->dataGuid = dataGuid;
     edt->passthrough = passThrough;
     edt->lib = lib;
-    artsGuid_t guid = NULL_GUID;
-    artsEdtCreateInternal((struct artsEdt *) edt, ARTS_GPU_EDT, &guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
+    
+    artsEdtCreateInternal((struct artsEdt *) edt, ARTS_GPU_EDT, guid, route, artsThreadInfo.clusterId, edtSpace, NULL_GUID, funcPtr, paramc, paramv, depc, true, NULL_GUID, hasDepv);
 //    ARTSEDTCOUNTERTIMERENDINCREMENT(edtCreateCounter);
-    return guid;
+    return *guid;
 }
 
 artsGuid_t artsEdtCreateGpuDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv)
 {
-    return internalEdtCreateGpu(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, hasDepv, false, false);
+    artsGuid_t guid = NULL_GUID;
+    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, hasDepv, false, false);
 }
 
 artsGuid_t artsEdtCreateGpuPTDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot, bool hasDepv)
 {
-    return internalEdtCreateGpu(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, (artsGuid_t) passSlot, hasDepv, true, false);
+    artsGuid_t guid = NULL_GUID;
+    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, endGuid, slot, (artsGuid_t) passSlot, hasDepv, true, false);
 }
 
 artsGuid_t artsEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid)
@@ -165,14 +167,21 @@ artsGuid_t artsEdtCreateGpuPT(artsEdt_t funcPtr, unsigned int route, uint32_t pa
     return artsEdtCreateGpuPTDep(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, passSlot, true);
 }
 
+artsGuid_t artsEdtCreateGpuPTWithGuid(artsEdt_t funcPtr, artsGuid_t guid, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot)
+{
+    return internalEdtCreateGpu(funcPtr, &guid, artsGuidGetRank(guid), paramc, paramv, depc, grid, block, endGuid, slot, (artsGuid_t) passSlot, true, true, false);
+}
+
 artsGuid_t artsEdtCreateGpuLib(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid)
 {
-    return internalEdtCreateGpu(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, true, false, true);
+    artsGuid_t guid = NULL_GUID;
+    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, true, false, true);
 }
 
 artsGuid_t artsEdtCreateGpuPTLib(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot)
 {
-    return internalEdtCreateGpu(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, slot, true, true, true);
+    artsGuid_t guid = NULL_GUID;
+    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, endGuid, slot, slot, true, true, true);
 }
 
 void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
@@ -294,4 +303,29 @@ bool artsGpuSchedulerLoop()
     }
 
     return ranCpuEdt;
+}
+
+void artsPutInDbFromGpu(void * ptr, artsGuid_t dbGuid, unsigned int offset, unsigned int size, bool freeData)
+{
+    unsigned int rank = artsGuidGetRank(dbGuid);
+    if(rank==artsGlobalRankId)
+    {
+        struct artsDb * db = (struct artsDb*) artsRouteTableLookupItem(dbGuid);
+        if(db)
+        {
+            void * data = (void*)(((char*) (db+1)) + offset);
+            // memcpy(data, ptr, size);
+            CHECKCORRECT(cudaMemcpyAsync(data, ptr, size, cudaMemcpyDeviceToHost, *artsLocalStream));
+            
+        }
+        else
+        {
+            void * cpyPtr = artsMalloc(size);
+            // memcpy(cpyPtr, ptr, size);
+            CHECKCORRECT(cudaMemcpyAsync(cpyPtr, ptr, size, cudaMemcpyDeviceToHost, *artsLocalStream));
+            artsOutOfOrderPutInDb(cpyPtr, NULL_GUID, dbGuid, 0, offset, size, NULL_GUID);
+        }
+        if(freeData)
+                artsGpuRouteTableAddItemToDeleteRace(ptr, 0, dbGuid, artsLocalGpuId);
+    }
 }

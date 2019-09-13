@@ -138,37 +138,42 @@ void work(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]
     // d_a -mxk matrix , d_b -kxn matrix , d_c -mxn matrix ;
     // al ,bet -scalars
     stat = cublasSgemm(handle[artsGetGpuId()], CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &al, d_a, m, d_b, k, &bet, d_c, m);
-
-    stat = cublasGetMatrix(m, n, sizeof(*c), d_c, m, c, m);    // cp d_c - >c
-    printf("c after Sgemm :\n");
-    for (i = 0; i < m; i++) {
-        for (j = 0; j < n; j++) {
-            printf(" %7.0f", c[IDX2C(i, j, m)]);    // print c after Sgemm
-        }
-        printf("\n");
-    }
+    
+    float * finalData;
+    artsGuid_t finalGuid = artsDbCreate((void**)&finalData, sizeof(float) * m * n, ARTS_DB_READ);
+    artsPutInDbFromGpu(d_c, finalGuid, 0, sizeof(float) * m * n, true);
+    // stat = cublasGetMatrix(m, n, sizeof(*c), d_c, m, c, m);    // cp d_c - >c
+    
     
     cudaFree(d_a);            // free device memory
     cudaFree(d_b);            // free device memory
-    cudaFree(d_c);            // free device memory
+    // cudaFree(d_c);            // free device memory
     
     free(a);                  // free host memory
     free(b);                  // free host memory
     free(c);                  // free host memory
     
     artsGuid_t toSignal = (artsGuid_t) paramv[0];
-    artsSignalEdt(toSignal, 0, NULL_GUID);
+    artsSignalEdt(toSignal, 0, finalGuid);
 }
 
 void done(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
+    float * c = (float*) depv[0].ptr;
+    printf("c after Sgemm :\n");
+    for (unsigned int i = 0; i < m; i++) {
+        for (unsigned int j = 0; j < n; j++) {
+            printf(" %7.0f", c[IDX2C(i, j, m)]);    // print c after Sgemm
+        }
+        printf("\n");
+    }
     artsShutdown();
 }
 
 extern "C"
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    handle = (cublasHandle_t*) artsCalloc(sizeof(cublasHandle_t) * artsGetNumGpus());
+    
 }
 
 extern "C"
@@ -188,6 +193,11 @@ extern "C"
 void initPerGpu(int devId, cudaStream_t * stream)
 {
     PRINTF("DevId: %d\n", devId);
+    if(!devId)
+    {
+        handle = (cublasHandle_t*) artsCalloc(sizeof(cublasHandle_t) * artsGetNumGpus());
+        PRINTF("NUM GPUS: %u\n", artsGetNumGpus());
+    }
     cublasStatus_t stat = cublasCreate(&handle[devId]);
 }
 

@@ -124,6 +124,7 @@ artsRouteTable_t * artsNewRouteTable(unsigned int routeTableSize, unsigned int s
 void * artsRouteTableAddItem(void* item, artsGuid_t key, unsigned int route, bool used);
 artsRouteItem_t * internalRouteTableAddItemRace(bool * addedItem, artsRouteTable_t * routeTable, void * item, artsGuid_t key, unsigned int rank, bool usedRes, bool usedAvail);
 bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int route, bool used);
+artsRouteItem_t * internalRouteTableAddDeletedItemRace(artsRouteTable_t * routeTable, void * item, artsGuid_t key, unsigned int rank);
 
 void * artsRouteTableLookupItem(artsGuid_t key);
 int artsRouteTableLookupRank(artsGuid_t key);

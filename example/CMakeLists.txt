@@ -94,6 +94,10 @@ if(CUDA_FOUND)
     add_executable(mmTile_naive mmTile_naive.c)
     target_link_libraries(mmTile_naive ${LIBS})
 
+    set_source_files_properties(mmTile2.c PROPERTIES LANGUAGE CUDA)
+    add_executable(mmTile2 mmTile2.c)
+    target_link_libraries(mmTile2 ${LIBS})
+    
     if(CUBLAS_FOUND)
       set_source_files_properties(dgemm.c PROPERTIES LANGUAGE CUDA)
       add_executable(dgemm dgemm.c)

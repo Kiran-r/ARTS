@@ -63,6 +63,7 @@ artsRouteTable_t * artsGpuNewRouteTable(unsigned int routeTableSize, unsigned in
 uint64_t artsGpuLookupDb(artsGuid_t key);
 void * artsGpuRouteTableAddItemRace(void * item, unsigned int size, artsGuid_t key, unsigned int gpuId);
 artsItemWrapper_t * artsGpuRouteTableReserveItemRace(bool * added, unsigned int size, artsGuid_t key, unsigned int gpuId);
+void * artsGpuRouteTableAddItemToDeleteRace(void * item, unsigned int size, artsGuid_t key, unsigned int gpuId);
 void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId);
 bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int gpuId);
 unsigned int artsGpuCleanUpRouteTable(unsigned int sizeToClean, bool cleanZeros, unsigned int gpuId);

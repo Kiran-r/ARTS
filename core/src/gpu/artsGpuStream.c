@@ -92,6 +92,7 @@ bool P2P; // Enable DB access across devices
 __thread volatile unsigned int * newEdtLock = 0;
 __thread artsArrayList * newEdts = NULL;
 
+
 //These are for the library version of GPU EDTs
 //The user can query to get these values
 //We still want to collect them for scheduling purposes

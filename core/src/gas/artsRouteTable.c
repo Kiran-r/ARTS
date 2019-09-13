@@ -546,6 +546,28 @@ artsRouteItem_t * internalRouteTableAddItemRace(bool * addedItem, artsRouteTable
     return found;
 }
 
+artsRouteItem_t * internalRouteTableAddDeletedItemRace(artsRouteTable_t * routeTable, void * item, artsGuid_t key, unsigned int rank)
+{
+    unsigned int pos = (unsigned int)(((uint64_t)key) % (uint64_t)guidLockSize);
+    artsRouteItem_t * found = NULL;
+    while(!found)
+    {
+        if(guidLock[pos] == 0)
+        {
+            if(!artsAtomicCswap(&guidLock[pos], 0U, 1U))
+            {
+                found = artsRouteTableSearchForEmpty(routeTable, key, false);
+                routeTable->setFunc(found, item);
+                found->rank = rank;
+                markDelete(found);
+                markWrite(found);
+                guidLock[pos] = 0U;
+            }   
+        }
+    }
+    return found;
+}
+
 bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, bool used)
 {
     bool ret;

@@ -114,6 +114,16 @@ artsItemWrapper_t * artsGpuRouteTableReserveItemRace(bool * added, unsigned int 
     return wrapper;
 }
 
+void * artsGpuRouteTableAddItemToDeleteRace(void * item, unsigned int size, artsGuid_t key, unsigned int gpuId)
+{
+    //This is a bypass thread local variable to make the api nice...
+    gpuItemSizeBypass = size;
+    artsRouteTable_t * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
+    artsRouteItem_t * entry = internalRouteTableAddDeletedItemRace(routeTable, item, key, artsGlobalRankId);
+    artsItemWrapper_t * wrapper = (artsItemWrapper_t*) entry->data;
+    return (void *)wrapper->realData;
+}
+
 void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId)
 {
     int dummyRank;

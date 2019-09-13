@@ -1,4 +1,4 @@
-#! /bin/python
+#!/usr/bin/env python3
 
 import configparser
 import itertools as it
@@ -28,6 +28,7 @@ options["gpuP2P"] = r2
 config = configparser.ConfigParser()
 cfgTemplate = "arts.cfg"
 config.read(cfgTemplate)
+config.optionxform=str
 
 conf = config[config.sections()[0]]
 

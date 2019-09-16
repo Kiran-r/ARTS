@@ -20,7 +20,7 @@ fi
 
 echo "Running $app $app_args on $num_gpus GPUs"
 
-for (( i=0; i<$((num_gpus+1)); ++i ))
+for (( i=1; i<$((num_gpus+1)); ++i ))
 do
   echo "Now running on $i gpus"
   sed -i -e "s/gpu=.*/gpu=$i/" $2

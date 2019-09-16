@@ -312,7 +312,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
                 }
                 else //Someone beat us to creating the data... So we must free
                 {
-                    while(!wrapper->realData); //Spin till the data memcpy is launched
+                    while(artsAtomicFetchAddU64((uint64_t*)&wrapper->realData, 0)); //Spin till the data memcpy is launched
                     dataPtr = (void*) wrapper->realData;
                     artsAtomicAddSizet(&artsGpu->availGlobalMem, size);
                     artsAtomicAdd(&hits, 1U);

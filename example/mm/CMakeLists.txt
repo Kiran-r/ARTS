@@ -44,15 +44,15 @@ if(CUDA_FOUND)
     add_library(mmUtil mmUtil.h mmUtil.c)
     
     set_source_files_properties(mmTileNaive.c PROPERTIES LANGUAGE CUDA)
-    add_executable(mmTileNaive mmTileNaive.c)
+    add_executable(mmTileNaive mmTileNaive.cu)
     target_link_libraries(mmTileNaive mmUtil ${LIBS})
 
     set_source_files_properties(mmTile.c PROPERTIES LANGUAGE CUDA)
-    add_executable(mmTile mmTile.c)
+    add_executable(mmTile mmTile.cu)
     target_link_libraries(mmTile mmUtil ${LIBS})
 
     set_source_files_properties(mmTileBlas.c PROPERTIES LANGUAGE CUDA)
-    add_executable(mmTileBlas mmTileBlas.c)
+    add_executable(mmTileBlas mmTileBlas.cu)
     target_link_libraries(mmTileBlas mmUtil ${LIBS})
 
 endif()

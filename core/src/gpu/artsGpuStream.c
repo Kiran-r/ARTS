@@ -101,11 +101,15 @@ __thread dim3 * artsLocalBlock;
 __thread cudaStream_t * artsLocalStream;
 __thread int artsLocalGpuId;
 
+#ifdef __cplusplus
 extern "C" 
 {
+#endif
     extern void initPerGpu(int devId, cudaStream_t * stream) __attribute__((weak));
     extern void cleanPerGpu(int devId, cudaStream_t * stream) __attribute__((weak));
+#ifdef __cplusplus
 }
+#endif
 
 void artsNodeInitGpus()
 {
@@ -312,7 +316,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
                 }
                 else //Someone beat us to creating the data... So we must free
                 {
-                    while(artsAtomicFetchAddU64((uint64_t*)&wrapper->realData, 0)); //Spin till the data memcpy is launched
+                    while(!artsAtomicFetchAddU64((uint64_t*)&wrapper->realData, 0)); //Spin till the data memcpy is launched
                     dataPtr = (void*) wrapper->realData;
                     artsAtomicAddSizet(&artsGpu->availGlobalMem, size);
                     artsAtomicAdd(&hits, 1U);

@@ -427,9 +427,10 @@ void freeGpuItem(artsRouteItem_t * item)
 bool tryReserve(int gpu, size_t size)
 {
     artsGpu_t * artsGpu = &artsGpus[gpu];
+    DPRINTF("Trying to reserve %lu of available %lu on GPU[%d]\n", size, artsGpu->availGlobalMem, artsGpu->device);
     if (artsAtomicFetchAdd(&artsGpu->availableEdtSlots, 1U) < artsNodeInfo.gpuMaxEdts)
     {
-        size_t availSize = artsGpu->availGlobalMem;
+        volatile size_t availSize = artsGpu->availGlobalMem;
         while (availSize >= size)
         {
             if (artsAtomicCswapSizet(&artsGpu->availGlobalMem, availSize, availSize-size))

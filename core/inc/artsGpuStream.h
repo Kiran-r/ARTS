@@ -69,7 +69,8 @@ typedef struct
     int device;
     volatile size_t availGlobalMem;
     volatile size_t totalGlobalMem;
-    volatile unsigned int scheduledEdts;    // Count(Edts) on device
+    volatile unsigned int availableEdtSlots;
+    volatile unsigned int runningEdts;
     cudaStream_t stream;
 } artsGpu_t;
 

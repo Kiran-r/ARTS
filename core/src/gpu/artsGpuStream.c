@@ -144,6 +144,8 @@ void artsNodeInitGpus()
         CHECKCORRECT(cudaStreamCreate(&artsGpus[i].stream)); // Make it scalable
         artsNodeInfo.gpuRouteTable[i] = artsGpuNewRouteTable(artsNodeInfo.gpuRouteTableEntries, artsNodeInfo.gpuRouteTableSize);
         CHECKCORRECT(cudaMemGetInfo((size_t*)&artsGpus[i].availGlobalMem, (size_t*)&artsGpus[i].totalGlobalMem));
+        if (artsGpus[i].availGlobalMem > artsNodeInfo.gpuMaxMemory)
+            artsGpus[i].availGlobalMem = artsNodeInfo.gpuMaxMemory;
         if(initPerGpu)
             initPerGpu(i, &artsGpus[i].stream);
     }
@@ -205,7 +207,8 @@ void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data)
     artsGpuCleanUp_t * gc = (artsGpuCleanUp_t*) data;
     
     artsGpu_t * artsGpu = &artsGpus[gc->gpuId];
-    artsAtomicSub(&artsGpu->scheduledEdts, 1U);
+    artsAtomicSub(&artsGpu->availableEdtSlots, 1U);
+    artsAtomicSub(&artsGpu->runningEdts, 1U);
 
     //Shouldn't have to touch newly ready edts regardless of streams and devices
     artsGpuEdt_t * edt      = (artsGpuEdt_t *) gc->edt;
@@ -288,7 +291,8 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
         DPRINTF("Filled host closure\n");
 
         artsGuid_t edtGuid = hostGCPtr->edt->currentEdt;
-        artsGpuRouteTableAddItemRace(hostGCPtr, hostClosureSize, edtGuid, artsGpu->device);
+        // artsGpuRouteTableAddItemRace(hostGCPtr, hostClosureSize, edtGuid, artsGpu->device);
+        artsGpuRouteTableAddItemRace(hostGCPtr, 0, edtGuid, artsGpu->device);
         DPRINTF("Added edtGuid: %lu size: %u to gpu: %d routing table\n", edtGuid, hostClosureSize, artsGpu->device);        
     }
 
@@ -420,47 +424,37 @@ void freeGpuItem(artsRouteItem_t * item)
     item->lock = 0;
 }
 
-//TODO: Make this more intelligent with memory usage (memUtil)
-int artsGpuLookUp(unsigned id, size_t size) // Deprecate
-{
-    // Loop over all devices to find available GPUs and return free artsGpu_t
-    int start = (int) id % artsNodeInfo.gpu;
-    for (int i=start, j=0; j < artsNodeInfo.gpu; ++j, i = (i+1)%artsNodeInfo.gpu)
-        if(size < artsGpus[i].availGlobalMem)
-        {
-            // TODO: Check return value to ensure no over-subscription.
-            artsAtomicSubU64(&artsGpus[i].availGlobalMem, (uint64_t) size);
-            return i;
-        }
-    return -1;
-}
-
 bool tryReserve(int gpu, size_t size)
 {
-    artsGpu_t artsGpu = artsGpus[gpu];
-    size_t totalSize, usedSize, availSize;
-    totalSize = artsGpu.totalGlobalMem;
-    availSize = artsGpu.availGlobalMem;
-    usedSize = totalSize - availSize;
-    while (usedSize+size < totalSize)
+    artsGpu_t * artsGpu = &artsGpus[gpu];
+    if (artsAtomicFetchAdd(&artsGpu->availableEdtSlots, 1U) < artsNodeInfo.gpuMaxEdts)
     {
-        if (artsAtomicCswapSizet(&artsGpu.availGlobalMem, availSize, availSize-size))
-            return true;
-        else
+        size_t availSize = artsGpu->availGlobalMem;
+        while (availSize >= size)
         {
-            availSize = artsGpu.availGlobalMem;
-            usedSize = totalSize - availSize;
+            if (artsAtomicCswapSizet(&artsGpu->availGlobalMem, availSize, availSize-size))
+                return true;
+            availSize = artsGpu->availGlobalMem;
         }
     }
+    artsAtomicSub(&artsGpu->availableEdtSlots, 1U);
     return false;
 }
 
 int firstFit(uint64_t mask, size_t size)
 {
-    for (int i = 0; i < artsNodeInfo.gpu; i++, mask>>=1)
-        if (mask & 1)
-            if (tryReserve(i, size))
-                return i;
+    int random = jrand48(artsThreadInfo.drand_buf);
+    for (int i = 0; i < artsNodeInfo.gpu; i++)
+    {
+        int index = (i+random) % artsNodeInfo.gpu;
+        uint64_t checkMask = 1 << index;
+        if (mask && checkMask)
+            if (tryReserve(index, size))
+            {
+                DPRINTF("Reserved Successfully on %u\n", index);
+                return index;
+            }
+    }
     return -1;
 }
 
@@ -468,19 +462,22 @@ int bestFit(uint64_t mask, size_t size)
 {
     int selectedGpu = -1;
     size_t selectedGpuAvailSize;
-    for (int i = 0; i < artsNodeInfo.gpu; i++, mask>>=1)
+    int random = jrand48(artsThreadInfo.drand_buf);
+    for (int i = 0; i < artsNodeInfo.gpu; i++)
     {
-        if (mask & 1)
+        int index = (i+random) % artsNodeInfo.gpu;
+        uint64_t checkMask = 1 << index;
+        if (mask && checkMask)
         {
             if (selectedGpu != -1)
             {
-                if (artsGpus[i].availGlobalMem-size > selectedGpuAvailSize)
+                if (artsGpus[index].availGlobalMem-size > selectedGpuAvailSize)
                     continue;
             }
-            if (tryReserve(i, size))
+            if (tryReserve(index, size))
             {
-                selectedGpu = i;
-                selectedGpuAvailSize = artsGpus[i].availGlobalMem;
+                selectedGpu = index;
+                selectedGpuAvailSize = artsGpus[index].availGlobalMem;
             }
         }
     }
@@ -491,19 +488,22 @@ int worstFit(uint64_t mask, size_t size)
 {
     int selectedGpu = -1;
     size_t selectedGpuAvailSize;
-    for (int i = 0; i < artsNodeInfo.gpu; i++, mask>>=1)
+    int random = jrand48(artsThreadInfo.drand_buf);
+    for (int i = 0; i < artsNodeInfo.gpu; i++)
     {
-        if (mask & 1)
+        int index = (i+random) % artsNodeInfo.gpu;
+        uint64_t checkMask = 1 << index;
+        if (mask && checkMask)
         {
             if (selectedGpu != -1)
             {
-                if (artsGpus[i].availGlobalMem-size < selectedGpuAvailSize)
+                if (artsGpus[index].availGlobalMem-size < selectedGpuAvailSize)
                     continue;
             }
-            if (tryReserve(i, size))
+            if (tryReserve(index, size))
             {
-                selectedGpu = i;
-                selectedGpuAvailSize = artsGpus[i].availGlobalMem;
+                selectedGpu = index;
+                selectedGpuAvailSize = artsGpus[index].availGlobalMem;
             }
         }
     }

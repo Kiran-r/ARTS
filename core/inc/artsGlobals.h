@@ -95,9 +95,11 @@ struct artsRuntimeShared
     unsigned int gpu;
     unsigned int gpuLocality;
     unsigned int gpuFit;
+    unsigned int gpuMaxEdts;
     unsigned int gpuP2P;
     unsigned int gpuRouteTableSize;
     unsigned int gpuRouteTableEntries;
+    size_t gpuMaxMemory;
     bool freeDbAfterGpuRun;
     bool runGpuGcIdle;
     bool runGpuGcPreEdt;

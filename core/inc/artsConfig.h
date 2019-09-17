@@ -108,6 +108,8 @@ struct artsConfig
     unsigned int gpu;
     unsigned int gpuLocality;
     unsigned int gpuFit;
+    unsigned int gpuMaxEdts;
+    size_t gpuMaxMemory;
     bool gpuP2P;
     unsigned int gpuRouteTableSize;
     unsigned int gpuRouteTableEntries;

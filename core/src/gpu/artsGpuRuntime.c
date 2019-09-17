@@ -195,11 +195,12 @@ void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
     {
         DPRINTF("Running Pre Edt GPU GC: %u\n", artsGpu->device);
         unsigned int freeMemSize = artsGpuCleanUpRouteTable((unsigned int) -1, artsNodeInfo.deleteZerosGpuGc, (unsigned int) artsGpu->device);
+        artsAtomicAddSizet(&artsGpu->availGlobalMem, freeMemSize);
         artsAtomicAdd(&freeBytes, freeMemSize);
         artsAtomicAddSizet(&artsGpu->availGlobalMem, freeMemSize);
     }
 
-    artsAtomicAdd(&artsGpu->scheduledEdts, 1U);
+    artsAtomicAdd(&artsGpu->runningEdts, 1U);
 
     prepDbs(depc, depv);
     artsScheduleToGpu(func, paramc, paramv, depc, depv, edtPacket, artsGpu);
@@ -291,6 +292,7 @@ bool artsGpuSchedulerLoop()
         CHECKCORRECT(cudaSetDevice(artsGpu->device));
 
         unsigned int freeMemSize = artsGpuCleanUpRouteTable((unsigned int) -1, artsNodeInfo.deleteZerosGpuGc, (unsigned int) artsGpu->device);
+        artsAtomicAddSizet(&artsGpu->availGlobalMem, freeMemSize);
         artsAtomicAdd(&freeBytes, freeMemSize);
 
         CHECKCORRECT(cudaSetDevice(savedDevice));
@@ -320,6 +322,6 @@ void artsPutInDbFromGpu(void * ptr, artsGuid_t dbGuid, unsigned int offset, unsi
             artsOutOfOrderPutInDb(cpyPtr, NULL_GUID, dbGuid, 0, offset, size, NULL_GUID);
         }
         if(freeData)
-                artsGpuRouteTableAddItemToDeleteRace(ptr, 0, dbGuid, artsLocalGpuId);
+            artsGpuRouteTableAddItemToDeleteRace(ptr, 0, dbGuid, artsLocalGpuId);
     }
 }

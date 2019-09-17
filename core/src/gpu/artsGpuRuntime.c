@@ -197,7 +197,6 @@ void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
         unsigned int freeMemSize = artsGpuCleanUpRouteTable((unsigned int) -1, artsNodeInfo.deleteZerosGpuGc, (unsigned int) artsGpu->device);
         artsAtomicAddSizet(&artsGpu->availGlobalMem, freeMemSize);
         artsAtomicAdd(&freeBytes, freeMemSize);
-        artsAtomicAddSizet(&artsGpu->availGlobalMem, freeMemSize);
     }
 
     artsAtomicAdd(&artsGpu->runningEdts, 1U);

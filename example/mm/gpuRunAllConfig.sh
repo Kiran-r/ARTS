@@ -8,7 +8,7 @@ fi
 app=$1
 app_args=${@:2}
 
-for cfgFile in `ls test*.cfg`
+for cfgFile in `ls *.cfg`
 do
     export artsConfig=$cfgFile
     echo "Running $app $app_args with $cfgFile"

@@ -596,12 +596,20 @@ bool artsRouteTableReserveItemRace(artsGuid_t key, artsRouteItem_t ** item, bool
                     ret = true;
                     DPRINTF("RES: %lu %p\n", key, routeTable);
                 }
+                else
+                {
+                    if(used)
+                        incItem(*item, 1, (*item)->key, routeTable);
+                }
                 guidLock[pos] = 0U;
             }
         }
         else
         {
-            *item = artsRouteTableSearchForKey(routeTable, key, allocatedKey);
+            artsRouteItem_t * temp = artsRouteTableSearchForKey(routeTable, key, allocatedKey);
+            if(temp && used)
+                incItem(temp, 1, temp->key, routeTable);
+            *item = temp;
         }
     }
 //    printState(artsRouteTableSearchForKey(routeTable, key, anyKey));
@@ -917,7 +925,7 @@ void artsCleanUpDbs()
     uint64_t freeSize = 0;
     for(unsigned int i=0; i<artsNodeInfo.totalThreadCount; i++)
         freeSize += artsCleanUpRouteTable(artsNodeInfo.routeTable[i]);
-    artsCleanUpRouteTable(artsNodeInfo.remoteRouteTable);
+    // artsCleanUpRouteTable(artsNodeInfo.remoteRouteTable);
     PRINTF("Cleaned %lu bytes\n", freeSize);
 }
 

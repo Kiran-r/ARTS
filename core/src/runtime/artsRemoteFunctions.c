@@ -251,7 +251,7 @@ void artsRemoteHandleUpdateDb(void * ptr)
             memcpy(ptr, packetDb, db->header.size - sizeof(struct artsDb));
             artsRouteTableSetRank(packet->guid, artsGlobalRankId);
             artsProgressFrontier(db, artsGlobalRankId);
-            artsRouteTableDecItem(packet->guid, dataPtr);
+            // artsRouteTableDecItem(packet->guid, dataPtr);
         }
         else
         {
@@ -503,7 +503,7 @@ void artsRemoteHandleDbRecieved(struct artsRemoteDbSendPacket * packet)
         artsRouteTableFireOO(packetDb->guid, artsOutOfOrderHandler);
     }
     
-    artsRouteTableDecItem(packetDb->guid, dataPtr);
+    // artsRouteTableDecItem(packetDb->guid, dataPtr);
 }
 
 void artsRemoteDbFullRequest(artsGuid_t dataGuid, int rank, struct artsEdt * edt, int pos, artsType_t mode)
@@ -607,8 +607,8 @@ void artsRemoteHandleDbFullRecieved(struct artsRemoteDbFullSendPacket * packet)
     if(artsRouteTableUpdateItem(packetDb->guid, (void*)dbRes, artsGlobalRankId, state))
         artsRouteTableFireOO(packetDb->guid, artsOutOfOrderHandler);
     artsDbRequestCallback(packet->edt, packet->slot, dbRes);
-    if(dec)
-        artsRouteTableDecItem(packetDb->guid, dataPtr);
+    // if(dec)
+    //     artsRouteTableDecItem(packetDb->guid, dataPtr);
 }
 
 void artsRemoteSendAlreadyLocal(int rank, artsGuid_t guid, struct artsEdt * edt, unsigned int slot, artsType_t mode)

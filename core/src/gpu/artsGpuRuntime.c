@@ -76,7 +76,8 @@ void * artsCudaMallocHost(unsigned int size)
 
 void artsCudaFreeHost(void * ptr)
 {
-    CHECKCORRECT(cudaFreeHost(ptr));
+    if(ptr)
+        CHECKCORRECT(cudaFreeHost(ptr));
     // artsFree(ptr);
 }
 
@@ -95,7 +96,8 @@ void * artsCudaMalloc(unsigned int size)
 
 void artsCudaFree(void * ptr)
 {
-    CHECKCORRECT(cudaFree(ptr));
+    if(ptr)
+        CHECKCORRECT(cudaFree(ptr));
 }
 
 dim3 * artsGetGpuGrid()
@@ -197,7 +199,6 @@ void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
         unsigned int freeMemSize = artsGpuCleanUpRouteTable((unsigned int) -1, artsNodeInfo.deleteZerosGpuGc, (unsigned int) artsGpu->device);
         artsAtomicAddSizet(&artsGpu->availGlobalMem, freeMemSize);
         artsAtomicAdd(&freeBytes, freeMemSize);
-        artsAtomicAddSizet(&artsGpu->availGlobalMem, freeMemSize);
     }
 
     artsAtomicAdd(&artsGpu->runningEdts, 1U);
@@ -271,17 +272,21 @@ bool artsGpuSchedulerLoop()
             edtFound = artsRuntimeStealGpuTask();
     }
 
+    bool ranGpuEdt = false;
     if(edtFound)
     {
         artsGpu = artsFindGpu(edtFound);
         if (artsGpu)
+        {
             artsRunGpu(edtFound, artsGpu);
+            ranGpuEdt = true;
+        }
         else
             artsDequePushFront(artsThreadInfo.myGpuDeque, edtFound, 0);
     }
 
     bool ranCpuEdt = artsDefaultSchedulerLoop();
-    if(artsNodeInfo.runGpuGcIdle && !ranCpuEdt)
+    if(artsNodeInfo.runGpuGcIdle && !ranGpuEdt && !ranCpuEdt)
     {
         long unsigned int gpuId = jrand48(artsThreadInfo.drand_buf);
         gpuId = gpuId % artsNodeInfo.gpu;

@@ -70,7 +70,7 @@ void initMatrix(unsigned int rowSize, double * mat, bool identity, bool zero)
                     mat[i*rowSize + j] = 0;
             }
             else
-                mat[i*rowSize + j] =rand()%10;
+                mat[i*rowSize + j] = rand()%10;
         }
     }
 }

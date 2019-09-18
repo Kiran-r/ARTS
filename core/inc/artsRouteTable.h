@@ -110,7 +110,7 @@ struct artsRouteTable
     setRouteItem_t setFunc;
     freeRouteItem_t freeFunc;
     newRouteTable_t newFunc;
-} __attribute__ ((aligned));
+}; // __attribute__ ((aligned));
 
 typedef struct {
     uint64_t index;

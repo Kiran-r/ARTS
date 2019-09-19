@@ -43,7 +43,8 @@
 extern "C" {
 #endif
 
-#include <cuda_runtime.h>    
+#include <cuda_runtime.h>
+#include <device_launch_parameters.h>
 #include "artsRT.h"
 #include "artsGpuStream.h"
     

@@ -59,6 +59,7 @@ int atleastOne(void * edtPacket);
 int firstFit(uint64_t mask, size_t size);
 int bestFit(uint64_t mask, size_t size);
 int worstFit(uint64_t mask, size_t size);
+int roundRobinFit(uint64_t mask, size_t size);
 bool tryReserve(int gpu, size_t size);
 
 volatile unsigned int hits = 0;
@@ -82,7 +83,8 @@ typedef int (*fit_t) (uint64_t mask, size_t size);
 fit_t fitScheme[] = {
     firstFit,
     bestFit,
-    worstFit
+    worstFit,
+    roundRobinFit
 };
 
 fit_t fit; // Fit function ptr
@@ -200,6 +202,7 @@ void artsCleanupGpus()
     }
     CHECKCORRECT(cudaSetDevice(savedDevice));
     PRINTF("HITS: %u MISSES: %u FREED BYTES: %u BYTES FREED ON EXIT %u\n", hits, misses, freeBytes, freedSize);
+    PRINTF("HIT RATIO: %lf\n", (double)hits/(double)(hits+misses));
 }
 
 void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data)
@@ -439,6 +442,7 @@ bool tryReserve(int gpu, size_t size)
         }
     }
     artsAtomicSub(&artsGpu->availableEdtSlots, 1U);
+    DPRINTF("Failed to reserve %lu of available %lu on GPU[%d]\n", size, artsGpu->availGlobalMem, artsGpu->device);
     return false;
 }
 
@@ -448,6 +452,24 @@ int firstFit(uint64_t mask, size_t size)
     for (int i = 0; i < artsNodeInfo.gpu; i++)
     {
         int index = (i+random) % artsNodeInfo.gpu;
+        uint64_t checkMask = 1 << index;
+        if (mask && checkMask)
+            if (tryReserve(index, size))
+            {
+                DPRINTF("Reserved Successfully on %u\n", index);
+                return index;
+            }
+    }
+    return -1;
+}
+
+int roundRobinFit(uint64_t mask, size_t size)
+{
+    static volatile unsigned int next = 0;
+    unsigned int start = artsAtomicFetchAdd(&next, 1U);
+    for (int i = 0; i < artsNodeInfo.gpu; i++)
+    {
+        int index = (i+start) % artsNodeInfo.gpu;
         uint64_t checkMask = 1 << index;
         if (mask && checkMask)
             if (tryReserve(index, size))
@@ -477,6 +499,8 @@ int bestFit(uint64_t mask, size_t size)
             }
             if (tryReserve(index, size))
             {
+                // If successful relinquish previous allocation.
+                artsAtomicAddSizet(&artsGpus[selectedGpu].availGlobalMem, size);
                 selectedGpu = index;
                 selectedGpuAvailSize = artsGpus[index].availGlobalMem;
             }
@@ -503,6 +527,8 @@ int worstFit(uint64_t mask, size_t size)
             }
             if (tryReserve(index, size))
             {
+                // If successful relinquish previous allocation.
+                artsAtomicAddSizet(&artsGpus[selectedGpu].availGlobalMem, size);
                 selectedGpu = index;
                 selectedGpuAvailSize = artsGpus[index].availGlobalMem;
             }

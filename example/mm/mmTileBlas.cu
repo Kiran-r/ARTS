@@ -48,6 +48,7 @@
 #define MATSIZE 1024
 #define TILESIZE 16
 #define VERIFY 1
+#define SMTILE 32
 
 uint64_t start = 0;
 
@@ -222,8 +223,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     }
 
     uint64_t sumArgs[] = {tileSize};
-    dim3 threads(tileSize, tileSize);
-    dim3 grid(1, 1);
+    dim3 threads(SMTILE, SMTILE);
+    dim3 grid(tileSize/SMTILE, tileSize/SMTILE);
 
     for(unsigned int i=0; i<numBlocks; i++)
     {
@@ -231,7 +232,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         {
             if((i * numBlocks + j) % totalThreads == globalThreadId)
             {
-                artsGuid_t sumGuid = artsEdtCreateGpuPT (sumMMKernel, nodeId, 1, sumArgs, numBlocks, threads, grid, doneGuid, 3 + (i * numBlocks + j), 0);
+                artsGuid_t sumGuid = artsEdtCreateGpuPT (sumMMKernel, nodeId, 1, sumArgs, numBlocks, grid, threads, doneGuid, 3 + (i * numBlocks + j), 0);
                 for(unsigned int k=0; k<numBlocks; k++)
                 {
                     uint64_t args[] = {sumGuid, i, j, k};

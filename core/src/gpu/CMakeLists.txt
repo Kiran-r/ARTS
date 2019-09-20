@@ -39,12 +39,14 @@
 if(CUDA_FOUND)
     set(gpu_inc 
         ${CORE_INCLUDE_DIR}/artsGpuStream.h
+        ${CORE_INCLUDE_DIR}/artsGpuStreamBuffer.h
         ${CORE_INCLUDE_DIR}/artsGpuRuntime.h
         ${CORE_INCLUDE_DIR}/artsGpuRouteTable.h
         )
 
     set(gpu_src
         artsGpuStream.c
+        artsGpuStreamBuffer.c
         artsGpuRuntime.c
         artsGpuRouteTable.c
         )

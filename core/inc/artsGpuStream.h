@@ -83,7 +83,7 @@ void artsWorkerInitGpus();
 void artsCleanupGpus();
 void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, dim3 grid, dim3 block, void * edtPtr, artsGpu_t * artsGpu);
 void artsScheduleToGpu(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, void * edtPtr, artsGpu_t * artsGpu);
-
+void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data);
 void artsGpuSynchronize(artsGpu_t * artsGpu);
 void artsGpuStreamBusy(artsGpu_t* artsGpu);
 artsGpu_t * artsGpuScheduled(unsigned id);

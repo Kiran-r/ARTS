@@ -50,6 +50,11 @@ if(CUDA_FOUND)
     set_source_files_properties(mmTile.cu PROPERTIES LANGUAGE CUDA)
     add_executable(mmTile mmTile.cu)
     target_link_libraries(mmTile mmUtil ${LIBS})
+
+    set_source_files_properties(mmTileRed.cu PROPERTIES LANGUAGE CUDA)
+    add_executable(mmTileRed mmTileRed.cu)
+    target_link_libraries(mmTileRed mmUtil ${LIBS})
+
     if(CUBLAS_FOUND)
         set_source_files_properties(mmTileBlas.cu PROPERTIES LANGUAGE CUDA)
         add_executable(mmTileBlas mmTileBlas.cu)

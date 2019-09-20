@@ -48,14 +48,20 @@
 
 uint64_t start = 0;
 
-unsigned int mat_size;
-unsigned int tile_size;
+unsigned int matSize;
+unsigned int tileSize;
 unsigned int numBlocks = 1;
 
 artsGuid_t aMatGuid = NULL_GUID;
 artsGuid_t bMatGuid = NULL_GUID;
 artsGuid_t cMatGuid = NULL_GUID;
 artsGuid_t doneGuid = NULL_GUID;
+
+void shutdown(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
+{
+    PRINTF("SHUTDOWN\n");
+    artsShutdown();
+}
 
 __global__ void sumMMKernel(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
@@ -89,54 +95,93 @@ unsigned int reserveEdtGuids(artsGuid_t * allGuids, unsigned int index, artsType
     //left Rank    
     unsigned int rank = reserveEdtGuids(allGuids, left(index), edtType);
     //always reserve left rank
-    artsReserveGuidRoute(edtType, rank);
+    allGuids[index] = artsReserveGuidRoute(edtType, rank);
+    PRINTF("edt: %d -> %lu\n", index, allGuids[index]);
     //visit right rank
     reserveEdtGuids(allGuids, right(index), edtType);
     return rank;
 }
 
-// binaryReductionTree_t * initBinaryReductionTree(unsigned int numLeaves, artsType_t dbType, artsType_t edtType)
-// {
-//     binaryReductionTree_t * tree = (binaryReductionTree_t*) artsCalloc(sizeof(binaryReductionTree_t));
-//     tree->numLeaves = numLeaves;
-//     tree->totalNodes = 2 * numLeaves - 1;
-//     tree->interiorNodes = tree->totalNodes - tree->numLeaves;
+binaryReductionTree_t * initBinaryReductionTree(unsigned int numLeaves, artsEdt_t funPtr, artsType_t dbType, artsType_t edtType, uint32_t paramc, uint64_t * paramv, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot)
+{
+    binaryReductionTree_t * tree = (binaryReductionTree_t*) artsCalloc(sizeof(binaryReductionTree_t));
+    tree->numLeaves = numLeaves;
+    tree->totalNodes = 2 * numLeaves - 1;
+    tree->interiorNodes = tree->totalNodes - tree->numLeaves;
 
-//     artsGuid_t * allGuids = (artsGuid_t*) artsCalloc(sizeof(artsGuid_t) * tree->totalNodes);
+    //Create space for all the guids
+    artsGuid_t * allGuids = (artsGuid_t*) artsCalloc(sizeof(artsGuid_t) * tree->totalNodes);
+    tree->redDbGuids = &allGuids[tree->interiorNodes];
+    tree->redEdtGuids = allGuids;
 
-//     for(unsigned int i=0; i<tree->numLeaves; i++)
-//         allGuids[tree->interiorNodes + i] = artsReserveGuidRoute(dbType, i % artsGetTotalNodes());
+    //Reserves the db guids
+    for(unsigned int i=0; i<tree->numLeaves; i++)
+        allGuids[tree->interiorNodes + i] = artsReserveGuidRoute(dbType, i % artsGetTotalNodes());
 
-//     reserveEdtGuids(allGuids, 0, edtType);
+    //Reserves the edt guids
+    reserveEdtGuids(allGuids, 0, edtType);
 
-//     for(unsigned int i=0; i<tree->totalNodes; i++)
-//         PRINTF("i: %u rank: %u type: %u\n", i, artsGuidGetRank(allGuids[i]), artsGuidGetType(allGuids[i]));
+    //Check all the guids
+    for(unsigned int i=0; i<tree->totalNodes; i++)
+        PRINTF("i: %u guid: %lu rank: %u type: %u\n", i, allGuids[i], artsGuidGetRank(allGuids[i]), artsGuidGetType(allGuids[i]));
 
-//     tree->redEdtGuids = (artsGuid_t*) artsCalloc(sizeof(artsGuid_t) * tree->interiorNodes);
-//     for(unsigned int i=0; i<tree->interiorNodes; i++)
-//     {
-//         tree->redEdtGuids[i] = allGuids[i];
-//         if(artsIsGuidLocal(tree->redEdtGuids[i]))
-//             artsEdtCreateGpuPTWithGuid(functPtr, tree->redEdtGuids[i], )
-//     }
-    
-//     tree->redDbGuids = (artsGuid_t*) artsCalloc(sizeof(artsGuid_t) * tree->numLeaves);
-//     for(unsigned int i=0; i<tree->numLeaves; i++)
-//         tree->redDbGuids[i] = allGuids[tree->interiorNodes + i] = artsReserveGuidRoute(dbType, i % artsGetTotalNodes());
+    //Set up the signals
+    for(unsigned int i=0; i<tree->interiorNodes; i++)
+    {
+        if(artsIsGuidLocal(tree->redEdtGuids[i]))
+        {
+            if(!i)
+            {
+                PRINTF("Last: %lu -> %lu slot: %u\n", tree->redEdtGuids[i], endGuid, slot);
+                artsEdtCreateGpuPTWithGuid(funPtr, tree->redEdtGuids[i], paramc, paramv, 2, grid, block, endGuid, 0, slot);
+            }
+            else
+            {
+                int parentIndex = parent(i);
+                bool isRight = right(parentIndex) == i;
+                artsGuid_t toSignal = tree->redEdtGuids[parentIndex];
+                int toSignalSlot = (isRight) ? 1 : 0;
+                PRINTF("%lu -> %lu slot: %u parent: %d\n", tree->redEdtGuids[i], toSignal, toSignalSlot, parentIndex);
+                artsEdtCreateGpuPTWithGuid(funPtr, tree->redEdtGuids[i], paramc, paramv, 2, grid, block, toSignal, 0, toSignalSlot);
+            }
+        }
+    }
 
-//     artsFree(allGuids);
-//     return tree;
-// }
+    return tree;
+}
+
+void fireBinaryReductionTree(binaryReductionTree_t * tree)
+{
+    //Signal the top edts
+    for(unsigned int i=0; i<tree->numLeaves; i++)
+    {
+        int index = tree->interiorNodes + i;
+        int parentIndex = parent(index);
+        bool isRight = right(parentIndex) == i;
+        artsGuid_t toSignal = tree->redEdtGuids[parentIndex];
+        int toSignalSlot = (isRight) ? 1 : 0;
+        artsSignalEdt(toSignal, toSignalSlot, tree->redDbGuids[i]);
+    }
+}
 
 extern "C"
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    // initBinaryReductionTree(10, ARTS_DB_GPU_WRITE, ARTS_GPU_EDT);
+    artsGuid_t doneGuid = artsReserveGuidRoute(ARTS_EDT, 0);
+
+    uint64_t sumArgs[] = {tileSize};
+    dim3 threads(tileSize, tileSize);
+    dim3 grid(1, 1);
+    PRINTF("doneGuid: %lu\n", doneGuid);
+    initBinaryReductionTree(8, sumMMKernel, ARTS_DB_GPU_WRITE, ARTS_GPU_EDT, 1, sumArgs, grid, threads, doneGuid, 0);
+
 }
 
 extern "C"
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
 {   
+    if(!nodeId && !workerId)
+        artsEdtCreateWithGuid(shutdown, doneGuid, 0, NULL, 1);
     artsShutdown();
 }
 

@@ -43,6 +43,7 @@
 //stream.  Then we will push stuff!
 #include "artsGpuRuntime.h"
 #include "artsGpuStream.h"
+#include "artsGpuStreamBuffer.h"
 #include "artsEdtFunctions.h"
 #include "artsDbFunctions.h"
 #include "artsRuntime.h"
@@ -284,6 +285,9 @@ bool artsGpuSchedulerLoop()
         else
             artsDequePushFront(artsThreadInfo.myGpuDeque, edtFound, 0);
     }
+
+    if(!ranGpuEdt)
+        checkStreams(artsNodeInfo.gpuBuffOn);
 
     bool ranCpuEdt = artsDefaultSchedulerLoop();
     if(artsNodeInfo.runGpuGcIdle && !ranGpuEdt && !ranCpuEdt)

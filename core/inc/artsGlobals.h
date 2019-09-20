@@ -104,6 +104,7 @@ struct artsRuntimeShared
     bool runGpuGcIdle;
     bool runGpuGcPreEdt;
     bool deleteZerosGpuGc;
+    bool gpuBuffOn;
     unsigned int pinThreads;
     uint64_t ** keys;
     uint64_t * globalGuidThreadId;

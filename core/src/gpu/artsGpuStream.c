@@ -43,6 +43,7 @@
 //stream.  Then we will push stuff!
 #include "artsDbFunctions.h"
 #include "artsGpuStream.h"
+#include "artsGpuStreamBuffer.h"
 #include "artsGpuRuntime.h"
 #include "artsGlobals.h"
 #include "artsDeque.h"
@@ -299,6 +300,8 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
         DPRINTF("Added edtGuid: %lu size: %u to gpu: %d routing table\n", edtGuid, hostClosureSize, artsGpu->device);        
     }
 
+     artsGpuEdt_t * gpuEdt = (artsGpuEdt_t*) hostGCPtr->edt;
+
     //Allocate space for DB on GPU and Move Data
     for (unsigned int i=0; i<depc; ++i)
     {
@@ -316,7 +319,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
                 {
                     DPRINTF("Adding %lu %u id: %d\n", depv[i].guid, size, artsGpu->device);
                     dataPtr = artsCudaMalloc(size);
-                    CHECKCORRECT(cudaMemcpyAsync(dataPtr, depv[i].ptr, size, cudaMemcpyHostToDevice, artsGpu->stream));
+                    pushDataToStream(artsGpu->device, dataPtr, depv[i].ptr, size, artsNodeInfo.gpuBuffOn && !gpuEdt->lib);
                     //Must have already launched the memcpy before setting realData or races will ensue
                     wrapper->realData = dataPtr;
                     artsAtomicAdd(&misses, 1U);
@@ -345,10 +348,9 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     }
     DPRINTF("Allocated, added, and moved dbs\n");
     
-    CHECKCORRECT(cudaMemcpyAsync(devClosure, (void*)hostParamv, devClosureSize, cudaMemcpyHostToDevice, artsGpu->stream));
+    pushDataToStream(artsGpu->device, devClosure, (void*)hostParamv, devClosureSize, artsNodeInfo.gpuBuffOn && !gpuEdt->lib);
     DPRINTF("Filled GPU Closure\n");
 
-    artsGpuEdt_t * gpuEdt = (artsGpuEdt_t*) hostGCPtr->edt;
     if(gpuEdt->lib)
     {
         artsLocalGrid = &gpuEdt->grid;
@@ -364,9 +366,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     }
     else
     {
-        //Launch kernel. TODO(kiran): Support shared memory and library API calls.
-        void * kernelArgs[] = { &paramc, &devParamv, &depc, &devDepv };
-        CHECKCORRECT(cudaLaunchKernel((const void *)fnPtr, grid, block, (void**)kernelArgs, (size_t)0, artsGpu->stream));
+        pushKernelToStream(artsGpu->device, paramc, devParamv, depc, devDepv, fnPtr, grid, block, artsNodeInfo.gpuBuffOn);
     }
     
     //Move data back
@@ -376,18 +376,12 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
         {
             struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
             size_t size = (size_t) (db->header.size - sizeof(struct artsDb));
-            CHECKCORRECT(cudaMemcpyAsync(depv[i].ptr, hostDepv[i].ptr, size, cudaMemcpyDeviceToHost, artsGpu->stream));
+            getDataFromStream(artsGpu->device, depv[i].ptr, hostDepv[i].ptr, size, artsNodeInfo.gpuBuffOn && !gpuEdt->lib);
             // CHECKCORRECT(cudaStreamSynchronize(artsGpu->stream));
         }
     }
 
-#if CUDART_VERSION >= 10000
-    // CHECKCORRECT(cudaLaunchHostFunc(artsGpu->stream, artsGpuUnschedule, (void*)artsGpu));
-    CHECKCORRECT(cudaLaunchHostFunc(artsGpu->stream, artsWrapUp, hostClosure));
-#else
-    // CHECKCORRECT(cudaStreamAddCallback(artsGpu->stream, artsGpuUnschedule, (void*)artsGpu, 0));
-    CHECKCORRECT(cudaStreamAddCallback(artsGpu->stream, artsWrapUp, hostClosure, 0));
-#endif
+    pushWrapUpToStream(artsGpu->device, hostClosure, artsNodeInfo.gpuBuffOn && !gpuEdt->lib);
 }
 
 void artsScheduleToGpu(artsEdt_t fnPtr, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, void * edtPtr, artsGpu_t * artsGpu)

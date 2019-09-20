@@ -936,6 +936,11 @@ struct artsConfig * artsConfigLoad()
     else
         config->deleteZerosGpuGc = true;
 
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"gpuBuffOn")) != NULL)
+        config->gpuBuffOn = strtol( foundVariable->value, &end , 10) > 0;
+    else
+        config->gpuBuffOn = false;
+
     //WARNING: Slurm Launcher Set!  
     if (strncmp(config->launcher, "slurm", 5) == 0) 
     {

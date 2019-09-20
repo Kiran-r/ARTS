@@ -36,96 +36,60 @@
 ** WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the  **
 ** License for the specific language governing permissions and limitations   **
 ******************************************************************************/
-#ifndef ARTSCONFIG_H
-#define ARTSCONFIG_H
+#ifndef ARTSGPUSTREAMBUFFER_H
+#define ARTSGPUSTREAMBUFFER_H
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "arts.h"
-#include "artsRemoteLauncher.h"
+#include <cuda_runtime.h>    
+#include "artsRT.h"
 
-struct artsConfigTable
+typedef struct 
 {
-    unsigned int rank;
-    char * ipAddress;
-};
+    void * dst;
+    void * src;
+    size_t count;
+} artsBufferMemMove_t;
 
-struct artsConfigVariable
+
+typedef struct
 {
-    unsigned int size;
-    struct artsConfigVariable * next;
-    char variable[255];
-    char value[];
-};
+    uint32_t paramc;
+    uint64_t * paramv; 
+    uint32_t depc;
+    artsEdtDep_t * depv;
+    artsEdt_t fnPtr;
+    unsigned int grid[3];
+    unsigned int block[3];
+} artsBufferKernel_t;
 
-struct artsConfig
-{
-    unsigned int myRank;
-    char * masterNode;
-    char * myIPAddress;
-    char * netInterface;
-    char * protocol;
-    char * launcher;
-    unsigned int ports;
-    unsigned int osThreadCount;
-    unsigned int threadCount;
-    unsigned int coreCount;
-    unsigned int recieverCount;
-    unsigned int senderCount;
-    unsigned int socketCount;
-    unsigned int nodes;
-    unsigned int masterRank;
-    unsigned int port;
-    unsigned int killMode;
-    unsigned int routeTableSize;
-    unsigned int routeTableEntries;
-    unsigned int dequeSize;
-    unsigned int introspectiveTraceLevel;
-    unsigned int introspectiveStartPoint;
-    unsigned int counterStartPoint;
-    unsigned int printNodeStats;
-    unsigned int scheduler;
-    unsigned int shutdownEpoch;
-    char * prefix;
-    char * suffix;
-    bool ibNames;
-    bool masterBoot;
-    bool coreDump;
-    unsigned int pinStride;
-    bool printTopology;
-    bool pinThreads;
-    unsigned int firstEdt;
-    unsigned int shadLoopStride;
-    uint64_t stackSize;
-    struct artsRemoteLauncher * launcherData;
-    char * introspectiveFolder;
-    char * introspectiveConf;
-    char * counterFolder;
-    unsigned int tableLength;
-    unsigned int tMT;  // @awmm temporal MT; # of MT aliases per core thread; 0 if disabled
-    unsigned int coresPerNetworkThread;
-    unsigned int gpu;
-    unsigned int gpuLocality;
-    unsigned int gpuFit;
-    unsigned int gpuMaxEdts;
-    size_t gpuMaxMemory;
-    bool gpuP2P;
-    bool gpuBuffOn;
-    unsigned int gpuRouteTableSize;
-    unsigned int gpuRouteTableEntries;
-    bool freeDbAfterGpuRun;
-    bool runGpuGcPreEdt;
-    bool runGpuGcIdle;
-    bool deleteZerosGpuGc;
-    struct artsConfigTable * table;
-};
+// CHECKCORRECT(cudaMemcpyAsync(dataPtr, depv[i].ptr, size, cudaMemcpyHostToDevice, artsGpu->stream));
+bool pushDataToStream(unsigned int gpuId, void * dst, void * src, size_t count, bool buff);
+bool getDataFromStream(unsigned int gpuId, void * dst, void * src, size_t count, bool buff);
 
-struct artsConfig * artsConfigLoad();
-void artsConfigDestroy( void * config );
-unsigned int artsConfigGetNumberOfThreads(char * location);
+//  void * kernelArgs[] = { &paramc, &devParamv, &depc, &devDepv };
+// CHECKCORRECT(cudaLaunchKernel((const void *)fnPtr, grid, block, (void**)kernelArgs, (size_t)0, artsGpu->stream));
+bool pushKernelToStream(unsigned int gpuId, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, artsEdt_t fnPtr, dim3 grid, dim3 block, bool buff);
+
+// #if CUDART_VERSION >= 10000
+//     CHECKCORRECT(cudaLaunchHostFunc(artsGpu->stream, artsWrapUp, hostClosure));
+// #else
+//     CHECKCORRECT(cudaStreamAddCallback(artsGpu->stream, artsWrapUp, hostClosure, 0));
+// #endif
+bool pushWrapUpToStream(unsigned int gpuId, void * hostClosure, bool buff);
+
+bool flushMemStream(unsigned int gpuId, unsigned int * count, artsBufferMemMove_t * buff, enum cudaMemcpyKind kind);
+bool flushKernelStream(unsigned int gpuId);
+bool flushWrapUpStream(unsigned int gpuId);
+
+bool flushStream(unsigned int gpuId);
+bool checkStreams(bool buffOn);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif /* ARTSGPUSTREAMBUFFER_H */
+

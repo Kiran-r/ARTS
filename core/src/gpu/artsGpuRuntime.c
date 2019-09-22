@@ -237,6 +237,8 @@ void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, arts
                 artsSignalEdt(toSignal, slot, dataGuid);
             if(mode == ARTS_EVENT)
                 artsEventSatisfySlot(toSignal, dataGuid, slot);
+            if(mode == ARTS_BUFFER) //This is for us to be able to block in a host edt
+                artsSetBuffer(toSignal, 0, sizeof(unsigned int));
         }
     }
 

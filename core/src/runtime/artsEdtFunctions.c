@@ -474,7 +474,7 @@ artsGuid_t artsAllocateLocalBuffer(void ** buffer, unsigned int size, unsigned i
     }
     
     artsBuffer_t * stub = artsMalloc(sizeof(artsBuffer_t));
-    stub->buffer = *buffer;
+    stub->buffer = (buffer) ? *buffer : NULL;
     stub->sizeToWrite = NULL;
     stub->size = size;
     stub->uses = uses;
@@ -517,10 +517,16 @@ void * artsSetBuffer(artsGuid_t bufferGuid, void * buffer, unsigned int size)
             
             if(stub->sizeToWrite)
                 *stub->sizeToWrite = (uint32_t)size;
-            
-            memcpy(stub->buffer, buffer, stub->size);
-//            PRINTF("Set buffer %p %u %u\n", stub->buffer, *((unsigned int*)stub->buffer), stub->size);
-            ret = stub->buffer;
+
+            if(stub->buffer)
+            {
+                memcpy(stub->buffer, buffer, stub->size);
+                DPRINTF("Set buffer %p %u %u\n", stub->buffer, *((unsigned int*)stub->buffer), stub->size);
+                ret = stub->buffer;
+            }
+            else
+                ret = NULL;
+
             if(!artsAtomicSub(&stub->uses, 1))
             {
                 artsRouteTableRemoveItem(bufferGuid);
@@ -549,6 +555,27 @@ void * artsGetBuffer(artsGuid_t bufferGuid)
     if(artsIsGuidLocal(bufferGuid))
     {
         artsBuffer_t * stub = artsRouteTableLookupItem(bufferGuid);
+        buffer = stub->buffer;
+        if(!artsAtomicSub(&stub->uses, 1))
+        {
+            artsRouteTableRemoveItem(bufferGuid);
+            artsFree(stub);
+        }
+    }
+    return buffer;
+}
+
+void * artsBlockForBuffer(artsGuid_t bufferGuid)
+{
+    void * buffer = NULL;
+    if(artsIsGuidLocal(bufferGuid))
+    {
+        artsBuffer_t * stub = artsRouteTableLookupItem(bufferGuid);
+        while(stub->uses > 1)
+        {
+            DPRINTF("Yeild: %u\n", stub->uses);
+            artsYield();
+        }
         buffer = stub->buffer;
         if(!artsAtomicSub(&stub->uses, 1))
         {

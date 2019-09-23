@@ -36,15 +36,40 @@
 ** WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the  **
 ** License for the specific language governing permissions and limitations   **
 ******************************************************************************/
-#ifndef MMUTIL_H
-#define MMUTIL_H
+#ifndef STREAMUTIL_H
+#define STREAMUTIL_H
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void printMatrix(unsigned int rowSize, double * mat);
-void initMatrix(unsigned int rowSize, double * mat, bool identity, bool zero);
-void copyBlock(unsigned int x, unsigned int y, unsigned int tileRowSize, double * tile, unsigned int rowSize, double * mat, bool toTile);
+# include <math.h>
+# include <float.h>
+# include <limits.h>
+# include <sys/time.h>
+
+# define N	2000000
+# define NTIMES	10
+# define OFFSET	0
+
+#define M 20
+
+#define THREADSPERBLOCK 1
+
+# define HLINE "-------------------------------------------------------------\n"
+
+# ifndef MIN
+# define MIN(x,y) ((x)<(y)?(x):(y))
+# endif
+# ifndef MAX
+# define MAX(x,y) ((x)>(y)?(x):(y))
+# endif
+
+void launch2KernelEdt(artsEdt_t funPtr, unsigned int tileSize, unsigned int totalSize, double scalar, artsGuidRange * aGuid, artsGuidRange * bGuid);
+void launch3KernelEdt(artsEdt_t funPtr, unsigned int tileSize, unsigned int totalSize, double scalar, artsGuidRange * aGuid, artsGuidRange * bGuid, artsGuidRange * cGuid);
+
+int checktick();
+double mysecond();
+void checkSTREAMresults(unsigned int tileSize, unsigned int totalSize, double **aTiles, double **bTiles, double **cTiles);
 
 #ifdef __cplusplus
 }

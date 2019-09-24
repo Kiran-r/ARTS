@@ -187,8 +187,8 @@ bool flushKernelStream(unsigned int gpuId)
             &kernelToDevBuff[gpuId][i].paramv, 
             &kernelToDevBuff[gpuId][i].depc, 
             &kernelToDevBuff[gpuId][i].depv };
-        dim3 grid = {kernelToDevBuff[gpuId][i].grid[0], kernelToDevBuff[gpuId][i].grid[1], kernelToDevBuff[gpuId][i].grid[2]};
-        dim3 block = {kernelToDevBuff[gpuId][i].block[0], kernelToDevBuff[gpuId][i].block[1], kernelToDevBuff[gpuId][i].block[2]};
+        dim3 grid(kernelToDevBuff[gpuId][i].grid[0], kernelToDevBuff[gpuId][i].grid[1], kernelToDevBuff[gpuId][i].grid[2]);
+        dim3 block(kernelToDevBuff[gpuId][i].block[0], kernelToDevBuff[gpuId][i].block[1], kernelToDevBuff[gpuId][i].block[2]);
         CHECKCORRECT(cudaLaunchKernel((const void *)kernelToDevBuff[gpuId][i].fnPtr, grid, block, (void**)kernelArgs, (size_t)0, artsGpus[gpuId].stream));
     }
     kernelToDevCount[gpuId] = 0;

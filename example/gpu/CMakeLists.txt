@@ -36,7 +36,13 @@
 ## WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 ## License for the specific language governing permissions and limitations
 ###############################################################################
-add_subdirectory(cpu)
-if(CUDA_FOUND)
-  add_subdirectory(gpu)
-endif()
+
+set(LIBS arts ${M_LIB} ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC_LIB} ${CUDA_LIBRARIES} ${CUBLAS_LIBRARIES})
+
+set_source_files_properties(fibGpu.cu PROPERTIES LANGUAGE CUDA)
+add_executable(fibGpu fibGpu.cu)
+target_link_libraries(fibGpu ${LIBS})
+
+add_subdirectory(mm)
+add_subdirectory(stream)
+

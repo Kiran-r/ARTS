@@ -92,7 +92,7 @@ static double avgtime[4] = {0};
 static double maxtime[4] = {0};
 static double mintime[4] = {FLT_MAX,FLT_MAX,FLT_MAX,FLT_MAX};
 
-static char	* label[4] = {
+static const char	* label[4] = {
     "Copy:      ", 
     "Scale:     ", 
     "Add:       ", 

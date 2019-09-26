@@ -43,7 +43,7 @@
 extern "C" {
 #endif
 
-#include <cuda_runtime.h>    
+#include <cuda_runtime.h>
 #include "artsRT.h"
 #include "artsAtomics.h"
 #include "artsArrayList.h"
@@ -69,6 +69,10 @@ typedef struct
     int device;
     volatile size_t availGlobalMem;
     volatile size_t totalGlobalMem;
+    struct cudaDeviceProp prop;
+    volatile float occupancy;
+    volatile unsigned int deviceLock;
+    volatile unsigned int totalEdts;
     volatile unsigned int availableEdtSlots;
     volatile unsigned int runningEdts;
     cudaStream_t stream;

@@ -41,6 +41,7 @@
 #include "arts.h"
 #include "artsGpuRuntime.h"
 #include "cublas_v2.h"
+#include "cublas_api.h"
 #include <cuda_runtime.h>
 
 #define IDX2C(i, j, ld) (((j) * (ld)) + (i))
@@ -48,12 +49,16 @@
 #define n 4    // b - kxn matrix
 #define k 5    // c - mxn matrix
 
+#define CHECKCUBLASERROR(x) {                   \
+  cublasStatus_t err;                           \
+  if( (err = (x)) != CUBLAS_STATUS_SUCCESS )    \
+    PRINTF("FAILED %s: %s\n", #x, err);         \
+}
+
 cublasHandle_t * handle;
 
 void work(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    cudaError_t    cudaStat;                      // cudaMalloc status
-    cublasStatus_t stat;                          // CUBLAS functions status
     int            i, j;                          // i-row index ,j- column index
     float*         a;                             // mxk matrix a on the host
     float*         b;                             // kxn matrix b on the host
@@ -116,28 +121,28 @@ void work(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]
         printf("\n");
     }
     // on the device
-    float* d_a;                                                 // d_a - a on the device
-    float* d_b;                                                 // d_b - b on the device
-    float* d_c;                                                 // d_c - c on the device
-    cudaStat = cudaMalloc((void**)&d_a, m * k * sizeof(*a));    // device
+    float* d_a;                                                      // d_a - a on the device
+    float* d_b;                                                      // d_b - b on the device
+    float* d_c;                                                      // d_c - c on the device
+    CHECKCORRECT(cudaMalloc((void**)&d_a, m * k * sizeof(*a)));    // device
     // memory alloc for a
-    cudaStat = cudaMalloc((void**)&d_b, k * n * sizeof(*b));    // device
+    CHECKCORRECT(cudaMalloc((void**)&d_b, k * n * sizeof(*b)));         // device
     // memory alloc for b
-    cudaStat = cudaMalloc((void**)&d_c, m * n * sizeof(*c));    // device
+    CHECKCORRECT(cudaMalloc((void**)&d_c, m * n * sizeof(*c)));         // device
     // memory alloc for c
         // initialize CUBLAS context
 
     // copy matrices from the host to the device
-    stat      = cublasSetMatrix(m, k, sizeof(*a), a, m, d_a, m);    //a -> d_a
-    stat      = cublasSetMatrix(k, n, sizeof(*b), b, k, d_b, k);    //b -> d_b
-    stat      = cublasSetMatrix(m, n, sizeof(*c), c, m, d_c, m);    //c -> d_c
+    CHECKCUBLASERROR(cublasSetMatrix(m, k, sizeof(*a), a, m, d_a, m));    //a -> d_a
+    CHECKCUBLASERROR(cublasSetMatrix(k, n, sizeof(*b), b, k, d_b, k));    //b -> d_b
+    CHECKCUBLASERROR(cublasSetMatrix(m, n, sizeof(*c), c, m, d_c, m));    //c -> d_c
     float al  = 1.0f;                                              // al =1
     float bet = 1.0f;                                              // bet =1
 
     // matrix - matrix multiplication : d_c = al*d_a *d_b + bet *d_c
     // d_a -mxk matrix , d_b -kxn matrix , d_c -mxn matrix ;
     // al ,bet -scalars
-    stat = cublasSgemm(handle[artsGetGpuId()], CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &al, d_a, m, d_b, k, &bet, d_c, m);
+    CHECKCUBLASERROR(cublasSgemm(handle[artsGetGpuId()], CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &al, d_a, m, d_b, k, &bet, d_c, m));
     
     float * finalData;
     artsGuid_t finalGuid = artsDbCreate((void**)&finalData, sizeof(float) * m * n, ARTS_DB_READ);

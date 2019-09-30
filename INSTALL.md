@@ -77,7 +77,25 @@ libarts.so - Runtime library generated after building.  Required for linking pro
 Installation Instructions
 -------------------------
 
-_Include detailed step-by-step instructions to compile, package, and install the software. A good place to start is a clean-state machine similar to the deployment environment and document the installation as you get it working there. Where possible, use Docker containers (like https://hub.docker.com/\_/centos/) in build & test systems to ensure that your builds are reproducable at the sponsor independent of internal hardware. Provide detailed documentation on configuration settings or files required for compilation or runtime._
+Before attempting to build ARTS, please take a look at the requirements in dependencies.  While cmake will attempt to find the libraries in your path, you can help cmake by providing the path of a library using a flag -D<LIB_NAME>_ROOT=<PATH_TO_LIB_DIR> (e.g. -DHWLOC_ROOT=/usr/lib64/ or -DCUDA_ROOT=/usr/lib64/cuda9.2.148).
+
+For CPU build only:
+```
+git clone <url-to-ARTS-repo>  # or untar the ARTS source code.
+cd arts
+mkdir build && cd build
+cmake ..
+make -j
+```
+
+For GPU builds:
+```
+git clone <url-to-ARTS-repo>  # or untar the ARTS source code.
+cd arts
+mkdir build && cd build
+cmake .. -DCUDA_ROOT=$CUDAROOT
+make -j
+```
 
 Test Cases
 ----------

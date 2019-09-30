@@ -224,7 +224,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 
     uint64_t sumArgs[] = {tileSize};
     dim3 threads(SMTILE, SMTILE);
-    dim3 grid(tileSize/SMTILE, tileSize/SMTILE);
+    dim3 grid(((tileSize-1)/SMTILE) + 1, ((tileSize-1)/SMTILE)+1);
 
     for(unsigned int i=0; i<numBlocks; i++)
     {

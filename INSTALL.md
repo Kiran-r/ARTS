@@ -21,7 +21,7 @@ Project Overview
 
 **General Area or Topic of Investigation:** Asynchronous Many Task runtime (AMT)
 
-**Release Number:** exaArtsDev
+**Release Number:** 1.2
 
 Detailed Summary
 ----------------
@@ -33,7 +33,7 @@ efficent applications on a massively parallel system.
 Installation Guide
 ==================
 
-The following sections detail the compilation, packaging, and installation of the software. Also included are test data and scripts to verify the installation was successful.
+The following sections detail the compilation, packaging, and installation of the software.
 
 Environment Requirements
 ------------------------
@@ -45,8 +45,6 @@ Environment Requirements
 **Required Disk Space:** 160MB
 
 **Required Memory:** At least 1GB
-
-**Nodes / Cores Used:** _If applicable_
 
 Dependencies
 ------------

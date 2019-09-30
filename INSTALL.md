@@ -1,5 +1,3 @@
-> _Replace all italics text with content describing your project's software. Be sure to test your software installation on a clean-state system. When ready coordinate with @stav405 for delivering to the sponsor._
-
 Table of Contents
 =================
 
@@ -12,6 +10,7 @@ Table of Contents
     *   [Installation Instructions](#installation-instructions)
     *   [Test Cases](#test-cases)
 *   [User Guide](#user-guide)
+*   [Contributors](#contributors)
 
 Project Overview
 ================
@@ -62,16 +61,17 @@ Dependencies
 Distribution Files
 ------------------
 
-core/ - Main directory containing the runtime source files
-example/ - Directory containing both CPU and GPU examples
-graph/ - Directory containing graph data structures/methods for applications.  Not part of the core runtime development.
-sampleConfigs/ - Directory with arts.conf files required to run examples.
-test/ - Directory containing tests to debug issues.  For development purposes.
+Key Directories
+core/ - Main directory containing the runtime source files.  
+example/ - Directory containing both CPU and GPU examples.  
+graph/ - Directory containing graph data structures/methods for applications.  Not part of the core runtime development.  
+sampleConfigs/ - Directory with arts.conf files required to run examples.  
+test/ - Directory containing tests to debug issues.  For development purposes.  
 
 Key Files:
-arts.h - Include file required by arts programs.
-arts.cfg - Arts configuration file.  This file is required in the same directory as a running ARTS program.
-libarts.so - Runtime library generated after building.  Required for linking programs.
+arts.h - Include file required by arts programs.  
+arts.cfg - Arts configuration file.  This file is required in the same directory as a running ARTS program.  
+libarts.so - Runtime library generated after building.  Required for linking programs.  
 
 
 Installation Instructions
@@ -100,9 +100,74 @@ make -j
 Test Cases
 ----------
 
-_Include test data in the distribution that can be used to verify the installation was successful. Document detailed steps of how to execute these tests and the ways to identify success or failure. Example input & output data files is preferred over manual data entry. Do not include hard-coded paths within test scripts to allow flexibility in the installation. If possible, include test cases that can be performed on systems smaller than the target system, allowing the sponsor to demonstrate an installation on a different machine._
+To test CPU execution, first go to the examples directory in your build directory.  
+Next cd into the cpu folder, and set the launcher (job scheduler) in the configuration file (arts.cfg).
+To run an arts program the configuration file must be in the run directory.
+The launcher may be set to ssh, slurm, or lsf.  By default is is set to slurm.
+Next run fib:
+```
+./fib 10
+[0] Fib 10: 55 time: 75412 nodes: 1 workers: 16
+```
+
+To test GPU execution, go to the gpu directory under the examples in your build directory.
+Again set the launcher to ssh, slurm, or lsf in the configuration file.
+To run the GPU code, the gpu flag in the configuration should be set to the number of disired GPUs.
+Next run fibGpu
+```
+./fibGpu 10
+[0] Fib 10: 55 time: 442941730 nodes: 1 workers: 16
+[0] Cleaned 6372 bytes
+[0] Occupancy :
+[0] 	GPU[0] = 0.007812
+[0] 	GPU[1] = 0.007812
+[0] 	GPU[2] = 0.007812
+[0] 	GPU[3] = 0.007812
+[0] 	GPU[4] = 0.007812
+[0] 	GPU[5] = 0.007812
+[0] 	GPU[6] = 0.007812
+[0] 	GPU[7] = 0.007812
+[0] HITS: 9 MISSES: 255 FREED BYTES: 1016 BYTES FREED ON EXIT 4
+[0] HIT RATIO: 0.034091
+
+```
+
+An example srun command for slurm users is as follows:
+```
+srun -N 8 -n 8 -c 20 ./fib 10
+```
+The example above uses 8 nodes each with 20 threads.
 
 User Guide
 ==========
 
-_This section is largely up to the project to determine its contents. Include information on how to run & configure the system, common usage, special configurations, etc. This section should demonstrate to the sponsor how to generally use the software to perform the desired analysis. Consider including troubleshooting guides for known, common problems._
+Troubleshooting:  
+
+1. Make sure you are running from a directory with an arts.cfg
+2. Check the launcher in arts.cfg
+
+Some configurations:  
+The configuration file (arts.cfg) has many options which are set to reasonable defaults.  Three options will be changed by the user, launcher, threads, and gpus.  The launcher has already been discussed.  For threads and gpus, these should be set to a the number of resources you want to use per node.
+  
+Please refer to arts.h and artsRT.h for documentation.  
+
+Contributors
+============
+
+### MAIN TEAM MEMBERS
+
+1. Joshua Suetterlein, joshua.suetterlein@pnnl.gov
+2. Joseph Manzano, joseph.manzano@pnnl.gov
+3. Andres Marquez, andres.marquez@pnnl.gov
+
+### CONTRIBUTORS
+
+1. Vinay Amatya
+2. Kiran Ranganath
+3. Marcin Zalewski
+4. Jesun Firoz
+5. Vito Castellana
+6. Marco Minutoli
+7. Antonino Tumeo
+8. John Feo
+9. Andrew Lumsdaine

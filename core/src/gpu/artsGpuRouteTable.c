@@ -138,6 +138,15 @@ bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int g
     return internalRouteTableReturnDb(routeTable, key, markToDelete, false);
 }
 
+bool artsGpuInvalidateRouteTables(artsGuid_t key, unsigned int keepOnThisGpu)
+{
+    for(unsigned int i=0; i<artsNodeInfo.gpu; i++)
+    {
+        if(i != keepOnThisGpu)
+            internalRouteTableRemoveItem(artsNodeInfo.gpuRouteTable[i], key);
+    }
+}
+
 /*This takes three parameters to regulate what is deleted.  This will only clean up DBs!
 1.  sizeToClean - this is the desired space to clean up.  The gc will continue untill it
     it reaches this size or it has made a full pass across the RT.  Passing -1 will make the gc

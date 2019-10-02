@@ -48,6 +48,7 @@ extern "C" {
 #include "artsAtomics.h"
 #include "artsArrayList.h"
 #include "artsGpuRouteTable.h"
+#include "artsDebug.h"
 
 #define CHECKCORRECT(x) {                                   \
   cudaError_t err;                                          \

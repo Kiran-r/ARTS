@@ -130,7 +130,7 @@ void multiplyMM(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
 
 #if GPUMM
     dim3 threads(SMTILE, SMTILE);
-    dim3 grid(tileSize/SMTILE, tileSize/SMTILE);
+    dim3 grid((tileSize+SMTILE-1)/SMTILE, (tileSize+SMTILE-1)/SMTILE);
     
     uint64_t args[] = {tileSize};
     artsGuid_t    mulGpuGuid = artsEdtCreateGpu(mmKernel, artsGetCurrentNode(), 1, args, 3, grid, threads, toSignal, k, cTileGuid);
@@ -304,7 +304,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 #if GPUMM
                 uint64_t sumArgs[] = {tileSize};
                 dim3 threads (SMTILE, SMTILE);
-                dim3 grid (tileSize/SMTILE, tileSize/SMTILE);
+                dim3 grid((tileSize+SMTILE-1)/SMTILE, (tileSize+SMTILE-1)/SMTILE);
 
                 artsGuid_t sumGuid = artsEdtCreateGpuPT (sumMMKernel, nodeId, 1, sumArgs, numBlocks, grid, threads, doneGuid, 3 + (i * numBlocks + j), 0);
 #else

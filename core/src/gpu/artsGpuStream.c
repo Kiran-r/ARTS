@@ -147,6 +147,7 @@ void artsNodeInitGpus()
         CHECKCORRECT(cudaStreamCreate(&artsGpus[i].stream)); // Make it scalable
         artsNodeInfo.gpuRouteTable[i] = artsGpuNewRouteTable(artsNodeInfo.gpuRouteTableEntries, artsNodeInfo.gpuRouteTableSize);
         CHECKCORRECT(cudaMemGetInfo((size_t*)&artsGpus[i].availGlobalMem, (size_t*)&artsGpus[i].totalGlobalMem));
+        CHECKCORRECT(cudaGetDeviceProperties(&artsGpus[i].prop, artsGpus[i].device));
         if (artsGpus[i].availGlobalMem > artsNodeInfo.gpuMaxMemory)
             artsGpus[i].availGlobalMem = artsNodeInfo.gpuMaxMemory;
         if(initPerGpu)
@@ -202,6 +203,9 @@ void artsCleanupGpus()
         CHECKCORRECT(cudaStreamDestroy(artsGpus[i].stream));
     }
     CHECKCORRECT(cudaSetDevice(savedDevice));
+    PRINTF("Occupancy :\n");
+    for (int i=0; i<artsGetNumGpus(); ++i)
+        PRINTF("\tGPU[%d] = %f\n", i, artsGpus[i].occupancy);
     PRINTF("HITS: %u MISSES: %u FREED BYTES: %u BYTES FREED ON EXIT %u\n", hits, misses, freeBytes, freedSize);
     PRINTF("HIT RATIO: %lf\n", (double)hits/(double)(hits+misses));
 }

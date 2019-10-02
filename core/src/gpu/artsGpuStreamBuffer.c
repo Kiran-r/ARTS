@@ -137,6 +137,19 @@ bool pushKernelToStream(unsigned int gpuId, uint32_t paramc, uint64_t * paramv, 
     }
 
     void * kernelArgs[] = { &paramc, &paramv, &depc, &depv };
+    int maxActiveBlocks, blockSize;
+    float occupancy;
+    blockSize = (int) block.x * block.y * block.z;
+    struct cudaDeviceProp prop = artsGpus[gpuId].prop;
+    // TODO: Shared Memory should be unset from 0 when supported
+    CHECKCORRECT(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&maxActiveBlocks, (const void*) fnPtr, (int) blockSize, 0));
+    occupancy = (maxActiveBlocks * blockSize / prop.warpSize) / (float) (prop.maxThreadsPerMultiProcessor / prop.warpSize);
+
+    // Moving average of occupancy
+    artsLock(&artsGpus[gpuId].deviceLock);
+    artsGpus[gpuId].occupancy = (occupancy + (artsGpus[gpuId].totalEdts-1) * artsGpus[gpuId].occupancy) / (++artsGpus[gpuId].totalEdts);
+    artsUnlock(&artsGpus[gpuId].deviceLock);
+
     CHECKCORRECT(cudaLaunchKernel((const void *)fnPtr, grid, block, (void**)kernelArgs, (size_t)0, artsGpus[gpuId].stream));
     return true;
 }
@@ -187,8 +200,8 @@ bool flushKernelStream(unsigned int gpuId)
             &kernelToDevBuff[gpuId][i].paramv, 
             &kernelToDevBuff[gpuId][i].depc, 
             &kernelToDevBuff[gpuId][i].depv };
-        dim3 grid = {kernelToDevBuff[gpuId][i].grid[0], kernelToDevBuff[gpuId][i].grid[1], kernelToDevBuff[gpuId][i].grid[2]};
-        dim3 block = {kernelToDevBuff[gpuId][i].block[0], kernelToDevBuff[gpuId][i].block[1], kernelToDevBuff[gpuId][i].block[2]};
+        dim3 grid(kernelToDevBuff[gpuId][i].grid[0], kernelToDevBuff[gpuId][i].grid[1], kernelToDevBuff[gpuId][i].grid[2]);
+        dim3 block(kernelToDevBuff[gpuId][i].block[0], kernelToDevBuff[gpuId][i].block[1], kernelToDevBuff[gpuId][i].block[2]);
         CHECKCORRECT(cudaLaunchKernel((const void *)kernelToDevBuff[gpuId][i].fnPtr, grid, block, (void**)kernelArgs, (size_t)0, artsGpus[gpuId].stream));
     }
     kernelToDevCount[gpuId] = 0;

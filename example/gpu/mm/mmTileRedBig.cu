@@ -343,9 +343,9 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     if(!nodeId && !workerId)
     {
         artsEdtCreateWithGuid(finishBlockMM, doneGuid, 0, NULL, 3 + numBlocks * numBlocks);
-        artsSignalEdt(doneGuid, 0, cMatGuid);
-        artsSignalEdt(doneGuid, 1, aMatGuid);
-        artsSignalEdt(doneGuid, 2, bMatGuid);
+        artsSignalEdt(doneGuid, 0, NULL_GUID);
+        artsSignalEdt(doneGuid, 1, NULL_GUID);
+        artsSignalEdt(doneGuid, 2, NULL_GUID);
         start = artsGetTimeStamp();
     }
 }

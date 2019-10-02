@@ -140,11 +140,13 @@ bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int g
 
 bool artsGpuInvalidateRouteTables(artsGuid_t key, unsigned int keepOnThisGpu)
 {
+    bool ret = 0;
     for(unsigned int i=0; i<artsNodeInfo.gpu; i++)
     {
         if(i != keepOnThisGpu)
-            internalRouteTableRemoveItem(artsNodeInfo.gpuRouteTable[i], key);
+            ret |= internalRouteTableRemoveItem(artsNodeInfo.gpuRouteTable[i], key);
     }
+    return ret;
 }
 
 /*This takes three parameters to regulate what is deleted.  This will only clean up DBs!

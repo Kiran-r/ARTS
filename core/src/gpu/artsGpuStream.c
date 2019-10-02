@@ -231,9 +231,7 @@ void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data)
         {
             if(artsGuidGetType(depv[i].guid) == ARTS_DB_GPU_WRITE)
             {
-                bool del = artsGpuInvalidateRouteTables(depv[i].guid, gc->gpuId);
-                if(del)
-                    PRINTF("MARK\n");
+                artsGpuInvalidateRouteTables(depv[i].guid, gc->gpuId);
             }
             //True says to mark it for deletion... Change this to false to further delay delete!
             artsGpuRouteTableReturnDb(depv[i].guid, artsNodeInfo.freeDbAfterGpuRun, gc->gpuId);

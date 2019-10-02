@@ -341,7 +341,10 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
             hostDepv[i].ptr = dataPtr;
         }
         else
+        {
+            DPRINTF("Depv: %u is null edt: %lu\n", i, gpuEdt->wrapperEdt.currentEdt);
             hostDepv[i].ptr = NULL;
+        }
 
         hostDepv[i].guid = depv[i].guid;
         hostDepv[i].mode = depv[i].mode;    

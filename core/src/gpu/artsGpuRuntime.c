@@ -224,7 +224,7 @@ void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, arts
         artsRouteTableFireOO(edt->wrapperEdt.currentEdt, artsOutOfOrderHandler);
     }
 
-    DPRINTF("TO SIGNAL: %lu -> %lu\n", toSignal, dataGuid);
+    DPRINTF("TO SIGNAL: %lu -> %lu slot: %u\n", toSignal, dataGuid, slot);
     //Signal next
     if(toSignal)
     {

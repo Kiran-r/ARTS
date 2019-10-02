@@ -52,7 +52,10 @@ extern "C" {
 #define CHECKCORRECT(x) {                                   \
   cudaError_t err;                                          \
   if( (err = (x)) != cudaSuccess )                          \
+  {                                                         \
     PRINTF("FAILED %s: %s\n", #x, cudaGetErrorString(err)); \
+    artsDebugGenerateSegFault();                            \
+  }                                                         \
 }
 
 typedef struct

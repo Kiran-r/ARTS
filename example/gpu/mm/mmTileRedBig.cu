@@ -264,19 +264,6 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     
     aTileGuids = artsNewGuidRangeNode(ARTS_DB_GPU_READ, numBlocks*numBlocks, 0);
     bTileGuids = artsNewGuidRangeNode(ARTS_DB_GPU_READ, numBlocks*numBlocks, 0);
-    
-    if(!nodeId)
-    {
-        // aMatrix = (double*) artsDbCreateWithGuid(aMatGuid, matSize * matSize * sizeof(double));
-        // bMatrix = (double*) artsDbCreateWithGuid(bMatGuid, matSize * matSize * sizeof(double));
-        // cMatrix = (double*) artsDbCreateWithGuid(cMatGuid, matSize * matSize * sizeof(double));
-        
-        // initMatrix(matSize, aMatrix, true, false);
-        // initMatrix(matSize, bMatrix, false, false);
-        // initMatrix(matSize, cMatrix, false, true);
-        
-        PRINTF("Starting\n");
-    }
 
     uint64_t sumArgs[] = {tileSize};
     dim3 threads(SMTILE, SMTILE);
@@ -289,6 +276,8 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
             redTree[i*numBlocks + j] = initBinaryReductionTree(numBlocks, sumMMKernel, ARTS_DB_GPU_WRITE, ARTS_GPU_EDT, 1, sumArgs, grid, threads, doneGuid, 3 + (i * numBlocks + j));
         }
     }
+    if(!nodeId)
+        PRINTF("MatSize: %u TileSize: %u\n", matSize, tileSize);
 }
 
 extern "C"
@@ -297,21 +286,24 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
     unsigned int totalThreads = artsGetTotalNodes() * artsGetTotalWorkers();
     unsigned int globalThreadId = nodeId * artsGetTotalWorkers() + workerId;   
   
-    if(!nodeId && !workerId)
+    // if(!nodeId && !workerId)
     {
         for(unsigned int i=0; i<numBlocks; i++)
         {
             for(unsigned int j=0; j<numBlocks; j++)
             {
-                artsGuid_t aTileGuid = artsGetGuid(aTileGuids, i * numBlocks + j);
-                double * aTile = (double*) artsDbCreateWithGuid(aTileGuid, sizeof(double) * tileSize * tileSize);
-                initMatrix(tileSize, aTile, false, false);
-                // copyBlock(i, j, tileSize, aTile, matSize, aMatrix, true);
+                if((i * numBlocks + j) % totalThreads == globalThreadId)
+                {
+                    artsGuid_t aTileGuid = artsGetGuid(aTileGuids, i * numBlocks + j);
+                    double * aTile = (double*) artsDbCreateWithGuid(aTileGuid, sizeof(double) * tileSize * tileSize);
+                    // initMatrix(tileSize, aTile, false, false);
+                    // copyBlock(i, j, tileSize, aTile, matSize, aMatrix, true);
 
-                artsGuid_t bTileGuid = artsGetGuid(bTileGuids, i * numBlocks + j);
-                double * bTile = (double*) artsDbCreateWithGuid(bTileGuid, sizeof(double) * tileSize * tileSize);
-                initMatrix(tileSize, bTile, false, false);
-                // copyBlock(i, j, tileSize, bTile, matSize, bMatrix, true);
+                    artsGuid_t bTileGuid = artsGetGuid(bTileGuids, i * numBlocks + j);
+                    double * bTile = (double*) artsDbCreateWithGuid(bTileGuid, sizeof(double) * tileSize * tileSize);
+                    // initMatrix(tileSize, bTile, false, false);
+                    // copyBlock(i, j, tileSize, bTile, matSize, bMatrix, true);
+                }
             }
         }
     }
@@ -346,6 +338,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
         artsSignalEdt(doneGuid, 0, NULL_GUID);
         artsSignalEdt(doneGuid, 1, NULL_GUID);
         artsSignalEdt(doneGuid, 2, NULL_GUID);
+        PRINTF("Starting\n");
         start = artsGetTimeStamp();
     }
 }

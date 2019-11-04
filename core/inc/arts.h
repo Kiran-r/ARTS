@@ -371,6 +371,9 @@ unsigned int artsGetCurrentCluster();
 //Gets the total number of numa domains.  Requires HWLOC.
 unsigned int artsGetTotalClusters();
 
+//Gets the total number of GPUs per node.
+unsigned int artsGetTotalGpus();
+
 //Arts timer in nanoseconds.
 uint64_t artsGetTimeStamp();
 

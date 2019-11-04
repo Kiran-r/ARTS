@@ -50,6 +50,7 @@
 #include "artsGpuRouteTable.h"
 #include "artsDebug.h"
 #include "artsEdtFunctions.h"
+#include "artsEventFunctions.h"
 
 #define DPRINTF( ... )
 // #define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
@@ -108,8 +109,8 @@ __thread int artsLocalGpuId;
 extern "C" 
 {
 #endif
-    extern void initPerGpu(int devId, cudaStream_t * stream) __attribute__((weak));
-    extern void cleanPerGpu(int devId, cudaStream_t * stream) __attribute__((weak));
+    extern void initPerGpu(unsigned int nodeId, int devId, cudaStream_t * stream, int argc, char ** argv) __attribute__((weak));
+    extern void cleanPerGpu(unsigned int nodeId, int devId, cudaStream_t * stream) __attribute__((weak));
 #ifdef __cplusplus
 }
 #endif
@@ -155,10 +156,24 @@ void artsNodeInitGpus()
         if (artsGpus[i].availGlobalMem > artsNodeInfo.gpuMaxMemory)
             artsGpus[i].availGlobalMem = artsNodeInfo.gpuMaxMemory;
         PRINTF("to Start: %lu\n", artsGpus[i].availGlobalMem);
-        if(initPerGpu)
-            initPerGpu(i, &artsGpus[i].stream);
     }
     CHECKCORRECT(cudaSetDevice(savedDevice));
+}
+
+void artsInitPerGpuWrapper(int argc, char ** argv)
+{
+    if(initPerGpu)
+    {
+        int savedDevice;
+        CHECKCORRECT(cudaGetDevice(&savedDevice));
+        for (int i=0; i<artsNodeInfo.gpu; ++i)
+        {
+            DPRINTF("Set device: %u\n", i);
+            CHECKCORRECT(cudaSetDevice(i));
+            initPerGpu(artsGlobalRankId, i, &artsGpus[i].stream, argc, argv);
+        }
+        CHECKCORRECT(cudaSetDevice(savedDevice));
+    }
 }
 
 void artsWorkerInitGpus()
@@ -202,7 +217,7 @@ void artsCleanupGpus()
     {
         CHECKCORRECT(cudaSetDevice(artsGpus[i].device));
         if(cleanPerGpu)
-            cleanPerGpu(i, &artsGpus[i].stream);
+            cleanPerGpu(artsGlobalRankId, i, &artsGpus[i].stream);
         freedSize += artsGpuFreeAll(artsGpus[i].device);
         CHECKCORRECT(cudaStreamSynchronize(artsGpus[i].stream));
         CHECKCORRECT(cudaStreamDestroy(artsGpus[i].stream));
@@ -622,13 +637,41 @@ int atleastOne(void * edtPacket)
     else
         return random(edtPacket);
 }
+int artsReserveEdtRequiredGpu(int * gpu, void * edtPacket)
+{
+    bool ret = false;
+    *gpu = -1;
+    artsGpuEdt_t * edt = (artsGpuEdt_t *) edtPacket;
+    uint32_t       paramc = edt->wrapperEdt.paramc;
+    uint32_t       depc   = edt->wrapperEdt.depc;
+    uint64_t     * paramv = (uint64_t *)(edt + 1);
+    artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
+
+    if(edt->gpuToRunOn > -1)
+    {
+        // Size to be allocated on the GPU
+        uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc;
+        for (unsigned int i = 0; i < depc; i++)
+        {
+            struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
+            size += db->header.size - sizeof(struct artsDb);
+        }
+        if(tryReserve(edt->gpuToRunOn, size))
+        {
+            *gpu = edt->gpuToRunOn;
+            ret = true;
+        }
+    }
+    return ret;
+}
+
 
 artsGpu_t * artsFindGpu(void * data)
 {
     artsGpu_t * ret = NULL;
-    int gpu = -1;
-
-    gpu = locality(data);
+    int gpu;
+    if(!artsReserveEdtRequiredGpu(&gpu, data))
+        gpu = locality(data);
     DPRINTF("Choosing gpu: %d\n", gpu);
     if(gpu > -1 && gpu < artsNodeInfo.gpu)
         ret = &artsGpus[gpu];

@@ -120,6 +120,11 @@ uint64_t threadSafeRandom()
     return (uint64_t) temp;
 }
 
+unsigned int artsGetTotalGpus()
+{
+    return artsNodeInfo.gpu;
+}
+
 //char * artsParallelCreateMMAP( char * pathToFile)
 //{
 //    int fd, offset;

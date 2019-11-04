@@ -182,6 +182,10 @@ void artsThreadZeroNodeStart()
 
     if(initPerNode)
         initPerNode(artsGlobalRankId, mainArgc, mainArgv);
+
+#ifdef USE_GPU
+    artsInitPerGpuWrapper(mainArgc, mainArgv);
+#endif
     setGuidGeneratorAfterParallelStart();
 
     artsStartInspector(2);

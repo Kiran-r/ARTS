@@ -45,6 +45,7 @@
 #include "artsGpuStream.h"
 #include "artsGpuStreamBuffer.h"
 #include "artsEdtFunctions.h"
+#include "artsEventFunctions.h"
 #include "artsDbFunctions.h"
 #include "artsRuntime.h"
 #include "artsGlobals.h"
@@ -101,6 +102,16 @@ void artsCudaFree(void * ptr)
         CHECKCORRECT(cudaFree(ptr));
 }
 
+void artsCudaMemCpyFromDev(void * dst, void * src, size_t count)
+{
+    CHECKCORRECT(cudaMemcpy(dst, src, count, cudaMemcpyDeviceToHost));
+}
+
+void artsCudaMemCpyToDev(void * dst, void * src, size_t count)
+{
+    CHECKCORRECT(cudaMemcpy(dst, src, count, cudaMemcpyHostToDevice));
+}
+
 dim3 * artsGetGpuGrid()
 {
     return artsLocalGrid;
@@ -127,7 +138,7 @@ unsigned int artsGetNumGpus()
 }
 
 artsGuid_t internalEdtCreateGpu(artsEdt_t funcPtr, artsGuid_t * guid, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, 
-    artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv, bool passThrough, bool lib)
+    artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv, bool passThrough, bool lib, int gpuToRunOn)
 {
 //    ARTSEDTCOUNTERTIMERSTART(edtCreateCounter);
     unsigned int depSpace = (hasDepv) ? depc * sizeof(artsEdtDep_t) : 0;
@@ -137,6 +148,7 @@ artsGuid_t internalEdtCreateGpu(artsEdt_t funcPtr, artsGuid_t * guid, unsigned i
     edt->wrapperEdt.invalidateCount = 1;
     edt->grid = grid;
     edt->block = block;
+    edt->gpuToRunOn = gpuToRunOn;
     edt->endGuid = endGuid;
     edt->slot = slot;
     edt->dataGuid = dataGuid;
@@ -151,13 +163,13 @@ artsGuid_t internalEdtCreateGpu(artsEdt_t funcPtr, artsGuid_t * guid, unsigned i
 artsGuid_t artsEdtCreateGpuDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv)
 {
     artsGuid_t guid = NULL_GUID;
-    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, hasDepv, false, false);
+    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, hasDepv, false, false, -1);
 }
 
 artsGuid_t artsEdtCreateGpuPTDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot, bool hasDepv)
 {
     artsGuid_t guid = NULL_GUID;
-    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, endGuid, slot, (artsGuid_t) passSlot, hasDepv, true, false);
+    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, endGuid, slot, (artsGuid_t) passSlot, hasDepv, true, false, -1);
 }
 
 artsGuid_t artsEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid)
@@ -172,13 +184,25 @@ artsGuid_t artsEdtCreateGpuPT(artsEdt_t funcPtr, unsigned int route, uint32_t pa
 
 artsGuid_t artsEdtCreateGpuPTWithGuid(artsEdt_t funcPtr, artsGuid_t guid, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot)
 {
-    return internalEdtCreateGpu(funcPtr, &guid, artsGuidGetRank(guid), paramc, paramv, depc, grid, block, endGuid, slot, (artsGuid_t) passSlot, true, true, false);
+    return internalEdtCreateGpu(funcPtr, &guid, artsGuidGetRank(guid), paramc, paramv, depc, grid, block, endGuid, slot, (artsGuid_t) passSlot, true, true, false, -1);
 }
 
 artsGuid_t artsEdtCreateGpuLib(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block)
 {
     artsGuid_t guid = NULL_GUID;
-    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, NULL_GUID, 0, NULL_GUID, true, false, true);
+    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, NULL_GUID, 0, NULL_GUID, true, false, true, -1);
+}
+
+artsGuid_t artsEdtCreateGpuDirect(artsEdt_t funcPtr, unsigned int route, unsigned int gpu, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv)
+{
+    artsGuid_t guid = NULL_GUID;
+    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, hasDepv, false, false, gpu);
+}
+
+artsGuid_t artsEdtCreateGpuLibDirect(artsEdt_t funcPtr, unsigned int route, unsigned int gpu, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block)
+{
+    artsGuid_t guid = NULL_GUID;
+    return internalEdtCreateGpu(funcPtr, &guid, route, paramc, paramv, depc, grid, block, NULL_GUID, 0, NULL_GUID, true, false, true, gpu);
 }
 
 void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)

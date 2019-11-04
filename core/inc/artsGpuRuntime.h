@@ -53,6 +53,7 @@ typedef struct
     struct artsEdt wrapperEdt;
     dim3 grid;
     dim3 block;
+    int gpuToRunOn;
     artsGuid_t endGuid;
     artsGuid_t dataGuid;
     uint32_t slot;
@@ -64,12 +65,16 @@ void * artsCudaMallocHost(unsigned int size);
 void artsCudaFreeHost(void * ptr);
 void * artsCudaMalloc(unsigned int size);
 void artsCudaFree(void * ptr);
+void artsCudaMemCpyFromDev(void * dst, void * src, size_t count);
+void artsCudaMemCpyToDev(void * dst, void * src, size_t count);
 artsGuid_t artsEdtCreateGpuDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv);
 artsGuid_t artsEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid);
 artsGuid_t artsEdtCreateGpuPT(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot);
 artsGuid_t artsEdtCreateGpuPTDep(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot, bool hasDepv);
 artsGuid_t artsEdtCreateGpuLib(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block);
 artsGuid_t artsEdtCreateGpuPTWithGuid(artsEdt_t funcPtr, artsGuid_t guid, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot);
+artsGuid_t artsEdtCreateGpuDirect(artsEdt_t funcPtr, unsigned int route, unsigned int gpu, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv);
+artsGuid_t artsEdtCreateGpuLibDirect(artsEdt_t funcPtr, unsigned int route, unsigned int gpu, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block);
 
 dim3 * artsGetGpuGrid();
 dim3 * artsGetGpuBlock();

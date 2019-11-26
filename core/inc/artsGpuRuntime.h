@@ -87,6 +87,9 @@ void artsGpuHostWrapUp(void * edtPacket, artsGuid_t toSignal, uint32_t slot, art
 void artsRunGpu(void * edtPacket, artsGpu_t * artsGpu);
 bool artsGpuSchedulerLoop();
 
+#define getGpuIndex() internalGetGpuIndex(paramv)
+__device__ uint64_t internalGetGpuIndex(uint64_t * paramv);
+
 #ifdef __cplusplus
 }
 #endif

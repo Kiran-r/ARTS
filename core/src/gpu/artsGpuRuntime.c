@@ -360,3 +360,8 @@ void artsPutInDbFromGpu(void * ptr, artsGuid_t dbGuid, unsigned int offset, unsi
             artsGpuRouteTableAddItemToDeleteRace(ptr, 0, dbGuid, artsLocalGpuId);
     }
 }
+
+__device__ uint64_t internalGetGpuIndex(uint64_t * paramv)
+{
+    return *(paramv - 1);
+}

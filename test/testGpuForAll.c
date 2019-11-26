@@ -54,12 +54,13 @@ unsigned int ** devPtrRaw; //This is a list of the search frontier in global mem
 //This will probably be where you want to do the actual traversal
 __global__ void temp(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    unsigned int gpuId = (unsigned int) paramv[0]; //The current gpu we are on
+    // unsigned int gpuId = (unsigned int) paramv[0]; //The current gpu we are on
+    uint64_t gpuId = getGpuIndex();
     unsigned int ** addr = (unsigned int **)depv[0].ptr; //This is the devPtrRaw -> tells us where current frontier is on device
     unsigned int * local = addr[gpuId]; //We need the one corresponding to our gpu
 
     int index = threadIdx.x + blockIdx.x * blockDim.x;
-    local[(GPULISTLEN - 1) - index] = index; //Just writing some blah blah value to sort
+    local[(GPULISTLEN - 1) - index] = (unsigned int)gpuId; //index; //Just writing some blah blah value to sort
 }
 
 //This should be where we do the sorting and should launch the next iteration

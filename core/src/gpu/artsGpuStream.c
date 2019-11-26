@@ -155,7 +155,7 @@ void artsNodeInitGpus()
         artsGpus[i].totalGlobalMem = (uint64_t) tempMaxMem;
         if (artsGpus[i].availGlobalMem > artsNodeInfo.gpuMaxMemory)
             artsGpus[i].availGlobalMem = artsNodeInfo.gpuMaxMemory;
-        PRINTF("to Start: %lu\n", artsGpus[i].availGlobalMem);
+        DPRINTF("to Start: %lu\n", artsGpus[i].availGlobalMem);
     }
     CHECKCORRECT(cudaSetDevice(savedDevice));
 }
@@ -280,17 +280,19 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     void * devClosure  = NULL;
     void * hostClosure = NULL;
 
+    uint64_t         * devGpuId   = NULL;
     uint64_t         * devParamv  = NULL;
     artsEdtDep_t     * devDepv    = NULL;
 
     artsGpuCleanUp_t * hostGCPtr = NULL;
+    uint64_t         * hostGpuId = NULL;
     uint64_t         * hostParamv = NULL;
     artsEdtDep_t     * hostDepv   = NULL;
 
     DPRINTF("Paramc: %u Depc: %u edt: %p\n", paramc, depc, edtPtr);
 
     //Get size of closure
-    uint64_t devClosureSize = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc;
+    uint64_t devClosureSize = sizeof(uint64_t) * (paramc+1) + sizeof(artsEdtDep_t) * depc;
     uint64_t hostClosureSize = devClosureSize + sizeof(artsGpuCleanUp_t);
     DPRINTF("devClosureSize: %u hostClosureSize: %u\n", devClosureSize, hostClosureSize);
 
@@ -298,7 +300,8 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     if(devClosureSize)
     {
         devClosure = artsCudaMalloc(devClosureSize);
-        devParamv = (uint64_t*) devClosure;
+        devGpuId = (uint64_t*) devClosure;
+        devParamv = devGpuId + 1;
         devDepv = (artsEdtDep_t *)(devParamv + paramc);
         DPRINTF("Allocated dev closure\n");
     }
@@ -308,7 +311,8 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
         //Allocate closure for host
         hostClosure = artsCudaMallocHost(hostClosureSize);
         hostGCPtr = (artsGpuCleanUp_t *) hostClosure;
-        hostParamv = (uint64_t*)(hostGCPtr + 1);
+        hostGpuId = (uint64_t*)(hostGCPtr + 1);
+        hostParamv = hostGpuId+1;
         hostDepv = (artsEdtDep_t *)(hostParamv + paramc);
         DPRINTF("Allocated host closure\n");
 
@@ -318,6 +322,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
         hostGCPtr->newEdts = newEdts;
         hostGCPtr->devClosure = devClosure;
         hostGCPtr->edt = (struct artsEdt*)edtPtr;
+        *hostGpuId = (uint64_t) artsGpu->device;
         for(unsigned int i=0; i<paramc; i++)
             hostParamv[i] = paramv[i];
         DPRINTF("Filled host closure\n");
@@ -379,7 +384,7 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     }
     DPRINTF("Allocated, added, and moved dbs\n");
     
-    pushDataToStream(artsGpu->device, devClosure, (void*)hostParamv, devClosureSize, artsNodeInfo.gpuBuffOn && !gpuEdt->lib);
+    pushDataToStream(artsGpu->device, devClosure, (void*)hostGpuId, devClosureSize, artsNodeInfo.gpuBuffOn && !gpuEdt->lib);
     DPRINTF("Filled GPU Closure\n");
 
     if(gpuEdt->lib)

@@ -39,11 +39,10 @@
 
 set(LIBS arts ${M_LIB} ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC_LIB} ${CUDA_LIBRARIES} ${CUBLAS_LIBRARIES})
 
-set_source_files_properties(fibGpu.cu PROPERTIES LANGUAGE CUDA)
-add_executable(fibGpu fibGpu.cu)
-target_link_libraries(fibGpu ${LIBS})
-
-add_subdirectory(mm)
-add_subdirectory(stream)
-add_subdirectory(bfs)
-
+if(CUDA_FOUND)
+    if(CUBLAS_FOUND)
+        set_source_files_properties(bfs.cu PROPERTIES LANGUAGE CUDA)
+        add_executable(gpuBfs bfs.cu graphUtil.cu)
+        target_link_libraries(gpuBfs arts-graph ${LIBS})
+    endif()
+endif()

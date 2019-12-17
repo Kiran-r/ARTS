@@ -55,6 +55,7 @@ vertex_t* getColPtr(csr_graph_t * _csr)
 
 csr_graph_t * initCSR(partition_t partIndex, graph_sz_t _localv, graph_sz_t _locale, arts_block_dist_t* _dist, artsEdgeVector* _edges, bool _sorted_by_src, artsGuid_t blockGuid) 
 {
+  // TODO: what will happen if partition does not have any vertex??
     csr_graph_t * _csr = NULL;
     if(artsIsGuidLocal(blockGuid)) 
     {
@@ -129,6 +130,7 @@ csr_graph_t * initCSR(partition_t partIndex, graph_sz_t _localv, graph_sz_t _loc
         vertex_t last_src_ind = getLocalIndexDistr(last_src, _dist);
         ++last_src_ind;
         vertex_t val = row_indices[last_src_ind];
+	if (last_src_ind > _localv) printf("lasr_src index: %lu _localv: %lu", last_src_ind, _localv);
         assert(last_src_ind <= _localv);
         while(last_src_ind < _localv)
             row_indices[++last_src_ind] = val;
@@ -290,19 +292,21 @@ int loadGraphNoWeight(const char* _file, arts_block_dist_t* _dist, bool _flip, b
     }
 
     char str[MAXCHAR];
+    bool ignoreFirst = false;
     while (fgets(str, MAXCHAR, file) != NULL) 
     {
-        if (str[0] == '%')
+        if (str[0] == '%') {
+	    ignoreFirst = true; // for mmio
             continue;
-
+	}
         if (str[0] == '#')
             continue;
-
+	if (ignoreFirst) {ignoreFirst = false; continue;}
         // We do not know how many edges we are going to load
         graph_sz_t src, target;
         edge_data_t weight;
 
-        char* token = strtok(str, "\t");
+        char* token = strtok(str, " \t");
         int i = 0;
         while(token != NULL) 
         {
@@ -317,7 +321,7 @@ int loadGraphNoWeight(const char* _file, arts_block_dist_t* _dist, bool _flip, b
                 i = 0;
             }
 
-            // printf("src=%llu, target=%llu\n", src, target);
+            // printf("src=%lu, target=%lu\n", src, target);
             token = strtok(NULL, " ");
         }
 
@@ -331,7 +335,7 @@ int loadGraphNoWeight(const char* _file, arts_block_dist_t* _dist, bool _flip, b
         {
             if (owner == partIndex[k]) 
             {
-                // PRINTF("src = %lu owner = %u start = %lu end = %lu\n", src, owner, partitionStartDistr(owner, _dist), partitionEndDistr(owner, _dist));
+	        // PRINTF("src = %lu owner = %u start = %lu end = %lu\n", src, owner, partitionStartDistr(owner, _dist), partitionEndDistr(owner, _dist));
                 pushBackEdge(&vedges[k], src, target, 0/*weight zeor for the moment*/);
             }
             /*else {
@@ -359,8 +363,9 @@ int loadGraphNoWeight(const char* _file, arts_block_dist_t* _dist, bool _flip, b
     {
         // done loading edge -- sort them by source
         sortBySource(&vedges[k]);
-        initCSR(partIndex[k], getBlockSizeForPartition(partIndex[k], _dist), vedges[k].used, _dist, &vedges[k], true, _dist->graphGuid[partIndex[k]]);
-
+	// printf("getBlockSizeForPartition(partIndex[k], _dist): %lu, vedges[k].used: %lu \n", getBlockSizeForPartition(partIndex[k], _dist), vedges[k].used);
+	initCSR(partIndex[k], getBlockSizeForPartition(partIndex[k], _dist), vedges[k].used, _dist, &vedges[k], true, _dist->graphGuid[partIndex[k]]);
+	
         freeEdgeVector(&vedges[k]);
     }
     return 0;

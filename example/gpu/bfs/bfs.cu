@@ -61,9 +61,9 @@
 // #define DPRINTF(...) PRINTF(__VA_ARGS__)
 #define TURNON(...) 
 // #define TURNON(...) __VA_ARGS__
-#define ROOT 1665
+#define ROOT 1
 #define PARTS 8
-#define GPULISTLEN 1024*1024
+#define GPULISTLEN 2048*2048
 #define MAXLEVEL (unsigned int) -1
 #define SMTILE 32
 
@@ -262,7 +262,7 @@ void launchBfs(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t d
         else //No more work, lets shut it down!
         {
             uint64_t time = artsGetTimeStamp() - start;
-            PRINTF("Done: %lu\n", time);
+            PRINTF("Done. Total execution time: %f s\n", (double) time /1000000000.0 );
             TURNON(printResult());
         }
     }
@@ -307,19 +307,36 @@ extern "C"
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
     DPRINTF("%s\n", __func__);
-    char * fileName = "/home/suet688/ca-HepTh.tsv";
-    unsigned int numVerts = 9877;
-    unsigned int numEdges = 51946;
-    if(argc == 4)
-    {
-        fileName = argv[1];
-        numVerts = atoi(argv[2]);
-        numEdges = atoi(argv[3]);
+    char * fileName = NULL;
+    unsigned int numVerts = 0;
+    unsigned int numEdges = 0;
+    for (int i = 0; i < argc; ++i) {
+      if (strcmp("--file", argv[i]) == 0) {
+	fileName = argv[i + 1];
+      }
+      if (strcmp("--numvertices", argv[i]) == 0) {
+	sscanf(argv[i + 1], "%u", &numVerts);
+      }
+      if (strcmp("--numedges", argv[i]) == 0) {
+	sscanf(argv[i + 1], "%u", &numEdges);
+      }
     }
+    // char * fileName = "/home/firo017/datasets/ca-HepTh.tsv";    // "/home/suet688/ca-HepTh.tsv";
+    // char * fileName = "/home/firo017/datasets/ca-HepPh_adj.tsv";
+    // unsigned int numVerts = 9877;
+    // unsigned int numEdges = 51946;
+    // unsigned int numVerts = 12008;
+    // unsigned int numEdges = 118521;
+    // if(argc == 4)
+    // {
+    //     fileName = argv[1];
+    //     numVerts = atoi(argv[2]);
+    //     numEdges = atoi(argv[3]);
+    // }
     //Create graph partitions
     graph = (csr_graph_t*) artsCalloc(sizeof(csr_graph_t)* PARTS);
     distribution = initBlockDistributionBlock(numVerts, numEdges, PARTS, ARTS_DB_GPU_READ);
-    loadGraphNoWeight(fileName, distribution, false, false);
+    loadGraphNoWeight(fileName, distribution, true, false);
 
     for(unsigned int i=0; i<PARTS; i++)
     {

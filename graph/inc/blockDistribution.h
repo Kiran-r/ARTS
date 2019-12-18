@@ -61,7 +61,6 @@ void freeDistribution(arts_block_dist_t* _dist);
 
 unsigned int getNumLocalBlocks(arts_block_dist_t* _dist);
 
-graph_sz_t getBlockSize(const arts_block_dist_t* const _dist);
 graph_sz_t getBlockSizeForPartition(partition_t index, const arts_block_dist_t* const _dist);
 
 partition_t getOwnerDistr(vertex_t v, const arts_block_dist_t* const _dist);

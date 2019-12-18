@@ -67,8 +67,7 @@ csr_graph_t * initCSR(partition_t partIndex, graph_sz_t _localv, graph_sz_t _loc
         _csr->partGuid = blockGuid;
         _csr->num_local_vertices = _localv;
         _csr->num_local_edges = _locale;
-        _csr->block_sz = getBlockSize(_dist);
-        _csr->local_block_sz = getBlockSizeForPartition(partIndex, _dist);
+        _csr->block_sz = getBlockSizeForPartition(0, _dist);
         _csr->index = partIndex;
         _csr->num_blocks = _dist->num_blocks;
         
@@ -363,7 +362,7 @@ int loadGraphNoWeight(const char* _file, arts_block_dist_t* _dist, bool _flip, b
     {
         // done loading edge -- sort them by source
         sortBySource(&vedges[k]);
-	// printf("getBlockSizeForPartition(partIndex[k], _dist): %lu, vedges[k].used: %lu \n", getBlockSizeForPartition(partIndex[k], _dist), vedges[k].used);
+	printf("getBlockSizeForPartition(partIndex[k], _dist): %lu, vedges[k].used: %lu \n", getBlockSizeForPartition(partIndex[k], _dist), vedges[k].used);
 	initCSR(partIndex[k], getBlockSizeForPartition(partIndex[k], _dist), vedges[k].used, _dist, &vedges[k], true, _dist->graphGuid[partIndex[k]]);
 	
         freeEdgeVector(&vedges[k]);

@@ -55,7 +55,6 @@ typedef struct {
     graph_sz_t num_local_vertices;
     graph_sz_t num_local_edges;
     graph_sz_t block_sz;
-    graph_sz_t local_block_sz;
     partition_t index;
     unsigned int num_blocks;
 } csr_graph_t;

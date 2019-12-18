@@ -46,7 +46,7 @@ void internalInitBlockDistribution(arts_block_dist_t* _dist, graph_sz_t _n, grap
     _dist->num_vertices = _n;
     _dist->num_edges = _m;
     _dist->num_blocks = numBlocks;
-    _dist->block_sz = getBlockSize(_dist);
+    _dist->block_sz = _n / numBlocks;
 }
 
 arts_block_dist_t * initBlockDistributionBlock(graph_sz_t n, graph_sz_t m, unsigned int numBlocks, artsType_t dbType)
@@ -122,14 +122,6 @@ unsigned int getNumLocalBlocks(arts_block_dist_t* _dist)
             numLocalParts++;
     }
     return numLocalParts;
-}
-
-graph_sz_t getBlockSize(const arts_block_dist_t* _dist) {
-    graph_sz_t rem = _dist->num_vertices % _dist->num_blocks;
-    if (!rem)
-        return (_dist->num_vertices / _dist->num_blocks);
-    else
-        return ((graph_sz_t)(_dist->num_vertices / _dist->num_blocks) + 1);
 }
 
 graph_sz_t getBlockSizeForPartition(unsigned int index, const arts_block_dist_t* const _dist)

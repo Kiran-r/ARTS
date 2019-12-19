@@ -63,7 +63,7 @@
 // #define TURNON(...) __VA_ARGS__
 #define ROOT 1
 #define PARTS 8
-#define GPULISTLEN 2048*2048
+#define GPULISTLEN 4096*4096
 #define MAXLEVEL (unsigned int) -1
 #define SMTILE 32
 
@@ -349,14 +349,16 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     visited = (unsigned int**)artsCalloc(sizeof(unsigned int*)*PARTS);
     for(unsigned int i=0; i<PARTS; i++)
     {
-        unsigned int size = sizeof(unsigned int) * getBlockSizeForPartition(i, distribution);
+        unsigned int numElements = getBlockSizeForPartition(i, distribution);
+        unsigned int size = sizeof(unsigned int) * numElements;
         unsigned int rank = artsGuidGetRank(getGuidForPartitionDistr(distribution, i));
-        visitedGuid[i] = artsReserveGuidRoute(ARTS_DB_GPU_WRITE, rank); //Put the visiter db on the same rank as the graph partition
+        visitedGuid[i] = artsReserveGuidRoute(ARTS_DB_GPU_READ, rank); //Put the visiter db on the same rank as the graph partition
         //If the partitionis on our node lets create the db and -1 it out
         if(rank == nodeId)
         {
             visited[i] = (unsigned int*)artsDbCreateWithGuid(visitedGuid[i], size);
-            for(unsigned int j=0; j<size; j++)
+	    printf("size %lu\n", size);
+	    for(unsigned int j=0; j< numElements; j++)
                 visited[i][j] = UINT32_MAX;
         }
     }

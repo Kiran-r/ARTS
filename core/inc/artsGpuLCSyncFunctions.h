@@ -36,58 +36,33 @@
 ** WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the  **
 ** License for the specific language governing permissions and limitations   **
 ******************************************************************************/
+#ifndef ARTSGPULCSYNCFUNCTIONS_H
+#define ARTSGPULCSYNCFUNCTIONS_H
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "artsRT.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include "arts.h"
-#include "artsRouteTable.h"
-#include "artsGlobals.h"
-#include "artsAtomics.h"
-
-#define MYSIZE 10
-
-//Run with only 1 node 1 worker!
-
-void printRT(char * message)
+typedef struct 
 {
-    PRINTF("Start: %s\n", message);
-    artsRouteTableIterator * iter = artsNewRouteTableIterator(artsNodeInfo.routeTable[0]);
-    artsRouteItem_t * item = artsRouteTableIterate(iter);
-    while(item)
-    {
-        artsPrintItem(item);
-        item = artsRouteTableIterate(iter);
-    }
-    PRINTF("End: %s\n", message);
+    uint64_t guid;
+    void * data;
+    uint64_t dataSize;
+    unsigned int * hostVersion;
+    unsigned int gpuVersion;
+    unsigned int gpuTimeStamp;
+    int gpu;
+} artsLCMeta_t;
+
+typedef unsigned int (*artsLCSyncFunction_t) (artsLCMeta_t * host, artsLCMeta_t * dev);
+extern artsLCSyncFunction_t lcSyncFunction[];
+
+unsigned int artsGetLatestGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev);
+unsigned int artsGetRandomGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev);
+
+
+#ifdef __cplusplus
 }
+#endif
 
-void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
-{
-    int dummyRank;
-
-    printf("Start\n");
-    artsGuidRange * range = artsNewGuidRangeNode(ARTS_DB_READ, MYSIZE, nodeId);
-    for(uint64_t i=0; i<MYSIZE; i++)
-        artsDbCreateWithGuid(artsGuidRangeNext(range), 1024*sizeof(char));
-    printRT("After DB Init");
-
-    for(uint64_t i=0; i<MYSIZE; i++)
-        artsRouteTableLookupDb(artsGetGuid(range, i), &dummyRank, true);
-    printRT("After DB Lookup");
-    
-    for(uint64_t i=0; i<MYSIZE; i++)
-        internalRouteTableReturnDb(artsNodeInfo.routeTable[0], artsGetGuid(range, i), false, false);
-    printRT("After DB Return with Mark");
-
-    
-    artsCleanUpRouteTable(artsNodeInfo.routeTable[0]);
-    printRT("After GC");
-
-    artsShutdown();
-}
-
-int main(int argc, char** argv)
-{
-    artsRT(argc, argv);
-    return 0;
-}
+#endif

@@ -626,7 +626,7 @@ void artsRemoteHandleSendAlreadyLocal(void * pack)
 {
     struct artsRemoteDbFullRequestPacket * packet = pack;
     int rank;
-    struct artsDb * dbRes = artsRouteTableLookupDb(packet->dbGuid, &rank);
+    struct artsDb * dbRes = artsRouteTableLookupDb(packet->dbGuid, &rank, true);
     artsDbRequestCallback(packet->edt, packet->slot, dbRes);
 }
 

@@ -52,6 +52,7 @@
 #include "artsDeque.h"
 #include "artsOutOfOrder.h"
 #include "artsDebug.h"
+#include "artsGpuLCSyncFunctions.h"
 
 #define DPRINTF(...)
 // #define DPRINTF(...) PRINTF(__VA_ARGS__)
@@ -215,7 +216,7 @@ void artsRunGpu(void *edtPacket, artsGpu_t * artsGpu)
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
 
     int savedDevice;
-    cudaGetDevice(&savedDevice);
+    CHECKCORRECT(cudaGetDevice(&savedDevice));
     CHECKCORRECT(cudaSetDevice(artsGpu->device));
 
     if(artsNodeInfo.runGpuGcPreEdt)
@@ -364,4 +365,74 @@ void artsPutInDbFromGpu(void * ptr, artsGuid_t dbGuid, unsigned int offset, unsi
 __device__ uint64_t internalGetGpuIndex(uint64_t * paramv)
 {
     return *(paramv - 1);
+}
+
+artsLCSyncFunction_t lcSyncFunction[] = {
+    artsGetLatestGpuDb,
+    artsGetRandomGpuDb
+};
+
+void internalLCSync(artsGuid_t acqGuid, struct artsDb * db)
+{
+//     unsigned int rank = artsGuidGetRank(acqGuid);
+//     if(rank==artsGlobalRankId)
+    {
+        // struct artsDb * db = (struct artsDb*) artsRouteTableLookupItem(acqGuid);
+        if(db)
+        {
+            artsLCMeta_t host;
+            artsLCMeta_t dev;
+            host.guid = acqGuid;
+            host.data = (void*) (db+1);
+            host.dataSize = db->header.size - sizeof(struct artsDb);
+            host.hostVersion = &db->version;
+            host.gpuVersion = 0;
+            host.gpuTimeStamp = 0;
+            host.gpu = -1;
+            unsigned int inc = 0;
+
+            int savedDevice;
+            CHECKCORRECT(cudaGetDevice(&savedDevice));
+            int currentDevice = savedDevice;
+            unsigned int size = db->header.size;
+            struct artsDb * tempSpace = (struct artsDb *)artsMalloc(size);
+            for(int i=0; i<artsNodeInfo.gpu; i++)
+            {
+                unsigned int gpuVersion;
+                unsigned int timeStamp;
+                DPRINTF("acqGuid: %lu type: %u\n", acqGuid, artsGuidGetType(acqGuid));
+                void * dataPtr = artsGpuRouteTableLookupDb(acqGuid, i, &gpuVersion, &timeStamp);
+                if(dataPtr)
+                {
+                    artsGpuInvalidateOnRouteTable(acqGuid, i);
+                    if(i != currentDevice)
+                    {
+                        CHECKCORRECT(cudaSetDevice(i));
+                        currentDevice = i;
+                    }
+                    
+                    artsCudaMemCpyFromDev(tempSpace, dataPtr, size);
+                    artsGpuRouteTableReturnDb(acqGuid, true, i);
+
+                    dev.guid = acqGuid;
+                    dev.data = (void*) (tempSpace+1);
+                    dev.dataSize = tempSpace->header.size - sizeof(struct artsDb);
+                    dev.hostVersion = &tempSpace->version;
+                    dev.gpuVersion = gpuVersion;
+                    dev.gpuTimeStamp = timeStamp;
+                    dev.gpu = i;
+                    inc = lcSyncFunction[artsNodeInfo.gpuLCSync](&host, &dev);
+                }
+                else
+                {
+                    PRINTF("NO DB COPY ON GPU %d\n", i);
+                }
+                if(inc)
+                    artsAtomicAdd(&db->version, inc);
+            }
+            artsFree(tempSpace);
+            if(currentDevice != savedDevice)
+                CHECKCORRECT(cudaSetDevice(savedDevice));
+        }
+    }
 }

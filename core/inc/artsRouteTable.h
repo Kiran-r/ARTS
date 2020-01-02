@@ -89,6 +89,7 @@ typedef struct __attribute__ ((aligned))
     void * data;
     volatile uint64_t lock;
     unsigned int rank;
+    unsigned int touched;
     struct artsOutOfOrderList ooList;
 } artsRouteItem_t;
 
@@ -122,7 +123,7 @@ bool decItem(artsRouteTable_t * routeTable, artsRouteItem_t * item);
 artsRouteTable_t * artsNewRouteTable(unsigned int routeTableSize, unsigned int shift);
 
 void * artsRouteTableAddItem(void* item, artsGuid_t key, unsigned int route, bool used);
-artsRouteItem_t * internalRouteTableAddItemRace(bool * addedItem, artsRouteTable_t * routeTable, void * item, artsGuid_t key, unsigned int rank, bool usedRes, bool usedAvail);
+artsRouteItem_t * internalRouteTableAddItemRace(bool * addedItem, artsRouteTable_t * routeTable, void * item, artsGuid_t key, unsigned int rank, bool usedRes, bool usedAvail, unsigned int toAddOnCreation);
 bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int route, bool used);
 artsRouteItem_t * internalRouteTableAddDeletedItemRace(artsRouteTable_t * routeTable, void * item, artsGuid_t key, unsigned int rank);
 
@@ -148,8 +149,8 @@ void ** artsRouteTableReserve(artsGuid_t key, bool * dec, itemState_t * state);
 void artsRouteTableDecItem(artsGuid_t key, void * data);
 artsRouteItem_t * getItemFromData(artsGuid_t key, void * data);
 
-void * internalRouteTableLookupDb(artsRouteTable_t * routeTable, artsGuid_t key, int * rank);
-void * artsRouteTableLookupDb(artsGuid_t key, int * rank);
+void * internalRouteTableLookupDb(artsRouteTable_t * routeTable, artsGuid_t key, int * rank, unsigned int ** touched);
+void * artsRouteTableLookupDb(artsGuid_t key, int * rank, bool touch);
 bool internalRouteTableReturnDb(artsRouteTable_t * routeTable, artsGuid_t key, bool markToDelete, bool doDelete);
 bool artsRouteTableReturnDb(artsGuid_t key, bool markToDelete);
 

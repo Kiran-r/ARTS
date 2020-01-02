@@ -36,54 +36,69 @@
 ** WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the  **
 ** License for the specific language governing permissions and limitations   **
 ******************************************************************************/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include "arts.h"
-#include "artsRouteTable.h"
-#include "artsGlobals.h"
-#include "artsAtomics.h"
+#include "artsGpuRuntime.h"
 
-#define MYSIZE 10
-
-//Run with only 1 node 1 worker!
-
-void printRT(char * message)
+__global__ void temp(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    PRINTF("Start: %s\n", message);
-    artsRouteTableIterator * iter = artsNewRouteTableIterator(artsNodeInfo.routeTable[0]);
-    artsRouteItem_t * item = artsRouteTableIterate(iter);
-    while(item)
-    {
-        artsPrintItem(item);
-        item = artsRouteTableIterate(iter);
-    }
-    PRINTF("End: %s\n", message);
+    uint64_t gpuId = getGpuIndex();
+    unsigned int * addr = (unsigned int *)depv[0].ptr;
+    int index = threadIdx.x + blockIdx.x * blockDim.x;
+    addr[gpuId] = gpuId;
 }
 
+void done(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
+{
+    unsigned int * tile = (unsigned int *) depv[0].ptr;
+    for(unsigned int j=0; j<artsGetTotalGpus(); j++)
+        printf("%u, ", tile[j]);
+    printf("\n");
+    artsShutdown();
+}
+
+extern "C"
+void initPerNode(unsigned int nodeId, int argc, char** argv)
+{
+    
+}
+
+extern "C"
+void initPerGpu(unsigned int nodeId, int devId, cudaStream_t * stream, int argc, char * argv)
+{
+
+}
+
+extern "C"
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv)
 {
-    int dummyRank;
+    if(!workerId)
+    {
+        unsigned int ** addr;
+        PRINTF("creating size: %u\n", sizeof(unsigned int) * artsGetTotalGpus());
+        artsGuid_t dbGuid = artsDbCreate((void**)&addr, sizeof(unsigned int) * artsGetTotalGpus(), ARTS_DB_LC);
+        for(uint64_t i=0; i<artsGetTotalGpus(); i++)
+            addr[i] = 0;
 
-    printf("Start\n");
-    artsGuidRange * range = artsNewGuidRangeNode(ARTS_DB_READ, MYSIZE, nodeId);
-    for(uint64_t i=0; i<MYSIZE; i++)
-        artsDbCreateWithGuid(artsGuidRangeNext(range), 1024*sizeof(char));
-    printRT("After DB Init");
+        artsGuid_t doneGuid = artsEdtCreate(done, 0, 0, NULL, artsGetTotalGpus()+1);
+        // artsLCSync(doneGuid, 0, dbGuid);
+        artsSignalEdt(doneGuid, 0, dbGuid);
+        
+        dim3 threads (1, 1, 1);
+        dim3 grid (1, 1, 1);
+        for(uint64_t i=0; i<artsGetTotalGpus(); i++)
+        {
+            PRINTF("CREATING EDT for GPU: %lu\n", i);
+            artsGuid_t edtGuid = artsEdtCreateGpuDirect(temp, nodeId, i, 0, NULL, 1, grid, threads, doneGuid, i+1, NULL_GUID, true);
+            artsSignalEdt(edtGuid, 0, dbGuid);
+        }
+    }
+}
 
-    for(uint64_t i=0; i<MYSIZE; i++)
-        artsRouteTableLookupDb(artsGetGuid(range, i), &dummyRank, true);
-    printRT("After DB Lookup");
-    
-    for(uint64_t i=0; i<MYSIZE; i++)
-        internalRouteTableReturnDb(artsNodeInfo.routeTable[0], artsGetGuid(range, i), false, false);
-    printRT("After DB Return with Mark");
-
-    
-    artsCleanUpRouteTable(artsNodeInfo.routeTable[0]);
-    printRT("After GC");
-
-    artsShutdown();
+extern "C"
+void cleanPerGpu(unsigned int nodeId, int devId, cudaStream_t * stream)
+{
 }
 
 int main(int argc, char** argv)

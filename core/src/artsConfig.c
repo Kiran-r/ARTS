@@ -896,6 +896,11 @@ struct artsConfig * artsConfigLoad()
     else
         config->gpuFit = 0;
 
+    if( (foundVariable = artsConfigFindVariable(&configVariables,"gpuLCSync")) != NULL)
+        config->gpuLCSync = strtol( foundVariable->value, &end , 10);
+    else
+        config->gpuLCSync = 0;
+
     if( (foundVariable = artsConfigFindVariable(&configVariables,"gpuMaxEdts")) != NULL)
         config->gpuMaxEdts = strtol( foundVariable->value, &end , 10);
     else

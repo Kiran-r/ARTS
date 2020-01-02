@@ -64,7 +64,7 @@ void * artsDbMalloc(artsType_t mode, unsigned int size)
 {
     void * ptr = NULL;
 #ifdef USE_GPU
-    if(artsNodeInfo.gpu && (mode == ARTS_DB_GPU_READ || mode == ARTS_DB_GPU_WRITE))
+    if(artsNodeInfo.gpu && (mode == ARTS_DB_GPU_READ || mode == ARTS_DB_GPU_WRITE || mode == ARTS_DB_LC))
         ptr = artsCudaMallocHost(size);
 #endif
     if(!ptr)
@@ -76,7 +76,7 @@ void artsDbFree(void * ptr)
 {
     struct artsDb * db = (struct artsDb*) ptr;
 #ifdef USE_GPU
-    if(artsNodeInfo.gpu && (db->header.type == ARTS_DB_GPU_READ || db->header.type == ARTS_DB_GPU_WRITE))
+    if(artsNodeInfo.gpu && (db->header.type == ARTS_DB_GPU_READ || db->header.type == ARTS_DB_GPU_WRITE || db->header.type == ARTS_DB_LC))
     {
         artsCudaFreeHost(ptr);
         ptr = NULL;
@@ -94,6 +94,7 @@ void artsDbCreateInternal(artsGuid_t guid, void *addr, uint64_t size, uint64_t p
 
     struct artsDb * dbRes = (struct artsDb *)header;
     dbRes->guid = guid;
+    dbRes->version = 0;
     if(mode != ARTS_DB_PIN)
     {
         dbRes->dbList = artsNewDbList();
@@ -328,7 +329,7 @@ void acquireDbs(struct artsEdt * edt)
 //                    if(artsIsGuidLocal(depv[i].guid))
 //                    {
                         int validRank = -1;
-                        struct artsDb * dbTemp = artsRouteTableLookupDb(depv[i].guid, &validRank);
+                        struct artsDb * dbTemp = artsRouteTableLookupDb(depv[i].guid, &validRank, true);
                         if(dbTemp)
                         {
                             dbFound = dbTemp;
@@ -347,14 +348,36 @@ void acquireDbs(struct artsEdt * edt)
 //                    }
                     break;
                 }
+                case ARTS_DB_LC_SYNC:
+                {
+                    if(owner == artsGlobalRankId) //Owner Rank
+                    {
+                        int validRank = -1;
+                        artsGuid_t acqGuid = artsGuidCast(depv[i].guid, ARTS_DB_LC);
+                        struct artsDb * dbTemp = artsRouteTableLookupDb(acqGuid, &validRank, false);
+                        if(dbTemp) //We have found an entry
+                        {
+                            dbFound = dbTemp;
+                            artsAtomicSub(&edt->depcNeeded, 1U);
+                        }
+                        else //The Db hasn't been created yet
+                        {
+                            //TODO: Create an out-of-order sync
+                            DPRINTF("%lu out of order request for LC_SYNC not supported yet\n", depv[i].guid);
+                            // artsOutOfOrderHandleDbRequest(depv[i].guid, edt, i, true);
+                        }
+                    }
+                    break;
+                }
                 case ARTS_DB_GPU_READ:
                 case ARTS_DB_GPU_WRITE:
+                case ARTS_DB_LC:
                 case ARTS_DB_READ:
                 case ARTS_DB_WRITE:
                     if(owner == artsGlobalRankId) //Owner Rank
                     {
                         int validRank = -1;
-                        struct artsDb * dbTemp = artsRouteTableLookupDb(depv[i].guid, &validRank);
+                        struct artsDb * dbTemp = artsRouteTableLookupDb(depv[i].guid, &validRank, true);
                         if(dbTemp) //We have found an entry
                         {
                             if(artsAddDbDuplicate(dbTemp, artsGlobalRankId, edt, i, depv[i].mode))
@@ -366,7 +389,7 @@ void acquireDbs(struct artsEdt * edt)
                                 }
                                 else //Owner rank but someone else has valid copy
                                 {
-                                    if(depv[i].mode == ARTS_DB_READ || depv[i].mode == ARTS_DB_GPU_READ || depv[i].mode == ARTS_DB_GPU_WRITE)
+                                    if(depv[i].mode == ARTS_DB_READ || depv[i].mode == ARTS_DB_GPU_READ || depv[i].mode == ARTS_DB_GPU_WRITE || depv[i].mode == ARTS_DB_LC)
                                         artsRemoteDbRequest(depv[i].guid, validRank, edt, i, depv[i].mode, true);
                                     else
                                         artsRemoteDbFullRequest(depv[i].guid, validRank, edt, i, depv[i].mode);
@@ -386,7 +409,7 @@ void acquireDbs(struct artsEdt * edt)
                     else
                     {
                         int validRank = -1;
-                        struct artsDb * dbTemp = artsRouteTableLookupDb(depv[i].guid, &validRank);
+                        struct artsDb * dbTemp = artsRouteTableLookupDb(depv[i].guid, &validRank, true);
                         if(dbTemp) //We have found an entry
                         {
                             dbFound = dbTemp;
@@ -405,7 +428,7 @@ void acquireDbs(struct artsEdt * edt)
                         }
                     }
                     break;
-
+                    
                 case ARTS_NULL:
                 default:
                     artsAtomicSub(&edt->depcNeeded, 1U);
@@ -416,6 +439,7 @@ void acquireDbs(struct artsEdt * edt)
             {
                 depv[i].ptr = dbFound + 1;
             }
+            //Shouldn't there be an else return here...
         }
         else
         {
@@ -432,6 +456,14 @@ void prepDbs(unsigned int depc, artsEdtDep_t * depv)
               depv[i].mode == ARTS_DB_WRITE )
         {
             artsRemoteUpdateRouteTable(depv[i].guid, -1);
+        }
+
+        if(depv[i].mode == ARTS_DB_LC_SYNC)
+        {
+            struct artsDb * dbTemp = ((struct artsDb *) depv[i].ptr) - 1;
+            artsGuid_t acqGuid = artsGuidCast(depv[i].guid, ARTS_DB_LC);
+            DPRINTF("internalLCSync %lu %p\n", acqGuid, dbTemp);
+            internalLCSync(acqGuid, dbTemp);
         }
     }
 }

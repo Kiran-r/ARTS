@@ -104,11 +104,12 @@ typedef enum
 
     ARTS_DB_GPU_READ,
     ARTS_DB_GPU_WRITE,
-            
+    ARTS_DB_LC,
 //End DB modes
     ARTS_LAST_TYPE,
     ARTS_SINGLE_VALUE,
-    ARTS_PTR
+    ARTS_PTR,
+    ARTS_DB_LC_SYNC
 } artsType_t;
 
 typedef struct
@@ -144,6 +145,7 @@ struct artsDb
 {
     struct artsHeader header;
     artsGuid_t guid;
+    unsigned int version;
     void * dbList;
 } __attribute__ ((aligned));
 

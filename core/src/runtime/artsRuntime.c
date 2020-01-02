@@ -139,6 +139,7 @@ void artsRuntimeNodeInit(unsigned int workerThreads, unsigned int receivingThrea
     artsNodeInfo.gpuRouteTableEntries = config->gpuRouteTableEntries;
     artsNodeInfo.gpuLocality = config->gpuLocality;
     artsNodeInfo.gpuFit = config->gpuFit;
+    artsNodeInfo.gpuLCSync = config->gpuLCSync;
     artsNodeInfo.gpuMaxEdts = config->gpuMaxEdts;
     artsNodeInfo.gpuMaxMemory = config->gpuMaxMemory;
     artsNodeInfo.gpuP2P = config->gpuP2P;

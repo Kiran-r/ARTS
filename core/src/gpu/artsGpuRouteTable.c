@@ -50,6 +50,9 @@
  #define DPRINTF(...)
 //#define DPRINTF(...) PRINTF(__VA_ARGS__)
 
+//Use to keep ordering for LC accesses
+volatile unsigned int gpuNodeOrder = 0;
+
 //Must be thread local
 __thread uint64_t gpuItemSizeBypass = 0;
 
@@ -60,6 +63,19 @@ void setGpuItem(artsRouteItem_t * item, void * data)
     wrapper->realData = data;
     wrapper->size = gpuItemSizeBypass;
     gpuItemSizeBypass = 0;
+}
+
+unsigned int setGpuTimestamp(volatile unsigned int * timeStamp)
+{
+    unsigned int newTimeStamp = artsAtomicAdd(&gpuNodeOrder, 1);
+    unsigned int oldTimeStamp = *timeStamp;
+    while(oldTimeStamp < newTimeStamp)
+    {
+        if(artsAtomicCswap(timeStamp, oldTimeStamp, newTimeStamp) == oldTimeStamp)
+            return newTimeStamp;
+        oldTimeStamp = *timeStamp;
+    }
+    return oldTimeStamp;
 }
 
 artsRouteTable_t * artsGpuNewRouteTable(unsigned int routeTableSize, unsigned int shift)
@@ -99,18 +115,20 @@ void * artsGpuRouteTableAddItemRace(void * item, uint64_t size, artsGuid_t key, 
     gpuItemSizeBypass = size;
     artsRouteTable_t * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
     bool ret;
-    artsRouteItem_t * entry = internalRouteTableAddItemRace(&ret, routeTable, item, key, artsGlobalRankId, true, true);
+    artsRouteItem_t * entry = internalRouteTableAddItemRace(&ret, routeTable, item, key, artsGlobalRankId, true, true, 0);
     artsItemWrapper_t * wrapper = (artsItemWrapper_t*) entry->data;
+    setGpuTimestamp(&wrapper->timeStamp);
     return (void *)wrapper->realData;
 }
 
-artsItemWrapper_t * artsGpuRouteTableReserveItemRace(bool * added, uint64_t size, artsGuid_t key, unsigned int gpuId)
+artsItemWrapper_t * artsGpuRouteTableReserveItemRace(bool * added, uint64_t size, artsGuid_t key, unsigned int gpuId,  bool addToUse)
 {
     //This is a bypass thread local variable to make the api nice...
     gpuItemSizeBypass = size;
     artsRouteTable_t * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
-    artsRouteItem_t * entry = internalRouteTableAddItemRace(added, routeTable, NULL, key, artsGlobalRankId, true, true);
+    artsRouteItem_t * entry = internalRouteTableAddItemRace(added, routeTable, NULL, key, artsGlobalRankId, true, true, addToUse ? 1 : 0);
     artsItemWrapper_t * wrapper = (artsItemWrapper_t*) entry->data;
+    setGpuTimestamp(&wrapper->timeStamp);
     return wrapper;
 }
 
@@ -121,15 +139,26 @@ void * artsGpuRouteTableAddItemToDeleteRace(void * item, uint64_t size, artsGuid
     artsRouteTable_t * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
     artsRouteItem_t * entry = internalRouteTableAddDeletedItemRace(routeTable, item, key, artsGlobalRankId);
     artsItemWrapper_t * wrapper = (artsItemWrapper_t*) entry->data;
+    setGpuTimestamp(&wrapper->timeStamp);
     return (void *)wrapper->realData;
 }
 
-void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId)
+
+
+void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId, unsigned int * touched, unsigned int * timeStamp)
 {
+    void * ret = NULL;
     int dummyRank;
+    unsigned int * internalTouched;
     artsRouteTable_t * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
-    artsItemWrapper_t * wrapper = (artsItemWrapper_t*) internalRouteTableLookupDb(routeTable, key, &dummyRank);
-    return (wrapper) ? (void*) wrapper->realData : NULL;
+    artsItemWrapper_t * wrapper = (artsItemWrapper_t*) internalRouteTableLookupDb(routeTable, key, &dummyRank, &internalTouched);
+    if(wrapper)
+    {
+        *timeStamp = setGpuTimestamp(&wrapper->timeStamp);
+        *touched = artsAtomicAdd(internalTouched, 1);
+        ret = (void*) wrapper->realData;
+    }
+    return ret;
 }
 
 bool artsGpuRouteTableReturnDb(artsGuid_t key, bool markToDelete, unsigned int gpuId)
@@ -147,6 +176,11 @@ bool artsGpuInvalidateRouteTables(artsGuid_t key, unsigned int keepOnThisGpu)
             ret |= internalRouteTableRemoveItem(artsNodeInfo.gpuRouteTable[i], key);
     }
     return ret;
+}
+
+bool artsGpuInvalidateOnRouteTable(artsGuid_t key, unsigned int gpuId)
+{
+    return internalRouteTableRemoveItem(artsNodeInfo.gpuRouteTable[gpuId], key);
 }
 
 /*This takes three parameters to regulate what is deleted.  This will only clean up DBs!

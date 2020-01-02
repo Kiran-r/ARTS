@@ -51,6 +51,7 @@
 #include "artsDebug.h"
 #include "artsEdtFunctions.h"
 #include "artsEventFunctions.h"
+#include "artsGpuLCSyncFunctions.h"
 
 #define DPRINTF( ... )
 // #define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
@@ -254,7 +255,9 @@ void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data)
                 artsGpuInvalidateRouteTables(depv[i].guid, gc->gpuId);
             }
             //True says to mark it for deletion... Change this to false to further delay delete!
-            artsGpuRouteTableReturnDb(depv[i].guid, artsNodeInfo.freeDbAfterGpuRun, gc->gpuId);
+            bool markDelete = (artsGuidGetType(depv[i].guid) != ARTS_DB_GPU_WRITE) && artsNodeInfo.freeDbAfterGpuRun;
+            artsGpuRouteTableReturnDb(depv[i].guid, markDelete, gc->gpuId);
+            // artsGpuRouteTableReturnDb(depv[i].guid, artsNodeInfo.freeDbAfterGpuRun, gc->gpuId);
             DPRINTF("Returning Db: %lu id: %d\n", depv[i].guid, gc->gpuId);
         }
     }
@@ -340,19 +343,22 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
     {
         if(depv[i].ptr)
         {
-            void * dataPtr = artsGpuRouteTableLookupDb(depv[i].guid, artsGpu->device);
+            unsigned int gpuVersion, timeStamp;
+            void * dataPtr = artsGpuRouteTableLookupDb(depv[i].guid, artsGpu->device, &gpuVersion, &timeStamp);
             struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
-            uint64_t size = db->header.size - sizeof(struct artsDb);
+            uint64_t size = db->header.size;
+            uint64_t allocSize = (depv[i].mode == ARTS_DB_LC) ? size*2 : size;
             if (!dataPtr)
             {
                 bool successfulAdd = false;
-                artsItemWrapper_t * wrapper = artsGpuRouteTableReserveItemRace(&successfulAdd, size, depv[i].guid, artsGpu->device);
+                DPRINTF("WRAPPER SIZE: %lu\n", allocSize);
+                artsItemWrapper_t * wrapper = artsGpuRouteTableReserveItemRace(&successfulAdd, allocSize, depv[i].guid, artsGpu->device, false); //(depv[i].mode == ARTS_DB_LC));
                 
                 if(successfulAdd) //We won, so allocate and move data
                 {
-                    DPRINTF("Adding %lu %u id: %d\n", depv[i].guid, size, artsGpu->device);
-                    dataPtr = artsCudaMalloc(size);
-                    pushDataToStream(artsGpu->device, dataPtr, depv[i].ptr, size, artsNodeInfo.gpuBuffOn && !gpuEdt->lib);
+                    DPRINTF("Adding %lu %u id: %d\n", depv[i].guid, allocSize, artsGpu->device);
+                    dataPtr = artsCudaMalloc(allocSize);
+                    pushDataToStream(artsGpu->device, dataPtr, db, size, artsNodeInfo.gpuBuffOn && !gpuEdt->lib);
                     //Must have already launched the memcpy before setting realData or races will ensue
                     wrapper->realData = dataPtr;
                     artsAtomicAdd(&misses, 1U);
@@ -361,17 +367,17 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
                 {
                     while(!artsAtomicFetchAddU64((uint64_t*)&wrapper->realData, 0)); //Spin till the data memcpy is launched
                     dataPtr = (void*) wrapper->realData;
-                    artsAtomicAddU64(&artsGpu->availGlobalMem, size);
+                    artsAtomicAddU64(&artsGpu->availGlobalMem, allocSize);
                     artsAtomicAdd(&hits, 1U);
                 }
             }
             else
             {
-                artsAtomicAddU64(&artsGpu->availGlobalMem, size);
+                artsAtomicAddU64(&artsGpu->availGlobalMem, allocSize);
                 artsAtomicAdd(&hits, 1U);
             }
-            
-            hostDepv[i].ptr = dataPtr;
+            struct artsDb * newDb = (struct artsDb*) dataPtr;
+            hostDepv[i].ptr = (void*)(newDb + 1);
         }
         else
         {
@@ -448,13 +454,53 @@ void freeGpuItem(artsRouteItem_t * item)
         DPRINTF("FREEING HOST PTR: %p\n", hostGCPtr);
         artsCudaFreeHost(hostGCPtr);
     }
+    else if(type == ARTS_DB_LC)
+    {
+        int validRank = -1;
+        struct artsDb * db = (struct artsDb *) artsRouteTableLookupDb(item->key, &validRank, false);
+        if(db)
+        {
+            unsigned int size = db->header.size;
+            struct artsDb * tempSpace = (struct artsDb *)artsMalloc(size);
+            
+            artsLCMeta_t host;
+            host.guid = item->key;
+            host.data = (void*) (db+1);
+            host.dataSize = db->header.size - sizeof(struct artsDb);
+            host.hostVersion = &db->version;
+            host.gpuVersion = 0;
+            host.gpuTimeStamp = 0;
+            host.gpu = -1;
+        
+            artsCudaMemCpyFromDev(tempSpace, (void*) wrapper->realData, size);
+
+            artsLCMeta_t dev;
+            dev.guid = item->key;
+            dev.data = (void*) (tempSpace+1);
+            dev.dataSize = tempSpace->header.size - sizeof(struct artsDb);
+            dev.hostVersion = &tempSpace->version;
+            dev.gpuVersion = item->touched;
+            dev.gpuTimeStamp = wrapper->timeStamp;
+            dev.gpu = -1;
+
+            unsigned int inc = lcSyncFunction[artsNodeInfo.gpuLCSync](&host, &dev);
+            if(inc)
+                artsAtomicAdd(&db->version, inc);
+            artsRouteTableReturnDb(item->key, false);
+            artsFree(tempSpace);
+            artsCudaFree((void*)wrapper->realData);
+        }
+        else
+            PRINTF("Trying to delete an LC but there is no DB to back up to\n");
+    }
     else if(type > ARTS_BUFFER && type < ARTS_LAST_TYPE)  //DBs
         artsCudaFree((void*)wrapper->realData);
 
     wrapper->realData = NULL;
-    wrapper->timestamp = 0;
+    wrapper->timeStamp = 0;
     item->key = 0;
     item->lock = 0;
+    item->touched = 0;
 }
 
 bool tryReserve(int gpu, uint64_t size)
@@ -567,6 +613,22 @@ int worstFit(uint64_t mask, uint64_t size)
     return selectedGpu;
 }
 
+uint64_t getDbSizeNeeded(uint32_t depc, artsEdtDep_t * depv)
+{
+    uint64_t size = 0;
+    for (unsigned int i = 0; i < depc; i++)
+    {
+        if(depv[i].ptr)
+        {
+            struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
+            size += db->header.size;
+            if(depv[i].mode == ARTS_DB_LC)
+                size += db->header.size;
+        }
+    }
+    return size;
+}
+
 int random(void * edtPacket)
 {
     artsGpuEdt_t * edt = (artsGpuEdt_t *) edtPacket;
@@ -576,13 +638,7 @@ int random(void * edtPacket)
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
 
     // Size to be allocated on the GPU
-    uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc;
-    for (unsigned int i = 0; i < depc; i++)
-    {
-        struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
-        size += db->header.size - sizeof(struct artsDb);
-    }
-    // size = size + db size;
+    uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc + getDbSizeNeeded(depc, depv);
     uint64_t mask = ~0;
     return fit(mask, size);
 }
@@ -596,13 +652,7 @@ int allOrNothing(void * edtPacket)
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
 
     // Size to be allocated on the GPU
-    uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc;
-    for (unsigned int i = 0; i < depc; i++)
-    {
-        struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
-        size += db->header.size - sizeof(struct artsDb);
-    }
-
+    uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc + getDbSizeNeeded(depc, depv);
     uint64_t mask=0;
     for (unsigned int i=0; i<depc; ++i)
         mask &= artsGpuLookupDb(depv[i].guid);
@@ -624,13 +674,7 @@ int atleastOne(void * edtPacket)
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
 
     // Size to be allocated on the GPU
-    uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc;
-    for (unsigned int i = 0; i < depc; i++)
-    {
-        struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
-        size += db->header.size - sizeof(struct artsDb);
-    }
-
+    uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc + getDbSizeNeeded(depc, depv);
     uint64_t mask=0;
     for (unsigned int i=0; i<depc; ++i)
         mask |= artsGpuLookupDb(depv[i].guid);
@@ -655,12 +699,7 @@ int artsReserveEdtRequiredGpu(int * gpu, void * edtPacket)
     if(edt->gpuToRunOn > -1)
     {
         // Size to be allocated on the GPU
-        uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc;
-        for (unsigned int i = 0; i < depc; i++)
-        {
-            struct artsDb * db = (struct artsDb *) depv[i].ptr - 1;
-            size += db->header.size - sizeof(struct artsDb);
-        }
+        uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc + getDbSizeNeeded(depc, depv);
         if(tryReserve(edt->gpuToRunOn, size))
         {
             *gpu = edt->gpuToRunOn;
@@ -669,7 +708,6 @@ int artsReserveEdtRequiredGpu(int * gpu, void * edtPacket)
     }
     return ret;
 }
-
 
 artsGpu_t * artsFindGpu(void * data)
 {

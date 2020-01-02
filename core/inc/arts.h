@@ -377,6 +377,9 @@ unsigned int artsGetTotalGpus();
 //Arts timer in nanoseconds.
 uint64_t artsGetTimeStamp();
 
+//Gives a threadsafe random number
+uint64_t artsThreadSafeRandom();
+
 //This is a way to send operations to a specific rank.  If the rank is the current node, the function is executed immediately.
 //If the rank is remote, the arguments will be packaged, and sent to the appropriate node.  In this case
 //the function will be executed by the receiver threads.  The arguments are freed if the free flag is set.

@@ -95,6 +95,7 @@ struct artsRuntimeShared
     unsigned int gpu;
     unsigned int gpuLocality;
     unsigned int gpuFit;
+    unsigned int gpuLCSync;
     unsigned int gpuMaxEdts;
     unsigned int gpuP2P;
     unsigned int gpuRouteTableSize;
@@ -165,7 +166,9 @@ extern uint64_t artsGuidMax;
 "ARTS_DB_ONCE_LOCAL", \
 "ARTS_DB_GPU_READ", \
 "ARTS_DB_GPU_WRITE", \
+"ARTS_DB_LC", \
 "ARTS_LAST_TYPE", \
+"ARTS_DB_LC_SYNC", \
 "ARTS_SINGLE_VALUE", \
 "ARTS_PTR" }
 

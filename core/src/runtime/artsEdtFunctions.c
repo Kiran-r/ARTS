@@ -596,3 +596,12 @@ void checkOutEdts(uint64_t threashold)
         artsAtomicFetchSubU64(&count, threashold);
     }
 }
+
+void artsLCSync(artsGuid_t edtGuid, uint32_t slot, artsGuid_t dataGuid)
+{
+    artsGuid_t acqGuid = dataGuid;
+    artsType_t mode = artsGuidGetType(dataGuid);
+    if(mode == ARTS_DB_LC)
+        acqGuid = artsGuidCast(dataGuid, ARTS_DB_LC_SYNC);
+    artsSignalEdt(edtGuid, slot, acqGuid);
+}

@@ -62,11 +62,16 @@ void setItem(artsRouteItem_t * item, void * data)
 
 void freeItem(artsRouteItem_t * item)
 {
-    artsFree(item->data);
+    artsType_t type = artsGuidGetType(item->key);
+    if(type > ARTS_BUFFER && type < ARTS_LAST_TYPE)
+        artsDbFree(item->data);
+    else
+        artsFree(item->data);
     artsOutOfOrderListDelete(&item->ooList);
     item->data = NULL;
     item->key = 0;
     item->lock = 0;
+    item->touched = 0;
 }
 
 bool markReserve(artsRouteItem_t * item, bool markUse)
@@ -506,7 +511,7 @@ bool artsRouteTableRemoveItem(artsGuid_t key)
 
 //This locks the guid so it is useful when multiple people have the guid ahead of time
 //The guid doesn't need to be locked if no one knows about it
-artsRouteItem_t * internalRouteTableAddItemRace(bool * addedItem, artsRouteTable_t * routeTable, void * item, artsGuid_t key, unsigned int rank, bool usedRes, bool usedAvail)
+artsRouteItem_t * internalRouteTableAddItemRace(bool * addedItem, artsRouteTable_t * routeTable, void * item, artsGuid_t key, unsigned int rank, bool usedRes, bool usedAvail, unsigned int toAddOnCreation)
 {
     unsigned int pos = (unsigned int)(((uint64_t)key) % (uint64_t)guidLockSize);
     *addedItem = false;
@@ -535,6 +540,8 @@ artsRouteItem_t * internalRouteTableAddItemRace(bool * addedItem, artsRouteTable
                 else
                 {
                     found = internalRouteTableAddItem(routeTable, item, key, rank, usedRes);
+                    if(toAddOnCreation)
+                        incItem(found, toAddOnCreation, found->key, routeTable);
                     *addedItem = true;
                 }
                 guidLock[pos] = 0U;
@@ -577,7 +584,7 @@ bool artsRouteTableAddItemRace(void * item, artsGuid_t key, unsigned int rank, b
 {
     bool ret;
     artsRouteTable_t * routeTable = artsGetRouteTable(key);
-    internalRouteTableAddItemRace(&ret, routeTable, item, key, rank, used, false);
+    internalRouteTableAddItemRace(&ret, routeTable, item, key, rank, used, false, 0);
     return ret;
 }
 
@@ -675,24 +682,37 @@ itemState_t artsRouteTableLookupItemWithState(artsGuid_t key, void *** data, ite
     return noKey;
 }
 
-void * internalRouteTableLookupDb(artsRouteTable_t * routeTable, artsGuid_t key, int * rank)
+void * internalRouteTableLookupDb(artsRouteTable_t * routeTable, artsGuid_t key, int * rank, unsigned int ** touched)
 {
     *rank = -1;
     void * ret = NULL;
+    *touched = NULL;
     artsRouteItem_t * location = artsRouteTableSearchForKey(routeTable, key, availableKey);
     if(location)
     {
         *rank = location->rank;
         if(incItem(location, 1, location->key, routeTable))
+        {
             ret = location->data;
+            *touched = &location->touched;
+            // ((struct artsDb *) location)->version = artsAtomicAdd(&location->touched, 1);
+        }
     }
     return ret;
 }
 
-void * artsRouteTableLookupDb(artsGuid_t key, int * rank)
+void * artsRouteTableLookupDb(artsGuid_t key, int * rank, bool touch)
 {
     artsRouteTable_t * routeTable = artsGetRouteTable(key);
-    return internalRouteTableLookupDb(routeTable, key, rank);
+    unsigned int * touched;
+    void * data = internalRouteTableLookupDb(routeTable, key, rank, &touched);
+    if(data)
+    {
+        if(touch)
+            ((struct artsDb *) data)->version = artsAtomicAdd(touched, 1);
+        PRINTF("db version: %u\n", *touched);
+    }
+    return data;
 }
 
 bool internalRouteTableReturnDb(artsRouteTable_t * routeTable, artsGuid_t key, bool markToDelete, bool doDelete)
@@ -913,12 +933,12 @@ uint64_t artsCleanUpRouteTable(artsRouteTable_t * routeTable)
     {
         // artsPrintItem(item);
         artsType_t type = artsGuidGetType(item->key);
-        //These are DB types
+        // These are DB types
         if(type > ARTS_BUFFER && type < ARTS_LAST_TYPE)
         {
             struct artsDb * db = (struct artsDb*) item->data;
             freeSize += db->header.size;
-            artsDbFree(item->data);
+            freeItem(item);
         }
         item = artsRouteTableIterate(&iter);
     }

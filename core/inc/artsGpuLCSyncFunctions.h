@@ -48,17 +48,22 @@ typedef struct
     uint64_t guid;
     void * data;
     uint64_t dataSize;
-    unsigned int * hostVersion;
+    volatile unsigned int * hostVersion;
+    unsigned int * hostTimeStamp;
     unsigned int gpuVersion;
     unsigned int gpuTimeStamp;
     int gpu;
 } artsLCMeta_t;
 
-typedef unsigned int (*artsLCSyncFunction_t) (artsLCMeta_t * host, artsLCMeta_t * dev);
+typedef void (*artsLCSyncFunction_t) (artsLCMeta_t * host, artsLCMeta_t * dev);
 extern artsLCSyncFunction_t lcSyncFunction[];
 
-unsigned int artsGetLatestGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev);
-unsigned int artsGetRandomGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev);
+void * makeLCShadowCopy(struct artsDb * db);
+
+void artsMemcpyGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev);
+void artsGetLatestGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev);
+void artsGetRandomGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev);
+void artsGetNonZerosUnsignedInt(artsLCMeta_t * host, artsLCMeta_t * dev);
 
 
 #ifdef __cplusplus

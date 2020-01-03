@@ -149,6 +149,7 @@ void ** artsRouteTableReserve(artsGuid_t key, bool * dec, itemState_t * state);
 void artsRouteTableDecItem(artsGuid_t key, void * data);
 artsRouteItem_t * getItemFromData(artsGuid_t key, void * data);
 
+unsigned int internalIncDbVersion(unsigned int * touched);
 void * internalRouteTableLookupDb(artsRouteTable_t * routeTable, artsGuid_t key, int * rank, unsigned int ** touched);
 void * artsRouteTableLookupDb(artsGuid_t key, int * rank, bool touch);
 bool internalRouteTableReturnDb(artsRouteTable_t * routeTable, artsGuid_t key, bool markToDelete, bool doDelete);

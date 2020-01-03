@@ -155,7 +155,8 @@ void * artsGpuRouteTableLookupDb(artsGuid_t key, int gpuId, unsigned int * touch
     if(wrapper)
     {
         *timeStamp = setGpuTimestamp(&wrapper->timeStamp);
-        *touched = artsAtomicAdd(internalTouched, 1);
+        *touched = internalIncDbVersion(internalTouched);
+        // *touched = artsAtomicAdd(internalTouched, 1);
         ret = (void*) wrapper->realData;
     }
     return ret;
@@ -183,6 +184,41 @@ bool artsGpuInvalidateOnRouteTable(artsGuid_t key, unsigned int gpuId)
     return internalRouteTableRemoveItem(artsNodeInfo.gpuRouteTable[gpuId], key);
 }
 
+volatile unsigned int gpuReader = 0;
+volatile unsigned int gpuWriter = 0;
+
+void gpuGCReadLock()
+{
+    while(1)
+    {
+        while(gpuWriter);
+        artsAtomicFetchAdd(&gpuReader, 1U);
+        if(gpuWriter==0)
+            break;
+        artsAtomicSub(&gpuReader, 1U);
+    }
+    // PRINTF("READ LOCK\n");
+}
+
+void gpuGCReadUnlock()
+{
+    // PRINTF("READ UNLOCK\n");
+    artsAtomicSub(&gpuReader, 1U);
+}
+
+void gpuGCWriteLock()
+{
+    while(artsAtomicCswap(&gpuWriter, 0U, 1U) == 0U);
+    while(gpuReader);
+    // PRINTF("WRITE LOCK\n");
+}
+
+void gpuGCWriteUnlock()
+{
+    // PRINTF("WRITE UNLOCK\n");
+    artsAtomicSwap(&gpuWriter, 0U);
+}
+
 /*This takes three parameters to regulate what is deleted.  This will only clean up DBs!
 1.  sizeToClean - this is the desired space to clean up.  The gc will continue untill it
     it reaches this size or it has made a full pass across the RT.  Passing -1 will make the gc
@@ -198,6 +234,8 @@ uint64_t artsGpuCleanUpRouteTable(unsigned int sizeToClean, bool cleanZeros, uns
     uint64_t freedSize = 0;
     artsRouteTable_t * routeTable = artsNodeInfo.gpuRouteTable[gpuId];
     artsGpuRouteTable_t * gpuRouteTable = (artsGpuRouteTable_t*) routeTable;
+    //This is a lock to make sure LC sync works
+    gpuGCReadLock();
     //Only one person can be running the gc at a time...
     if(artsTryLock(&gpuRouteTable->gcLock))
     {
@@ -231,6 +269,7 @@ uint64_t artsGpuCleanUpRouteTable(unsigned int sizeToClean, bool cleanZeros, uns
         }
         artsUnlock(&gpuRouteTable->gcLock);
     }
+    gpuGCReadUnlock();
     return freedSize;
 }
 

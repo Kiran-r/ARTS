@@ -70,6 +70,12 @@ bool artsGpuInvalidateRouteTables(artsGuid_t key, unsigned int keepOnThisGpu);
 bool artsGpuInvalidateOnRouteTable(artsGuid_t key, unsigned int gpuId);
 uint64_t artsGpuCleanUpRouteTable(unsigned int sizeToClean, bool cleanZeros, unsigned int gpuId);
 uint64_t artsGpuFreeAll(unsigned int gpuId);
+
+void gpuGCReadLock();
+void gpuGCReadUnlock();
+void gpuGCWriteLock();
+void gpuGCWriteUnlock();
+
 #ifdef __cplusplus
 }
 #endif

@@ -44,6 +44,7 @@
 #include "artsGpuRuntime.h"
 #include "artsGpuStream.h"
 #include "artsGpuStreamBuffer.h"
+#include "artsGpuRouteTable.h"
 #include "artsEdtFunctions.h"
 #include "artsEventFunctions.h"
 #include "artsDbFunctions.h"
@@ -368,8 +369,10 @@ __device__ uint64_t internalGetGpuIndex(uint64_t * paramv)
 }
 
 artsLCSyncFunction_t lcSyncFunction[] = {
+    artsMemcpyGpuDb,
     artsGetLatestGpuDb,
-    artsGetRandomGpuDb
+    artsGetRandomGpuDb,
+    artsGetNonZerosUnsignedInt
 };
 
 void internalLCSync(artsGuid_t acqGuid, struct artsDb * db)
@@ -386,16 +389,17 @@ void internalLCSync(artsGuid_t acqGuid, struct artsDb * db)
             host.data = (void*) (db+1);
             host.dataSize = db->header.size - sizeof(struct artsDb);
             host.hostVersion = &db->version;
+            host.hostTimeStamp = &db->timeStamp;
             host.gpuVersion = 0;
             host.gpuTimeStamp = 0;
             host.gpu = -1;
-            unsigned int inc = 0;
 
             int savedDevice;
             CHECKCORRECT(cudaGetDevice(&savedDevice));
             int currentDevice = savedDevice;
             unsigned int size = db->header.size;
             struct artsDb * tempSpace = (struct artsDb *)artsMalloc(size);
+            gpuGCWriteLock();
             for(int i=0; i<artsNodeInfo.gpu; i++)
             {
                 unsigned int gpuVersion;
@@ -418,18 +422,18 @@ void internalLCSync(artsGuid_t acqGuid, struct artsDb * db)
                     dev.data = (void*) (tempSpace+1);
                     dev.dataSize = tempSpace->header.size - sizeof(struct artsDb);
                     dev.hostVersion = &tempSpace->version;
+                    dev.hostTimeStamp = &tempSpace->timeStamp;
                     dev.gpuVersion = gpuVersion;
                     dev.gpuTimeStamp = timeStamp;
                     dev.gpu = i;
-                    inc = lcSyncFunction[artsNodeInfo.gpuLCSync](&host, &dev);
+                    lcSyncFunction[artsNodeInfo.gpuLCSync](&host, &dev);
                 }
                 else
                 {
-                    PRINTF("NO DB COPY ON GPU %d\n", i);
+                    DPRINTF("NO DB COPY ON GPU %d\n", i);
                 }
-                if(inc)
-                    artsAtomicAdd(&db->version, inc);
             }
+            gpuGCWriteUnlock();
             artsFree(tempSpace);
             if(currentDevice != savedDevice)
                 CHECKCORRECT(cudaSetDevice(savedDevice));

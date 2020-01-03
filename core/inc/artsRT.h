@@ -145,7 +145,8 @@ struct artsDb
 {
     struct artsHeader header;
     artsGuid_t guid;
-    unsigned int version;
+    volatile unsigned int version;
+    unsigned int timeStamp;
     void * dbList;
 } __attribute__ ((aligned));
 

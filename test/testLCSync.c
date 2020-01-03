@@ -46,7 +46,7 @@ __global__ void temp(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtD
     uint64_t gpuId = getGpuIndex();
     unsigned int * addr = (unsigned int *)depv[0].ptr;
     int index = threadIdx.x + blockIdx.x * blockDim.x;
-    addr[gpuId] = gpuId;
+    addr[gpuId] = gpuId+1;
 }
 
 void done(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
@@ -82,8 +82,8 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
             addr[i] = 0;
 
         artsGuid_t doneGuid = artsEdtCreate(done, 0, 0, NULL, artsGetTotalGpus()+1);
-        // artsLCSync(doneGuid, 0, dbGuid);
-        artsSignalEdt(doneGuid, 0, dbGuid);
+        artsLCSync(doneGuid, 0, dbGuid);
+        // artsSignalEdt(doneGuid, 0, dbGuid);
         
         dim3 threads (1, 1, 1);
         dim3 grid (1, 1, 1);

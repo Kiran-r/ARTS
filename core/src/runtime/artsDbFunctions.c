@@ -64,8 +64,13 @@ void * artsDbMalloc(artsType_t mode, unsigned int size)
 {
     void * ptr = NULL;
 #ifdef USE_GPU
-    if(artsNodeInfo.gpu && (mode == ARTS_DB_GPU_READ || mode == ARTS_DB_GPU_WRITE || mode == ARTS_DB_LC))
-        ptr = artsCudaMallocHost(size);
+    if(artsNodeInfo.gpu)
+    {
+        if(mode == ARTS_DB_LC)
+            ptr = artsCudaMallocHost(size*2);
+        else if(mode == ARTS_DB_GPU_READ || mode == ARTS_DB_GPU_WRITE)
+            ptr = artsCudaMallocHost(size);
+    }
 #endif
     if(!ptr)
         ptr = artsMalloc(size);
@@ -98,6 +103,11 @@ void artsDbCreateInternal(artsGuid_t guid, void *addr, uint64_t size, uint64_t p
     if(mode != ARTS_DB_PIN)
     {
         dbRes->dbList = artsNewDbList();
+    }
+    if(mode == ARTS_DB_LC)
+    {
+        void * shadowCopy = (void*)(((char*)addr) + packetSize);
+        memcpy(shadowCopy, addr, sizeof(struct artsDb));
     }
 }
 

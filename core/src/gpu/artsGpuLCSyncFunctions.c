@@ -43,37 +43,65 @@
 #include "artsDebug.h"
 #include "artsAtomics.h"
 
-// #define DPRINTF(...)
-#define DPRINTF(...) PRINTF(__VA_ARGS__)
+#define DPRINTF(...)
+// #define DPRINTF(...) PRINTF(__VA_ARGS__)
 
-volatile unsigned int myLock = 0;
-
-unsigned int versionLock(unsigned int * version)
+//To use this lock the unlock must be an even number
+unsigned int versionLock(volatile unsigned int * version)
 {
-    artsLock(&myLock);
     unsigned int local = *version;
-    // while(1)
-    // {
-    //     if(local != (unsigned int)-1)
-    //     {
-    //         if(artsAtomicCswap(version, local, (unsigned int)-1) == local)
-    //             break;
-    //     }
-    //     local = *version;
-    // }
-    // PRINTF("LOCK %u\n", local);
+    while(1)
+    {
+        if((local & 1) == 0)
+        {
+            if(artsAtomicCswap(version, local, (local*2)+1) == local)
+                break;
+        }
+        local = *version;
+    }
     return local;
 }
 
-void versionUnlock(unsigned int * version, unsigned int newVersion)
+bool tryVersionLock(volatile unsigned int * version, unsigned int * currentVersion)
 {
-    artsUnlock(&myLock);
-    // PRINTF("UNLOCK\n");
-    // if(artsAtomicCswap(version, (unsigned int)-1, newVersion) == (unsigned int)-1)
-    //     PRINTF("UNLOCK\n");
-    // else
-    //     PRINTF("FAILED UNLOCK\n");
-    // *version = newVersion;
+    unsigned int local = *version;
+    if((local & 1) == 0)
+    {
+        if(artsAtomicCswap(version, local, (local*2)+1) == local)
+        {
+            *currentVersion = local;
+            return true;
+        }
+    }
+    *currentVersion = (local-1)/2;
+    return false;
+}
+
+void versionUnlock(volatile unsigned int * version)
+{
+    unsigned int local = ((*version-1)/2) + 2;
+    *version = local;
+}
+
+void versionUnlockWithNew(volatile unsigned int * version, unsigned int newVersion)
+{
+    if((newVersion & 1) == 0)
+        *version = newVersion;
+    else
+        PRINTF("Must unlock with a positive version\n");
+}
+
+void * makeLCShadowCopy(struct artsDb * db)
+{
+    unsigned int size = db->header.size;
+    void * dest = (void*)(((char*)db) + size);
+    struct artsDb * shadowCopy = (struct artsDb*) dest;
+
+    unsigned int hostVersion = versionLock(&db->version);
+    if(hostVersion == shadowCopy->version)
+        memcpy(dest, (void*)db, size);
+    versionUnlockWithNew(&db->version, hostVersion);
+    return dest;
 }
 
 inline void artsPrintDbMetaData(artsLCMeta_t * db) 
@@ -83,61 +111,68 @@ inline void artsPrintDbMetaData(artsLCMeta_t * db)
         db->data, 
         db->dataSize,
         *db->hostVersion,
+        *db->hostTimeStamp,
         db->gpuVersion, 
         db->gpuTimeStamp, 
         db->gpu);
 }
 
-unsigned int artsGetLatestGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev)
+void artsMemcpyGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev)
 {
-    artsPrintDbMetaData(host);
-    artsPrintDbMetaData(dev);
-    unsigned int ret = 0;
     unsigned int hostVersion = versionLock(host->hostVersion);
-    // if(dev->hostVersion + dev->gpuVersion >= host->hostVersion + host->gpuVersion)
-    {
-        // if(dev->gpuTimeStamp > host->gpuTimeStamp)
-        {
-            DPRINTF("gpu: %d %u\n", dev->gpu, host->dataSize);
-            // memcpy(host->data, dev->data, host->dataSize);
-            host->gpuVersion = dev->gpuVersion;
-            host->gpuTimeStamp = dev->gpuTimeStamp;
-            host->gpu = dev->gpu;
-            // ret = *dev->hostVersion + dev->gpuVersion;
-        }
-        unsigned int * p = (unsigned int*) host->data;
-        unsigned int * p2 = (unsigned int*) dev->data;
-        for(unsigned int i=0; i<host->dataSize/sizeof(unsigned int); i++)
-        {
-            p[i] = p2[i];
-            printf("%u:%u ", p[i], p2[i]);
-        }
-        printf("\n");
-    }
-    versionUnlock(host->hostVersion, hostVersion);
-    return 0;
+    memcpy(host->data, dev->data, host->dataSize);
+    *host->hostTimeStamp = dev->gpuTimeStamp;
+    versionUnlock(host->hostVersion);
 }
 
-unsigned int artsGetRandomGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev)
+void artsGetLatestGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev)
 {
-    artsPrintDbMetaData(host);
-    artsPrintDbMetaData(dev);
-    unsigned int ret = 0;
+    unsigned int hostVersion = versionLock(host->hostVersion);
+    if(*host->hostTimeStamp < dev->gpuTimeStamp)
+    {
+            memcpy(host->data, dev->data, host->dataSize);
+            host->gpuVersion = dev->gpuVersion;
+            host->gpuTimeStamp = dev->gpuTimeStamp;
+            *host->hostTimeStamp = dev->gpuTimeStamp;
+            host->gpu = dev->gpu;
+    }
+    versionUnlock(host->hostVersion);
+}
+
+void artsGetRandomGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev)
+{
     bool firstFlag = (host->gpu == -1);
-    bool randomFlag = (artsThreadSafeRandom() % 2 == 1);
-    DPRINTF("Random: %u %d\n", randomFlag, dev->gpu);
+    bool randomFlag = ((artsThreadSafeRandom() & 1) == 0);
     if(firstFlag || randomFlag)
     {
-        DPRINTF("gpu: %d\n", dev->gpu);
-        memcpy(host->data, dev->data, host->dataSize);
-        host->gpuVersion = dev->gpuVersion;
-        host->gpuTimeStamp = dev->gpuTimeStamp;
-        host->gpu = dev->gpu;
-        // if(!firstFlag && randomFlag)
-            // artsGpuInvalidateRouteTables(host->guid, (unsigned int) -1);
-        ret = *dev->hostVersion + dev->gpuVersion;
+        unsigned int currentVersion;
+        if(tryVersionLock(host->hostVersion, &currentVersion))
+        {
+            memcpy(host->data, dev->data, host->dataSize);
+            host->gpuVersion = dev->gpuVersion;
+            host->gpuTimeStamp = dev->gpuTimeStamp;
+            *host->hostTimeStamp = dev->gpuTimeStamp;
+            host->gpu = dev->gpu;
+            // if(!firstFlag && randomFlag)
+                // artsGpuInvalidateRouteTables(host->guid, (unsigned int) -1);
+        }
+        
     }
-    return ret;
+}
+
+void artsGetNonZerosUnsignedInt(artsLCMeta_t * host, artsLCMeta_t * dev)
+{
+    unsigned int numElem = host->dataSize/sizeof(unsigned int);
+    unsigned int * dest = (unsigned int*) host->data;
+    unsigned int * src = (unsigned int*) dev->data;
+    // unsigned int hostVersion = versionLock(host->hostVersion);
+    for(unsigned int i=0; i<numElem; i++)
+    {
+        DPRINTF("src: %u dest: %u\n", src[i], dest[i]);
+        if(src[i])
+            dest[i] = src[i];
+    }
+    // versionUnlock(host->hostVersion);
 }
 
 // void artsGetMinDb(artsLCMeta_t * host, artsLCMeta_t * dev)

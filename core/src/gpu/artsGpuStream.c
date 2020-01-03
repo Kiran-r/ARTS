@@ -358,7 +358,8 @@ void artsScheduleToGpuInternal(artsEdt_t fnPtr, uint32_t paramc, uint64_t * para
                 {
                     DPRINTF("Adding %lu %u id: %d\n", depv[i].guid, allocSize, artsGpu->device);
                     dataPtr = artsCudaMalloc(allocSize);
-                    pushDataToStream(artsGpu->device, dataPtr, db, size, artsNodeInfo.gpuBuffOn && !gpuEdt->lib);
+                    void * src = (depv[i].mode == ARTS_DB_LC) ? makeLCShadowCopy(db) : (void*)db;
+                    pushDataToStream(artsGpu->device, dataPtr, src, size, artsNodeInfo.gpuBuffOn && !gpuEdt->lib);
                     //Must have already launched the memcpy before setting realData or races will ensue
                     wrapper->realData = dataPtr;
                     artsAtomicAdd(&misses, 1U);
@@ -468,6 +469,7 @@ void freeGpuItem(artsRouteItem_t * item)
             host.data = (void*) (db+1);
             host.dataSize = db->header.size - sizeof(struct artsDb);
             host.hostVersion = &db->version;
+            host.hostTimeStamp = &db->timeStamp;
             host.gpuVersion = 0;
             host.gpuTimeStamp = 0;
             host.gpu = -1;
@@ -479,13 +481,13 @@ void freeGpuItem(artsRouteItem_t * item)
             dev.data = (void*) (tempSpace+1);
             dev.dataSize = tempSpace->header.size - sizeof(struct artsDb);
             dev.hostVersion = &tempSpace->version;
+            dev.hostTimeStamp = &tempSpace->timeStamp;
             dev.gpuVersion = item->touched;
             dev.gpuTimeStamp = wrapper->timeStamp;
             dev.gpu = -1;
 
-            unsigned int inc = lcSyncFunction[artsNodeInfo.gpuLCSync](&host, &dev);
-            if(inc)
-                artsAtomicAdd(&db->version, inc);
+            lcSyncFunction[artsNodeInfo.gpuLCSync](&host, &dev);
+            
             artsRouteTableReturnDb(item->key, false);
             artsFree(tempSpace);
             artsCudaFree((void*)wrapper->realData);

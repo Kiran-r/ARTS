@@ -701,6 +701,11 @@ void * internalRouteTableLookupDb(artsRouteTable_t * routeTable, artsGuid_t key,
     return ret;
 }
 
+unsigned int internalIncDbVersion(unsigned int * touched)
+{
+    return artsAtomicAdd(touched, 2);
+}
+
 void * artsRouteTableLookupDb(artsGuid_t key, int * rank, bool touch)
 {
     artsRouteTable_t * routeTable = artsGetRouteTable(key);
@@ -709,8 +714,9 @@ void * artsRouteTableLookupDb(artsGuid_t key, int * rank, bool touch)
     if(data)
     {
         if(touch)
-            ((struct artsDb *) data)->version = artsAtomicAdd(touched, 1);
-        PRINTF("db version: %u\n", *touched);
+            internalIncDbVersion(touched);
+            // ((struct artsDb *) data)->version = artsAtomicAdd(touched, 1);
+        DPRINTF("db version: %u\n", *touched);
     }
     return data;
 }

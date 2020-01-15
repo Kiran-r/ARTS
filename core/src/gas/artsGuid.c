@@ -159,6 +159,12 @@ bool artsIsGuidLocal(artsGuid_t guid)
     return (artsGlobalRankId == artsGuidGetRank(guid));
 }
 
+uint64_t artsGetGuidKey(artsGuid_t guid)
+{
+    artsGuid addressInfo = (artsGuid) guid;
+    return addressInfo.fields.key;
+}
+
 artsGuid_t artsReserveGuidRoute(artsType_t type, unsigned int route)
 {
     artsGuid_t guid = NULL_GUID;

@@ -52,6 +52,7 @@
 #include "artsEdtFunctions.h"
 #include "artsEventFunctions.h"
 #include "artsGpuLCSyncFunctions.h"
+#include "artsGuid.h"
 
 #define DPRINTF( ... )
 // #define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
@@ -59,6 +60,7 @@
 int random(void * edtPacket);
 int allOrNothing(void * edtPacket);
 int atleastOne(void * edtPacket);
+int hashOnDBZero(void * edtPacket);
 int firstFit(uint64_t mask, uint64_t size);
 int bestFit(uint64_t mask, uint64_t size);
 int worstFit(uint64_t mask, uint64_t size);
@@ -76,7 +78,8 @@ typedef int (*locality_t) (void * edt);
 locality_t localityScheme[] = {
     random,
     allOrNothing,
-    atleastOne
+    atleastOne,
+    hashOnDBZero
 };
 
 locality_t locality; // Locality function ptr
@@ -729,6 +732,27 @@ int atleastOne(void * edtPacket)
     else
         return random(edtPacket);
 }
+
+int hashOnDBZero(void * edtPacket)
+{
+    artsGpuEdt_t * edt = (artsGpuEdt_t *) edtPacket;
+    uint32_t       paramc = edt->wrapperEdt.paramc;
+    uint32_t       depc   = edt->wrapperEdt.depc;
+    uint64_t     * paramv = (uint64_t *)(edt + 1);
+    artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
+
+    // Size to be allocated on the GPU
+    uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc + getDbSizeNeeded(depc, depv);
+    uint64_t key = (depv[0].guid) ? artsGetGuidKey(depv[0].guid) : 0;
+    uint64_t index = key % (uint64_t)artsNodeInfo.gpu;
+    if(index > artsNodeInfo.gpu)
+    {
+        PRINTF("WHATS WRONG WITH THE HASH %u\n", index);
+        artsDebugGenerateSegFault();
+    }
+    return tryReserve(index, size);
+}
+
 int artsReserveEdtRequiredGpu(int * gpu, void * edtPacket)
 {
     bool ret = false;

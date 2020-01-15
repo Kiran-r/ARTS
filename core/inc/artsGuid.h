@@ -59,6 +59,8 @@ artsGuid_t artsGuidCreateForRank(unsigned int route, unsigned int type);
 void artsGuidKeyGeneratorInit();
 void setGlobalGuidOn();
 void setGuidGeneratorAfterParallelStart();
+uint64_t artsGetGuidKey(artsGuid_t guid);
+
 
 #ifdef __cplusplus
 }

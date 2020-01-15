@@ -54,6 +54,7 @@
 #include "artsOutOfOrder.h"
 #include "artsDebug.h"
 #include "artsGpuLCSyncFunctions.h"
+#include "artsTerminationDetection.h"
 
 #define DPRINTF(...)
 // #define DPRINTF(...) PRINTF(__VA_ARGS__)
@@ -242,6 +243,10 @@ void artsGpuHostWrapUp(void *edtPacket, artsGuid_t toSignal, uint32_t slot, arts
     {
         edt->wrapperEdt.invalidateCount = 0;
         artsRouteTableFireOO(edt->wrapperEdt.currentEdt, artsOutOfOrderHandler);
+    }
+    else if(edt->wrapperEdt.epochGuid)
+    {
+        incrementFinishedEpoch(edt->wrapperEdt.epochGuid);
     }
 
     DPRINTF("TO SIGNAL: %lu -> %lu slot: %u\n", toSignal, dataGuid, slot);

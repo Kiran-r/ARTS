@@ -44,7 +44,6 @@
 #include <assert.h>
 #include "arts.h"
 #include "artsGraph.h"
-#include "artsTerminationDetection.h"
 
 #include "artsGpuRuntime.h"
 #include "cublas_v2.h"
@@ -58,13 +57,14 @@
 #include "graphUtil.h"
 
 #include <iostream>
-// #define DPRINTF(...)
- #define DPRINTF(...) PRINTF(__VA_ARGS__)
+#define DPRINTF(...)
+//  #define DPRINTF(...) PRINTF(__VA_ARGS__)
 #define TURNON(...) 
 // #define TURNON(...) __VA_ARGS__
 #define ROOT 1
 #define PARTS 8
 #define GPULISTLEN 4096*4096
+// #define MAXLEVEL 0
 #define MAXLEVEL (unsigned int) -1
 #define SMTILE 32
 
@@ -76,10 +76,7 @@ arts_block_dist_t * distribution; //The graph distribution
 csr_graph_t * graph; //Partitions of the graph
 unsigned int ** visited; //This is the resulting parent list for each partition
 artsGuid_t * visitedGuid; //This is the guid for each partition of the parent list
-uint64_t level = 0; //The current level of search we are at
 
-
-void launchBfs(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
 void launchSort(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
 
 void printDeviceList(thrust::device_ptr<unsigned int> devPtr, unsigned int size)
@@ -109,14 +106,14 @@ __global__ void bfs(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDe
 {
     unsigned int localLevel = (unsigned int) paramv[0];
     uint64_t gpuId = getGpuIndex(); //The current gpu we are on
-    unsigned int ** addr = (unsigned int **)depv[0].ptr; //This is the devPtrRaw -> tells us where next frontier is on device
+    unsigned int ** addr = (unsigned int **)depv[1].ptr; //This is the devPtrRaw -> tells us where next frontier is on device
     unsigned int * local = addr[gpuId]; //We need the one corresponding to our gpu
     unsigned int * localFrontierCount = &local[GPULISTLEN];
 
-    unsigned int currentFrontierSize = *((unsigned int*)depv[1].ptr);
-    unsigned int * currentFrontier = ((unsigned int*)depv[1].ptr) + 1;
-    csr_graph_t * localGraph = (csr_graph_t*) depv[2].ptr;
-    unsigned int * localVisited = (unsigned int*)depv[3].ptr;
+    unsigned int currentFrontierSize = *((unsigned int*)depv[2].ptr);
+    unsigned int * currentFrontier = ((unsigned int*)depv[2].ptr) + 1;
+    csr_graph_t * localGraph = (csr_graph_t*) depv[3].ptr;
+    unsigned int * localVisited = (unsigned int*)depv[0].ptr;
 
     int index = threadIdx.x + blockIdx.x * blockDim.x;
     if(index < currentFrontierSize)
@@ -153,198 +150,166 @@ __global__ void bfs(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDe
 
 void thrustSort(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    DPRINTF("%s %u\n", __func__, level);
-    artsGuid_t nextLaunchBfsGuid = paramv[0]; //This can be the end if the frontier is empty
-    unsigned int gpuIndex = paramv[1]; //gpuIndex
-    artsGuid_t nextLaunchSortGuid = paramv[2]; // To let us launch next bfs-es
-    unsigned int * rawPtr = devPtrRaw[gpuIndex]; //The corresponding dev pointer (frontier) to our gpu
-    artsGuid_t edtGuidsToLaunchBfsGuid = NULL_GUID;
-
-    //Get frontier count
-    thrust::device_ptr<unsigned int> devCounterPtr(rawPtr + GPULISTLEN);
-    unsigned int newFrontierCount = *(devCounterPtr);
-    if(newFrontierCount <= GPULISTLEN) //If it was bigger than the search frontier, we will exit in the launchBfs
+    artsGuid_t localLevel = paramv[0]; //This can be the end if the frontier is empty
+    unsigned int * rawPtr = devPtrRaw[artsGetGpuId()]; //The corresponding dev pointer (frontier) to our gpu
+    DPRINTF("LOCALLEVEL: %u MAXLEVEL: %u\n", localLevel, MAXLEVEL);
+    if(localLevel < MAXLEVEL)
     {
-        //Sort the frontier
-        thrust::device_ptr<unsigned int> devPtr(rawPtr);
-        thrust::sort(devPtr, devPtr+newFrontierCount); //Do the sorting
-        TURNON(printDeviceList(devPtr, newFrontierCount));
-
-        //Remove duplicates
-        newFrontierCount = thrust::unique(thrust::device, devPtr, devPtr+newFrontierCount) - devPtr;
-        TURNON(printDeviceList(devPtr, newFrontierCount));
-
-        //Reset frontier
-        *(devCounterPtr) = 0;
-
-        //Get the boundery of each partition
-        unsigned int * upperIndexPerBound = (unsigned int*) artsCalloc(sizeof(unsigned int)*PARTS);
-        for(unsigned int i=0; i<PARTS; i++)
-            upperIndexPerBound[i] = thrust::upper_bound(thrust::device, devPtr, devPtr+newFrontierCount, bounds[i]) - devPtr;
-
-        //Get the size of each partition
-        unsigned int * sizePerBound = (unsigned int*) artsCalloc(sizeof(unsigned int)*PARTS);
-        sizePerBound[0] = upperIndexPerBound[0];
-        DPRINTF("Upper: %u Size: %u\n", bounds[0], sizePerBound[0]);
-        for(unsigned int i=1; i<PARTS; i++)
+        //Get frontier count
+        thrust::device_ptr<unsigned int> devCounterPtr(rawPtr + GPULISTLEN);
+        unsigned int newFrontierCount = *(devCounterPtr);
+        if(newFrontierCount <= GPULISTLEN) //If it was bigger than the search frontier, we need to quit
         {
-            sizePerBound[i] = upperIndexPerBound[i] - upperIndexPerBound[i-1];
-            DPRINTF("Upper: %u Size: %u\n", bounds[i], sizePerBound[i]);
-        }
+            //Sort the frontier
+            thrust::device_ptr<unsigned int> devPtr(rawPtr);
+            thrust::sort(devPtr, devPtr+newFrontierCount); //Do the sorting
+            TURNON(printDeviceList(devPtr, newFrontierCount));
 
-        //TODO: Clear old dbs (previous frontiers)...
+            //Remove duplicates
+            newFrontierCount = thrust::unique(thrust::device, devPtr, devPtr+newFrontierCount) - devPtr;
+            TURNON(printDeviceList(devPtr, newFrontierCount));
 
-        artsGuid_t * edtGuidsToLaunchBfs = NULL; //This will hold the new edt guids to launch
-        edtGuidsToLaunchBfsGuid = artsDbCreate((void**) &edtGuidsToLaunchBfs, sizeof(artsGuid_t) * PARTS, ARTS_DB_READ);
+            //Reset frontier
+            *(devCounterPtr) = 0;
 
-        uint64_t bfsArgs[] = {level};
-        unsigned tempIndex = 0;
-        for(unsigned int i=0; i<PARTS; i++) 
-        {
-            if(sizePerBound[i])
+            //Get the boundery of each partition
+            unsigned int * upperIndexPerBound = (unsigned int*) artsCalloc(sizeof(unsigned int)*PARTS);
+            for(unsigned int i=0; i<PARTS; i++)
+                upperIndexPerBound[i] = thrust::upper_bound(thrust::device, devPtr, devPtr+newFrontierCount, bounds[i]) - devPtr;
+
+            //Get the size of each partition
+            unsigned int * sizePerBound = (unsigned int*) artsCalloc(sizeof(unsigned int)*PARTS);
+            sizePerBound[0] = upperIndexPerBound[0];
+            DPRINTF("Upper: %u Size: %u\n", bounds[0], sizePerBound[0]);
+            for(unsigned int i=1; i<PARTS; i++)
             {
-                unsigned int * newSearchFrontier = NULL; //This will hold a tile of the new frontier
-                artsGuid_t newSearchFrontierGuid = artsDbCreate((void**) &newSearchFrontier, sizeof(unsigned int) * (sizePerBound[i] + 1), ARTS_DB_GPU_READ);
-                *newSearchFrontier = sizePerBound[i];
-
-                //Copy the data from the gpu to the host
-                artsPutInDbFromGpu(thrust::raw_pointer_cast(devPtr) + tempIndex, newSearchFrontierGuid, sizeof(unsigned int), sizeof(unsigned int) * sizePerBound[i], false);
-                tempIndex+=sizePerBound[i];
-
-                dim3 threads(SMTILE, 1, 1);
-                dim3 grid((sizePerBound[i] + SMTILE - 1) / SMTILE, 1, 1); //Ceiling
-
-                //Create the new edt for each bfs
-                unsigned int rank = artsGuidGetRank(getGuidForPartitionDistr(distribution, i));
-                // nextLaunchSortGuid should be launched on the corresponding node.
-                artsGuid_t _nextLaunchSortGuid = artsEdtCreate(launchSort, rank, 0, NULL, 1);
-                edtGuidsToLaunchBfs[i] = artsEdtCreateGpu(bfs, rank, 1, bfsArgs, 4, grid, threads, _nextLaunchSortGuid, 0, NULL_GUID);
-                artsSignalEdt(edtGuidsToLaunchBfs[i], 1, newSearchFrontierGuid);
-                artsSignalEdt(edtGuidsToLaunchBfs[i], 2, getGuidForPartitionDistr(distribution, i));
-                artsSignalEdt(edtGuidsToLaunchBfs[i], 3, visitedGuid[i]);
+                sizePerBound[i] = upperIndexPerBound[i] - upperIndexPerBound[i-1];
+                DPRINTF("Upper: %u Size: %u\n", bounds[i], sizePerBound[i]);
             }
-            else
-                edtGuidsToLaunchBfs[i] = NULL_GUID;
-        }
-    }
-    artsSignalEdt(nextLaunchBfsGuid, gpuIndex, edtGuidsToLaunchBfsGuid);
-}
 
-void launchBfs(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
-{
-    //TODO: PROBLEM WITH LEVEL...
-    DPRINTF("%s %u\n", __func__, level);
-    if(level < MAXLEVEL) //This is a cut-off for debugging purposes
-    {
-        //Walk through and signal the new edts that we are ready to run!
-        unsigned int numberOfNewBfs = 0;
-	    //from each gpu, we get a bunch of bfs-es that need to be spawned
-        for(unsigned int i=0; i<depc; i++)
-        {
-            if(depv[i].guid)  //This makes sure the search frontier was big enough
+            //TODO: Clear old dbs (previous frontiers)...
+            uint64_t nextLevel = localLevel + 1;
+            unsigned tempIndex = 0;
+            for(unsigned int i=0; i<PARTS; i++) 
             {
-                artsGuid_t * guidToSignal = (artsGuid_t*) depv[i].ptr;
-                for(unsigned int j=0; j<PARTS; j++)
+                if(sizePerBound[i])
                 {
-                    if(guidToSignal[j])
-                    {
-                        artsSignalEdt(guidToSignal[j], 0, nextSearchFrontierAddrGuid[artsGuidGetRank(guidToSignal[j])]);
-                        numberOfNewBfs++;
-                    }
+                    unsigned int * newSearchFrontier = NULL; //This will hold a tile of the new frontier
+                    artsGuid_t newSearchFrontierGuid = artsDbCreate((void**) &newSearchFrontier, sizeof(unsigned int) * (sizePerBound[i] + 1), ARTS_DB_GPU_READ);
+                    *newSearchFrontier = sizePerBound[i];
+
+                    //Copy the data from the gpu to the host
+                    artsPutInDbFromGpu(thrust::raw_pointer_cast(devPtr) + tempIndex, newSearchFrontierGuid, sizeof(unsigned int), sizeof(unsigned int) * sizePerBound[i], false);
+                    tempIndex+=sizePerBound[i];
+
+                    dim3 threads(SMTILE, 1, 1);
+                    dim3 grid((sizePerBound[i] + SMTILE - 1) / SMTILE, 1, 1); //Ceiling
+
+                    //Create the new edt for each bfs
+                    unsigned int rank = artsGuidGetRank(getGuidForPartitionDistr(distribution, i));
+                    artsGuid_t bfsGuid = artsEdtCreateGpu(bfs, rank, 1, &nextLevel, 4, grid, threads, NULL_GUID, 0, NULL_GUID);
+                    artsSignalEdt(bfsGuid, 0, visitedGuid[i]);
+                    artsSignalEdt(bfsGuid, 1, nextSearchFrontierAddrGuid[artsGuidGetRank(rank)]);
+                    artsSignalEdt(bfsGuid, 2, newSearchFrontierGuid);
+                    artsSignalEdt(bfsGuid, 3, getGuidForPartitionDistr(distribution, i));
                 }
             }
-            else  //We are exiting bc the search frontier was too small...
-                PRINTF("FRONTIER NOT BIG ENOUGH SHUTTING DOWN...\n");   
         }
     }
-    else
-        PRINTF("LEVEL SHUT DOWN\n");
 }
 
 //There is only one of these per level
 void launchSort(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    DPRINTF("%s %u\n", __func__, level);
-    level++;
-
-    uint64_t edtsRan = depc[0].guid;
-    if( edtsRan == artsGetTotalNodes() * (1 + artsGetTotalGpus()) )
+    uint64_t localLevel = paramv[0];
+    uint64_t edtsRan = depv[0].guid;
+    DPRINTF("LAUNCHSORT %lu %lu\n", localLevel, edtsRan);
+    if(localLevel > 0 && edtsRan == artsGetTotalNodes() * artsGetTotalGpus() + 1)
     {
+        uint64_t stop = artsGetTimeStamp();
+        PRINTF("Time: %lu\n", stop - start);
         PRINTF("Shutting down...\n");
         artsShutdown();
+        return;
     }
 
     //Create new epoch here...
-    artsGuid_t nextLaunchSortGuid = artsEdtCreate(launchSort, artsGetCurrentNode(), 0, NULL, 1);
+    uint64_t nextLevel = localLevel+1;
+    artsGuid_t nextLaunchSortGuid = artsEdtCreate(launchSort, artsGetCurrentNode(), 1, &nextLevel, 1);
     artsInitializeAndStartEpoch(nextLaunchSortGuid, 0);
 
     dim3 threads(1, 1, 1);
     dim3 grid(1, 1, 1);
+    uint64_t args[] = {localLevel};
+    //We will launch a sort for every gpu
     for(unsigned int j=0; j<artsGetTotalNodes(); j++)
     {
-        //Launch next sync for each of the gpu sorts
-        artsGuid_t launchBfsGuid = artsEdtCreate(launchBfs, j, 0, NULL, artsGetTotalGpus());
         for(uint64_t i=0; i<artsGetTotalGpus(); i++)
-        {
-            uint64_t args[] = {launchBfsGuid, i, nextLaunchSortGuid}; 
             artsGuid_t sortGuid = artsEdtCreateGpuLibDirect(thrustSort, j, i, 3, args, 0, grid, threads);
-        }
     }
 }
 
-//void createFirstRound(artsGuid_t initialSearchFrontier, artsGuid_t graphGuid, artsGuid_t visitGuid, uint64_t src)
 void createFirstRound(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])  
 {
     DPRINTF("%s\n", __func__);
+    start = artsGetTimeStamp();
+
     // We are on the rank of the source
     uint64_t src = paramv[0];
-    	  
+    uint64_t nextLevel = 0;
+
     //Create the first search frontier!
     unsigned int * firstSearchFrontier = NULL;
     artsGuid_t firstSearchFrontierGuid = artsDbCreate((void**) &firstSearchFrontier, 2*sizeof(unsigned int), ARTS_DB_GPU_READ);
     firstSearchFrontier[0] = 1; // size of the frontier
     firstSearchFrontier[1] = src; // root
     DPRINTF("ROOT: %u GRAPH GUID: %lu VISITED GUID: %lu\n", firstSearchFrontier[1], getGuidForVertexDistr(firstSearchFrontier[1], distribution), visitedGuid[getOwnerDistr(firstSearchFrontier[1], distribution)]);
-    // createFirstRound(firstSearchFrontierGuid, getGuidForVertexDistr(firstSearchFrontier[1], distribution), visitedGuid[getOwnerDistr(firstSearchFrontier[1], distribution)], source);
-    start = artsGetTimeStamp();
-	
+    
+    //Create the first epoch
+    artsGuid_t launchSortGuid = artsEdtCreate(launchSort, artsGetCurrentNode(), 1, &nextLevel, 1);
+    artsInitializeAndStartEpoch(launchSortGuid, 0);
+
+    //Launching the first bfs
     dim3 threads (1, 1, 1);
     dim3 grid (1, 1, 1);
-    // unsigned int ownerRank = getOwnerDistr(src, distribution);
-    artsGuid_t launchSortGuid = artsEdtCreate(launchSort, artsGetCurrentNode(), 0, NULL, 1);
-    uint64_t bfsArgs[] = {level};
+    
     artsGuid_t graphGuid = getGuidForVertexDistr(firstSearchFrontier[1], distribution);
     artsGuid_t visitGuid = visitedGuid[getOwnerDistr(firstSearchFrontier[1], distribution)];
-    artsGuid_t bfsGuid = artsEdtCreateGpu(bfs, artsGetCurrentNode(), 1, bfsArgs, 4, grid, threads, launchSortGuid, 0, NULL_GUID); 
-    artsSignalEdt(bfsGuid, 0, nextSearchFrontierAddrGuid[artsGetCurrentNode()]);
-    artsSignalEdt(bfsGuid, 1, firstSearchFrontierGuid);
-    artsSignalEdt(bfsGuid, 2, graphGuid);
-    artsSignalEdt(bfsGuid, 3, visitGuid);
+    artsGuid_t bfsGuid = artsEdtCreateGpu(bfs, artsGetCurrentNode(), 1, &nextLevel, 4, grid, threads, NULL_GUID, 0, NULL_GUID); 
+    artsSignalEdt(bfsGuid, 0, visitGuid);
+    artsSignalEdt(bfsGuid, 1, nextSearchFrontierAddrGuid[artsGetCurrentNode()]);
+    artsSignalEdt(bfsGuid, 2, firstSearchFrontierGuid);
+    artsSignalEdt(bfsGuid, 3, graphGuid);
     DPRINTF("LAUNCHING\n");
 }
 
 extern "C"
 void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    DPRINTF("%s\n", __func__);
-    char * fileName = NULL;
-    unsigned int numVerts = 0;
-    unsigned int numEdges = 0;
-    for (int i = 0; i < argc; ++i) {
-      if (strcmp("--file", argv[i]) == 0) {
-	fileName = argv[i + 1];
-      }
-      if (strcmp("--numvertices", argv[i]) == 0) {
-	sscanf(argv[i + 1], "%u", &numVerts);
-      }
-      if (strcmp("--numedges", argv[i]) == 0) {
-	sscanf(argv[i + 1], "%u", &numEdges);
-      }
-    }
-    // char * fileName = "/home/firo017/datasets/ca-HepTh.tsv";    // "/home/suet688/ca-HepTh.tsv";
+    artsLookUpConfig(name) artsNodeInfo. ## name
+    // char * fileName = NULL;
+    // unsigned int numVerts = 0;
+    // unsigned int numEdges = 0;
+    // for (int i = 0; i < argc; ++i) 
+    // {
+    //     if (strcmp("--file", argv[i]) == 0) 
+    //     {
+    //         fileName = argv[i + 1];
+    //     }
+    //     if (strcmp("--numvertices", argv[i]) == 0) 
+    //     {
+    //         sscanf(argv[i + 1], "%u", &numVerts);
+    //     }
+    //     if (strcmp("--numedges", argv[i]) == 0) 
+    //     {
+    //         sscanf(argv[i + 1], "%u", &numEdges);
+    //     }
+    // }
+
+    char * fileName = "/home/suet688/ca-HepTh.tsv"; //"/home/firo017/datasets/ca-HepTh.tsv";
     // char * fileName = "/home/firo017/datasets/ca-HepPh_adj.tsv";
-    // unsigned int numVerts = 9877;
-    // unsigned int numEdges = 51946;
+    unsigned int numVerts = 9877;
+    unsigned int numEdges = 51946;
     // unsigned int numVerts = 12008;
     // unsigned int numEdges = 118521;
     // if(argc == 4)
@@ -353,6 +318,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     //     numVerts = atoi(argv[2]);
     //     numEdges = atoi(argv[3]);
     // }
+
     //Create graph partitions
     graph = (csr_graph_t*) artsCalloc(sizeof(csr_graph_t)* PARTS);
     distribution = initBlockDistributionBlock(numVerts, numEdges, PARTS, ARTS_DB_GPU_READ);
@@ -371,9 +337,11 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     {
         unsigned int numElements = getBlockSizeForPartition(i, distribution);
         unsigned int size = sizeof(unsigned int) * numElements;
+        //Put the visiter db on the same rank as the graph partition
         unsigned int rank = artsGuidGetRank(getGuidForPartitionDistr(distribution, i));
-        visitedGuid[i] = artsReserveGuidRoute(ARTS_DB_GPU_READ, rank); //Put the visiter db on` the same rank as the graph partition
-        //If the partitionis on our node lets create the db and -1 it out
+        visitedGuid[i] = artsReserveGuidRoute(ARTS_DB_GPU_WRITE, rank);
+
+        //If the partition is on our node lets create the db and -1 it out
         if(rank == nodeId)
         {
             visited[i] = (unsigned int*)artsDbCreateWithGuid(visitedGuid[i], size);
@@ -382,11 +350,10 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
         }
     }
 
+    //Let's reserve the guids for the DBs that will hold the gpu array (nextSearchFrontier)
     nextSearchFrontierAddrGuid = (artsGuid_t*) artsMalloc(sizeof(artsGuid_t) * artsGetTotalNodes());
     for(unsigned int i=0; i<artsGetTotalNodes(); i++)
-    {
         nextSearchFrontierAddrGuid[i] = artsReserveGuidRoute(ARTS_DB_GPU_READ, i);
-    }
     
     //Create an array to hold the addresses of next search frontier for each gpu
     devPtrRaw = (unsigned int**) artsCalloc(sizeof(unsigned int*) * artsGetTotalGpus());
@@ -395,7 +362,6 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
 extern "C"
 void initPerGpu(unsigned int nodeId, int devId, cudaStream_t * stream, int argc, char * argv)
 {
-    DPRINTF("%s\n", __func__);
     //Create the next search frontier for each gpu
     devPtrRaw[devId] = (unsigned int*) artsCudaMalloc(sizeof(unsigned int) * (GPULISTLEN+1));
 }
@@ -403,29 +369,26 @@ void initPerGpu(unsigned int nodeId, int devId, cudaStream_t * stream, int argc,
 extern "C"
 void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** argv) 
 {
-    DPRINTF("%s\n", __func__);
     if (!workerId) 
     {
-        vertex_t source;
-        for (int i = 0; i < argc; ++i) {
-            if (strcmp("--source", argv[i]) == 0) {
-                sscanf(argv[i + 1], "%" SCNu64, &source);
-            }
-        }
-
-        assert(source < distribution->num_vertices);
+        vertex_t source = 0;
+        // for (int i = 0; i < argc; ++i) {
+        //     if (strcmp("--source", argv[i]) == 0) {
+        //         sscanf(argv[i + 1], "%" SCNu64, &source);
+        //     }
+        // }
+        // assert(source < distribution->num_vertices);
 
         //Lets create the db of to hold device address of the next search frontier so gpu kernels can use them 
         unsigned int ** addr = (unsigned int**)artsDbCreateWithGuid(nextSearchFrontierAddrGuid[nodeId], sizeof(unsigned int*) * artsGetTotalGpus());
-
         for(uint64_t i=0; i<artsGetTotalGpus(); i++)
-        addr[i] = devPtrRaw[i];
+            addr[i] = devPtrRaw[i];
         
-            if (!nodeId) {
-        // Spawn a task on the rank containing the source
-        unsigned int ownerRank = getOwnerDistr(source, distribution);
-        uint64_t argsFrRndOne[] = {source};
-        artsGuid_t createFirstRoundGuid = artsEdtCreate(createFirstRound, ownerRank, 1, argsFrRndOne, 0);
+        if (!nodeId) {
+            // Spawn a task on the rank containing the source
+            unsigned int ownerRank = getOwnerDistr(source, distribution);
+            uint64_t argsFrRndOne[] = {source};
+            artsGuid_t createFirstRoundGuid = artsEdtCreate(createFirstRound, ownerRank, 1, argsFrRndOne, 0);
         }
     }
 }
@@ -433,12 +396,10 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 extern "C"
 void cleanPerGpu(unsigned int nodeId, int devId, cudaStream_t * stream)
 {
-    DPRINTF("%s\n", __func__);
     artsCudaFree(devPtrRaw[devId]);
 }
 
 int main(int argc, char** argv) {
-    DPRINTF("%s\n", __func__);
     artsRT(argc, argv);
     return 0;
 }

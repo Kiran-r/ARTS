@@ -36,62 +36,24 @@
 ** WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the  **
 ** License for the specific language governing permissions and limitations   **
 ******************************************************************************/
-#ifndef ARTSGPUSTREAMBUFFER_H
-#define ARTSGPUSTREAMBUFFER_H
+#include <stdio.h>
+#include <stdlib.h>
+#include "arts.h"
+#include "artsGpuLCSyncFunctions.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <cuda_runtime.h>    
-#include "artsRT.h"
-
-typedef struct 
+extern "C"
+void initPerNode(unsigned int nodeId, int argc, char** argv)
 {
-    void * dst;
-    void * src;
-    size_t count;
-} artsBufferMemMove_t;
-
-
-typedef struct
-{
-    uint32_t paramc;
-    uint64_t * paramv; 
-    uint32_t depc;
-    artsEdtDep_t * depv;
-    artsEdt_t fnPtr;
-    unsigned int grid[3];
-    unsigned int block[3];
-} artsBufferKernel_t;
-
-// CHECKCORRECT(cudaMemcpyAsync(dataPtr, depv[i].ptr, size, cudaMemcpyHostToDevice, artsGpu->stream));
-bool pushDataToStream(unsigned int gpuId, void * dst, void * src, size_t count, bool buff);
-bool getDataFromStream(unsigned int gpuId, void * dst, void * src, size_t count, bool buff);
-
-//  void * kernelArgs[] = { &paramc, &devParamv, &depc, &devDepv };
-// CHECKCORRECT(cudaLaunchKernel((const void *)fnPtr, grid, block, (void**)kernelArgs, (size_t)0, artsGpu->stream));
-bool pushKernelToStream(unsigned int gpuId, uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t * depv, artsEdt_t fnPtr, dim3 grid, dim3 block, bool buff);
-
-// #if CUDART_VERSION >= 10000
-//     CHECKCORRECT(cudaLaunchHostFunc(artsGpu->stream, artsWrapUp, hostClosure));
-// #else
-//     CHECKCORRECT(cudaStreamAddCallback(artsGpu->stream, artsWrapUp, hostClosure, 0));
-// #endif
-bool pushWrapUpToStream(unsigned int gpuId, void * hostClosure, bool buff);
-
-bool flushMemStream(unsigned int gpuId, unsigned int * count, artsBufferMemMove_t * buff, enum cudaMemcpyKind kind);
-bool flushKernelStream(unsigned int gpuId);
-bool flushWrapUpStream(unsigned int gpuId);
-
-bool flushStream(unsigned int gpuId);
-bool checkStreams(bool buffOn);
-
-void reduceDatafromGpus(void * dst, unsigned int dstGpuId, void * src, unsigned int srcGpuId, unsigned int size, const void* fnPtr, unsigned int elementSize, void * dbData);
-
-#ifdef __cplusplus
+    // for(unsigned int i=0; i<256; i++)
+    // {
+        PRINTF("i: %u -> %p\n", 60, (void*)60);
+        artsSendTree(60);
+    // }
+    artsShutdown();
 }
-#endif
 
-#endif /* ARTSGPUSTREAMBUFFER_H */
-
+int main(int argc, char** argv)
+{
+    artsRT(argc, argv);
+    return 0;
+}

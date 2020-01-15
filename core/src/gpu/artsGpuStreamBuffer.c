@@ -243,6 +243,36 @@ bool flushStream(unsigned int gpuId)
     return false;
 }
 
+void reduceDatafromGpus(void * dst, unsigned int dstGpuId, void * src, unsigned int srcGpuId, unsigned int size, const void* fnPtr, unsigned int elementSize, void * dbData)
+{
+    //We need to lock in a fixed order, so smallest first
+    unsigned int first = (dstGpuId < srcGpuId) ? dstGpuId : srcGpuId;
+    unsigned int second = (dstGpuId == first) ? srcGpuId : dstGpuId;
+    artsLock(&buffLock[first]);
+    artsLock(&buffLock[second]);
+    
+    //Flush the streams to make sure everything is done
+    flushStream(dstGpuId);
+    flushStream(srcGpuId);
+    CHECKCORRECT(cudaStreamSynchronize(artsGpus[srcGpuId].stream));
+    //I think we don't need to synchronize the destination stream since we are just adding to it...
+    // CHECKCORRECT(cudaStreamSynchronize(artsGpus[dstGpuId].stream));
+
+    //Next lets move the data
+    CHECKCORRECT(cudaMemcpyPeerAsync(dst, dstGpuId, src, srcGpuId, size, artsGpus[dstGpuId].stream));
+    
+    //Next lets run the reduce function on the dbData and the shadow copy (dst)
+    unsigned int tileSize = size/elementSize;
+    dim3 block (32, 32); //For volta...
+    dim3 grid((tileSize+32-1)/32, (tileSize+32-1)/32);
+    void * kernelArgs[] = {dbData, dst};
+    CHECKCORRECT(cudaLaunchKernel((const void *)fnPtr, grid, block, (void**)kernelArgs, (size_t)0, artsGpus[dstGpuId].stream));
+
+    //Unlock in the correct order
+    artsUnlock(&buffLock[second]);
+    artsUnlock(&buffLock[first]);
+}
+
 bool checkStreams(bool buffOn)
 {
     if(buffOn)

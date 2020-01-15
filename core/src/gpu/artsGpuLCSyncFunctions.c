@@ -36,6 +36,7 @@
 ** WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the  **
 ** License for the specific language governing permissions and limitations   **
 ******************************************************************************/
+#include <cuda_runtime.h>
 #include "artsGpuLCSyncFunctions.h"
 #include "artsDbFunctions.h"
 #include "artsGlobals.h"
@@ -186,3 +187,103 @@ void artsGetNonZerosUnsignedInt(artsLCMeta_t * host, artsLCMeta_t * dev)
 
 //     }
 // }
+
+#define GPUGROUPSIZE 4
+#define GPUNUMGROUP 2
+int internalFindRoots(unsigned int local)
+{
+    unsigned int mask = 0;
+    for(unsigned int j=0; j<GPUGROUPSIZE; j++)
+    {
+        unsigned int bit = 1 << j;
+        mask |= bit;
+    }
+
+    unsigned int roots = -1;
+    for(unsigned int i=0; i<GPUNUMGROUP; i++)
+    {
+        unsigned int tempLocal = local >> (i*GPUGROUPSIZE);
+        unsigned int temp = mask & tempLocal;
+        roots &= temp;
+    }
+    
+    for(int i=0; i<GPUGROUPSIZE; i++)
+    {
+        if(roots & (1 << i))
+            return i;
+    }
+    return -1;
+}
+
+void internalLaunchReduction(int root, int a, int b)
+{
+    if(root != a && root != b)
+    {
+        PRINTF("LC Reduction tree invalid root! %d %d %d\n", root, a, b);
+       artsDebugGenerateSegFault(); 
+    }
+    if(a < 0 || b < 0 )
+        return;
+    PRINTF("A: %d B: %d -> Root: %d\n", a, b, root);
+}
+
+int internalGPUGroupReduction(int root, unsigned int start, unsigned int stop, unsigned int mask)
+{
+    // PRINTF("root: %u start: %u stop: %u\n", root, start, stop);
+    int localRoot = -1;
+    int gpuId[2] = {start, stop};
+
+    if(stop - start > 1) //Recursive call
+    {
+        unsigned int middle = (1 + stop - start) / 2;
+        gpuId[0] = internalGPUGroupReduction(root, start, start + middle - 1, mask);
+        gpuId[1] = internalGPUGroupReduction(root, start + middle, stop, mask);
+    }
+
+    bool startFound = (gpuId[0] < 0) ? false : ((mask & (1 << gpuId[0])) != 0);
+    bool stopFound =  (gpuId[1] < 0) ? false : ((mask & (1 << gpuId[1])) != 0);
+
+    if(startFound && stopFound) //Both are in the mask
+    {
+        if(root == start || root == stop)
+            localRoot = root;
+        else
+            localRoot = start; //This is the min
+    }
+    else if(startFound && !stopFound) //Only start is in the mask
+    {
+        gpuId[1] = -1;
+        localRoot = startFound;
+    }
+    else if(!startFound && stopFound) //Only stop is in the mask
+    {
+        gpuId[0] = -1;
+        localRoot = stopFound;
+    }
+    else //Neither start or stop is in the mask
+    {
+        gpuId[1] = -1;
+        gpuId[0] = -1;
+        // localRoot = -1;
+    }
+    
+    internalLaunchReduction(localRoot, gpuId[0], gpuId[1]);
+    return localRoot;
+}
+
+void artsSendTree(unsigned int mask)
+{
+    if(mask)
+    {
+        int root[GPUNUMGROUP];
+        root[0] = internalFindRoots(mask);
+        for(unsigned int i=0; i<GPUNUMGROUP; i++)
+        {
+            if(root[0] < 0)
+                root[i] = -1; //i*GPUGROUPSIZE;
+            else
+                root[i] = root[0] + i*GPUGROUPSIZE;
+            internalGPUGroupReduction(root[i], i * GPUGROUPSIZE, ((i+1) * GPUGROUPSIZE) - 1, mask);
+        }
+    }
+}

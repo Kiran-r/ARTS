@@ -139,6 +139,14 @@ if(CUDA_FOUND)
     set_source_files_properties(testLCSync.c PROPERTIES LANGUAGE CUDA)
     add_executable(testLCSync testLCSync.c)
     target_link_libraries(testLCSync ${LIBS})
+
+    set_source_files_properties(testGpuRing.c PROPERTIES LANGUAGE CUDA)
+    add_executable(testGpuRing testGpuRing.c)
+    target_link_libraries(testGpuRing ${LIBS})
+
+    set_source_files_properties(testGpuLCRed.c PROPERTIES LANGUAGE CUDA)
+    add_executable(testGpuLCRed testGpuLCRed.c)
+    target_link_libraries(testGpuLCRed ${LIBS})
 endif()
 
 add_executable(testOOBug testOOBug.c)

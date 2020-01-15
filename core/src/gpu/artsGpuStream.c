@@ -92,8 +92,6 @@ fit_t fitScheme[] = {
 
 fit_t fit; // Fit function ptr
 
-bool P2P; // Enable DB access across devices
-
 __thread volatile unsigned int * newEdtLock = 0;
 __thread artsArrayList * newEdts = NULL;
 
@@ -116,12 +114,49 @@ extern "C"
 }
 #endif
 
+bool ** gpuAdjList = NULL;
+void artsFullyConnectGpus(bool p2p, bool disconnectP2P)
+{
+    if(!gpuAdjList)
+    {
+        gpuAdjList = (bool**) artsCalloc(sizeof(bool*)*artsNodeInfo.gpu);
+        for(unsigned int i=0; i<artsNodeInfo.gpu; i++)
+            gpuAdjList[i] = (bool*) artsCalloc(sizeof(bool)*artsNodeInfo.gpu);
+    }
+    if(p2p)
+    { 
+        for (int src=0; src<artsNodeInfo.gpu; src++)
+        {
+            CHECKCORRECT(cudaSetDevice(src));
+            for (int dst=0; dst<artsNodeInfo.gpu; dst++)
+            {
+                if(src != dst)
+                {
+                    int hasAccess = 0;
+                    CHECKCORRECT(cudaDeviceCanAccessPeer(&hasAccess, src, dst));
+                    if(hasAccess)
+                    {
+                        if(disconnectP2P)
+                        {
+                            CHECKCORRECT(cudaDeviceDisablePeerAccess(dst));
+                        }
+                        else
+                        {
+                            gpuAdjList[src][dst] = 1;
+                            CHECKCORRECT(cudaDeviceEnablePeerAccess(dst, 0));
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 void artsNodeInitGpus()
 {
     int numAvailGpus = 0;
     locality = localityScheme[artsNodeInfo.gpuLocality];
     fit = fitScheme[artsNodeInfo.gpuFit];
-    P2P = artsNodeInfo.gpuP2P;
     CHECKCORRECT(cudaGetDeviceCount(&numAvailGpus));
     if(numAvailGpus < artsNodeInfo.gpu)
     {
@@ -158,6 +193,9 @@ void artsNodeInitGpus()
             artsGpus[i].availGlobalMem = artsNodeInfo.gpuMaxMemory;
         DPRINTF("to Start: %lu\n", artsGpus[i].availGlobalMem);
     }
+
+    artsFullyConnectGpus(artsNodeInfo.gpuP2P, false);
+
     CHECKCORRECT(cudaSetDevice(savedDevice));
 }
 
@@ -214,6 +252,9 @@ void artsCleanupGpus()
     uint64_t freedSize = 0;
     int savedDevice;
     cudaGetDevice(&savedDevice);
+
+    artsFullyConnectGpus(artsNodeInfo.gpuP2P, true);
+
     for (int i=0; i<artsNodeInfo.gpu; i++)
     {
         CHECKCORRECT(cudaSetDevice(artsGpus[i].device));

@@ -58,12 +58,6 @@
 #define DPRINTF(...)
 // #define DPRINTF(...) PRINTF(__VA_ARGS__)
 
-#define CHECKCORRECT(x) {                                   \
-  cudaError_t err;                                          \
-  if( (err = (x)) != cudaSuccess )                          \
-    PRINTF("FAILED %s: %s\n", #x, cudaGetErrorString(err)); \
-}
-
 void * artsCudaMallocHost(unsigned int size)
 {
     void * ptr = NULL;
@@ -399,7 +393,7 @@ void internalLCSync(artsGuid_t acqGuid, struct artsDb * db)
             int currentDevice = savedDevice;
             unsigned int size = db->header.size;
             struct artsDb * tempSpace = (struct artsDb *)artsMalloc(size);
-            gpuGCWriteLock();
+            gpuGCWriteLock(); //Don't let the gc take our copies...
             for(int i=0; i<artsNodeInfo.gpu; i++)
             {
                 unsigned int gpuVersion;

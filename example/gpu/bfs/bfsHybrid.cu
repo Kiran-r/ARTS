@@ -54,6 +54,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
 #include <thrust/binary_search.h>
+#include <algorithm>
 
 #include "graphUtil.h"
 
@@ -65,11 +66,11 @@
 #define ROOT 2
 #define PARTS 4
 #define GPULISTLEN 4096*4096
-// #define MAXLEVEL 15
 #define MAXLEVEL (unsigned int) -1
 #define SMTILE 32
+#define GPU_THRESHOLD (unsigned int) 32
 
-// #define USE_LC 1
+#define USE_LC 1
 #ifdef USE_LC
 #define DO_SYNC(level) (level % 4 == 0)  
 #define DB_WRITE_TYPE ARTS_DB_LC
@@ -102,9 +103,14 @@ unsigned int ** visited; //This is the resulting parent list for each partition
 artsGuid_t * visitedGuid; //This is the guid for each partition of the parent list
 unsigned int * partCount;
 
+unsigned int cpuBufferCount = 0;
+unsigned int cpuBuffer[GPULISTLEN];
+
 void createFirstRound(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
-__global__ void bfs(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
+__global__ void gpuBfs(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
+void cpuBfs(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
 void launchSort(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
+void cpuSort(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
 void thrustSort(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
 void launchBfs(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[]);
 
@@ -147,25 +153,34 @@ void createFirstRound(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdt
     firstSearchFrontier[1] = src; // root
     DPRINTF("ROOT: %u GRAPH GUID: %lu VISITED GUID: %lu\n", firstSearchFrontier[1], getGuidForVertexDistr(firstSearchFrontier[1], distribution), visitedGuid[getOwnerDistr(firstSearchFrontier[1], distribution)]);
     
-    //TODO: Do we need an epoch in the first round...
     //Create the first epoch
     artsGuid_t launchSortGuid = artsEdtCreate(launchSort, artsGetCurrentNode(), 1, &nextLevel, 1);
     artsInitializeAndStartEpoch(launchSortGuid, 0);
 
-    dim3 threads (1, 1, 1);
-    dim3 grid (1, 1, 1);
     //Launching the first bfs
     artsGuid_t graphGuid = getGuidForVertexDistr(firstSearchFrontier[1], distribution);
     artsGuid_t visitGuid = visitedGuid[getOwnerDistr(firstSearchFrontier[1], distribution)];
-    artsGuid_t bfsGuid = artsEdtCreateGpu(bfs, artsGetCurrentNode(), 1, &nextLevel, 4, grid, threads, NULL_GUID, 0, NULL_GUID); 
+    artsGuid_t bfsGuid = NULL_GUID;
+    if(firstSearchFrontier[0] > GPU_THRESHOLD)
+    {
+        dim3 threads (1, 1, 1);
+        dim3 grid (1, 1, 1);
+        bfsGuid = artsEdtCreateGpu(gpuBfs, artsGetCurrentNode(), 1, &nextLevel, 4, grid, threads, NULL_GUID, 0, NULL_GUID);
+        PRINTF("LAUNCHING GPU\n");
+    }
+    else
+    {
+        bfsGuid = artsEdtCreate(cpuBfs, artsGetCurrentNode(), 1, &nextLevel, 4); 
+        PRINTF("LAUNCHING CPU\n");
+    }
     artsSignalEdt(bfsGuid, 0, visitGuid);
     artsSignalEdt(bfsGuid, 1, nextSearchFrontierAddrGuid[artsGetCurrentNode()]);
     artsSignalEdt(bfsGuid, 2, firstSearchFrontierGuid);
     artsSignalEdt(bfsGuid, 3, graphGuid);
-    PRINTF("LAUNCHING\n");
+    
 }
 
-__global__ void bfs(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
+__global__ void gpuBfs(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     uint64_t gpuId = getGpuIndex(); //The current gpu we are on
     unsigned int localLevel = (unsigned int) paramv[0];
@@ -212,6 +227,47 @@ __global__ void bfs(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDe
     }
 }
 
+void cpuBfs(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
+{
+    unsigned int localLevel = (unsigned int) paramv[0];
+    unsigned int * localVisited = (unsigned int*)depv[0].ptr;
+
+    unsigned int currentFrontierSize = *((unsigned int*)depv[2].ptr);
+    unsigned int * currentFrontier = ((unsigned int*)depv[2].ptr) + 1;
+    csr_graph_t * localGraph = (csr_graph_t*) depv[3].ptr;
+    
+    for(unsigned int index=0; index<currentFrontierSize; index++)
+    {
+        vertex_t v = currentFrontier[index];
+        local_index_t vertexIndex = getLocalIndexCSR(v, localGraph);
+        unsigned int oldLevel = localVisited[vertexIndex];
+        bool success = false;
+        while(localLevel < oldLevel)
+        {
+            success = (artsAtomicCswap(&localVisited[vertexIndex], oldLevel, localLevel) == oldLevel);
+            oldLevel = localVisited[vertexIndex];
+        }
+
+        if(success)
+        {
+            vertex_t* neighbors = NULL;
+            uint64_t neighborCount = 0;
+            getNeighbors(localGraph, v, &neighbors, &neighborCount);
+            if(neighborCount)
+            {
+                unsigned int frontierIndex = artsAtomicFetchAdd(&cpuBufferCount, (unsigned int)neighborCount);
+                if(frontierIndex < GPULISTLEN)
+                {
+                    for (uint64_t i = 0; i < neighborCount; ++i) 
+                    {
+                        cpuBuffer[frontierIndex+i] = neighbors[i]; 
+                    }
+                }
+            }
+        }
+    }
+}
+
 //LC will sync all the version coming into this edt and then we will start the next epoch
 void doPartionSync(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
@@ -235,7 +291,7 @@ void launchSort(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
 
     //While we are at it, lets create the next sync point, launchBfs.
     artsGuid_t nextLaunchBfsGuid = artsReserveGuidRoute(ARTS_EDT, artsGetCurrentNode());
-    uint32_t nextLaunchBfsDepc = artsGetTotalNodes() * artsGetTotalGpus();
+    uint32_t nextLaunchBfsDepc = artsGetTotalNodes() * (artsGetTotalGpus() + 1);
 
     //Lasly, we will launch a sort for every gpu in the system.
     //We need the nextBfsEpoch and the nextLaunchBfsGuids to kick off launchBfs...
@@ -245,8 +301,11 @@ void launchSort(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
     for(unsigned int j=0; j<artsGetTotalNodes(); j++)
     {
         for(uint64_t i=0; i<artsGetTotalGpus(); i++)
-            artsGuid_t sortGuid = artsEdtCreateGpuLibDirect(thrustSort, j, i, 2, args, 0, grid, threads);
+            artsEdtCreateGpuLibDirect(thrustSort, j, i, 2, args, 0, grid, threads);
+        //Launch CPU sort here!
+        artsEdtCreate(cpuSort, j, 2, args, 0);
     }
+    
 
     //This uses the LC memory model if turned on
     if(DO_SYNC(localLevel))
@@ -269,6 +328,86 @@ void launchSort(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
     PRINTF("nextLaunchBfsDepc: %lu\n", nextLaunchBfsDepc);
     artsEdtCreateWithGuid(launchBfs, nextLaunchBfsGuid, 1, &nextLevel, nextLaunchBfsDepc);
     
+}
+
+void cpuSort(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
+{
+    uint64_t localLevel = paramv[0]; //This can be the end if the frontier is empty
+    PRINTF("%s Level: %lu\n", __func__, localLevel);
+    artsGuid_t nextLaunchBfsGuid = paramv[1]; //This is the next sync point.
+    artsGuid_t edtGuidsToLaunchBfsGuid = NULL_GUID; //Where we will put a copy of all the new edts to start...
+
+    //Get frontier count
+    unsigned int newFrontierCount = cpuBufferCount;
+    if(newFrontierCount <= GPULISTLEN) //If it was bigger than the search frontier, we need to quit
+    {
+        //Sort the frontier
+        std::sort(cpuBuffer, cpuBuffer+newFrontierCount); //Do the sorting
+
+        //Remove duplicates
+        newFrontierCount = std::unique(cpuBuffer, cpuBuffer+newFrontierCount) - cpuBuffer;
+
+        //Reset frontier
+        cpuBufferCount = 0;
+
+        //Get the boundery of each partition
+        unsigned int upperIndexPerBound[PARTS];
+        for(unsigned int i=0; i<PARTS; i++)
+            upperIndexPerBound[i] = std::upper_bound(cpuBuffer, cpuBuffer+newFrontierCount, bounds[i]) - cpuBuffer;
+
+        //Get the size of each partition
+        unsigned int sizePerBound[PARTS];
+        sizePerBound[0] = upperIndexPerBound[0];
+        DPRINTF("Upper: %u Size: %u\n", bounds[0], sizePerBound[0]);
+        for(unsigned int i=1; i<PARTS; i++)
+        {
+            sizePerBound[i] = upperIndexPerBound[i] - upperIndexPerBound[i-1];
+            DPRINTF("Upper: %u Size: %u\n", bounds[i], sizePerBound[i]);
+        }
+
+        //TODO: Clear old dbs (previous frontiers)...
+        artsGuid_t * edtGuidsToLaunchBfs = NULL; //This will hold the new edt guids to launch
+        edtGuidsToLaunchBfsGuid = artsDbCreate((void**) &edtGuidsToLaunchBfs, sizeof(artsGuid_t) * PARTS, ARTS_DB_READ);
+
+        uint64_t nextLevel = localLevel + 1;
+        unsigned tempIndex = 0;
+        for(unsigned int i=0; i<PARTS; i++) 
+        {
+            if(sizePerBound[i])
+            {
+                unsigned int * newSearchFrontier = NULL; //This will hold a tile of the new frontier
+                artsGuid_t newSearchFrontierGuid = artsDbCreate((void**) &newSearchFrontier, sizeof(unsigned int) * (sizePerBound[i] + 1), ARTS_DB_GPU_READ);
+                *newSearchFrontier = sizePerBound[i];
+
+                //Copy the data from the gpu to the host
+                memcpy((void*)(newSearchFrontier+1), (void*)(cpuBuffer+tempIndex), sizeof(unsigned int) * sizePerBound[i]);
+                tempIndex+=sizePerBound[i];
+
+                //Create the new edt for each bfs
+                unsigned int rank = artsGuidGetRank(getGuidForPartitionDistr(distribution, i));
+                if(sizePerBound[i] >= GPU_THRESHOLD) //Create GPU EDT
+                {
+                    dim3 threads(SMTILE, 1, 1);
+                    dim3 grid((sizePerBound[i] + SMTILE - 1) / SMTILE, 1, 1); //Ceiling
+                    PRINTF("GPU PART: %u SMTILE: %u grid: %u\n", i, SMTILE, (sizePerBound[i] + SMTILE - 1) / SMTILE);
+                    edtGuidsToLaunchBfs[i] = artsEdtCreateGpu(gpuBfs, rank, 1, &nextLevel, 4, grid, threads, NULL_GUID, 0, NULL_GUID);
+                    
+                }
+                else //Create CPU EDT
+                {
+                    PRINTF("CPU PART: %u\n", i);
+                    edtGuidsToLaunchBfs[i] = artsEdtCreate(cpuBfs, rank, 1, &nextLevel, 4);
+                }
+
+                artsSignalEdt(edtGuidsToLaunchBfs[i], 0, visitedGuid[i]);
+                artsSignalEdt(edtGuidsToLaunchBfs[i], 2, newSearchFrontierGuid);
+                artsSignalEdt(edtGuidsToLaunchBfs[i], 3, getGuidForPartitionDistr(distribution, i));
+            }
+            else
+                edtGuidsToLaunchBfs[i] = NULL_GUID;
+        }
+    }
+    artsSignalEdt(nextLaunchBfsGuid, artsGetCurrentNode() * (artsGetTotalGpus()+1) + artsGetTotalGpus() , edtGuidsToLaunchBfsGuid);
 }
 
 void thrustSort(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
@@ -328,14 +467,23 @@ void thrustSort(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
                 //Copy the data from the gpu to the host
                 artsPutInDbFromGpu(thrust::raw_pointer_cast(devPtr) + tempIndex, newSearchFrontierGuid, sizeof(unsigned int), sizeof(unsigned int) * sizePerBound[i], false);
                 tempIndex+=sizePerBound[i];
-
-                dim3 threads(SMTILE, 1, 1);
-                dim3 grid((sizePerBound[i] + SMTILE - 1) / SMTILE, 1, 1); //Ceiling
-                DPRINTF("SMTILE: %u grid: %u\n", SMTILE, (sizePerBound[i] + SMTILE - 1) / SMTILE);
-
+                
                 //Create the new edt for each bfs
                 unsigned int rank = artsGuidGetRank(getGuidForPartitionDistr(distribution, i));
-                edtGuidsToLaunchBfs[i] = artsEdtCreateGpu(bfs, rank, 1, &nextLevel, 4, grid, threads, NULL_GUID, 0, NULL_GUID);
+                if(sizePerBound[i] >= GPU_THRESHOLD) //Create GPU EDT
+                {
+                    dim3 threads(SMTILE, 1, 1);
+                    dim3 grid((sizePerBound[i] + SMTILE - 1) / SMTILE, 1, 1); //Ceiling
+                    PRINTF("GPU PART: %u SMTILE: %u grid: %u\n", i, SMTILE, (sizePerBound[i] + SMTILE - 1) / SMTILE);
+                    edtGuidsToLaunchBfs[i] = artsEdtCreateGpu(gpuBfs, rank, 1, &nextLevel, 4, grid, threads, NULL_GUID, 0, NULL_GUID);
+                    
+                }
+                else //Create CPU EDT
+                {
+                    PRINTF("CPU PART: %u\n", i);
+                    edtGuidsToLaunchBfs[i] = artsEdtCreate(cpuBfs, rank, 1, &nextLevel, 4);
+                }
+
                 artsSignalEdt(edtGuidsToLaunchBfs[i], 0, visitedGuid[i]);
                 artsSignalEdt(edtGuidsToLaunchBfs[i], 2, newSearchFrontierGuid);
                 artsSignalEdt(edtGuidsToLaunchBfs[i], 3, getGuidForPartitionDistr(distribution, i));
@@ -344,7 +492,7 @@ void thrustSort(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t 
                 edtGuidsToLaunchBfs[i] = NULL_GUID;
         }
     }
-    artsSignalEdt(nextLaunchBfsGuid, artsGetCurrentNode() * artsGetTotalGpus() + artsGetGpuId() , edtGuidsToLaunchBfsGuid);
+    artsSignalEdt(nextLaunchBfsGuid, artsGetCurrentNode() * (artsGetTotalGpus()+1) + artsGetGpuId(), edtGuidsToLaunchBfsGuid);
 }
 
 //This needs nodes * gpus signals.  Each db has PARTS guids to signal.
@@ -357,7 +505,7 @@ void launchBfs(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t d
     if(nextLevel < MAXLEVEL)
     {
         //from each gpu, we get a bunch of bfs-es that need to be spawned
-        unsigned int numPotentialBfsDbs = artsGetTotalNodes() * artsGetTotalGpus();
+        unsigned int numPotentialBfsDbs = artsGetTotalNodes() * (artsGetTotalGpus() + 1);
         for(unsigned int i=0; i<numPotentialBfsDbs; i++)
         {
             if(depv[i].guid) 

@@ -62,7 +62,7 @@ csr_graph_t * initCSR(partition_t partIndex, graph_sz_t _localv, graph_sz_t _loc
         // data is a single array that merges row_indices and columns
         graph_sz_t totsz = (_localv+1)+_locale;
         unsigned int dbSize = sizeof(csr_graph_t) + totsz * sizeof(vertex_t);
-
+        
         _csr = artsDbCreateWithGuid(blockGuid, dbSize);
         _csr->partGuid = blockGuid;
         _csr->num_local_vertices = _localv;
@@ -70,7 +70,7 @@ csr_graph_t * initCSR(partition_t partIndex, graph_sz_t _localv, graph_sz_t _loc
         _csr->block_sz = getBlockSizeForPartition(0, _dist);
         _csr->index = partIndex;
         _csr->num_blocks = _dist->num_blocks;
-        
+ 
         vertex_t * row_indices = getRowPtr(_csr);
         vertex_t * columns = getColPtr(_csr);
 
@@ -180,7 +180,6 @@ vertex_t getVertexFromLocalCSR(local_index_t u, const csr_graph_t * const part)
 }
 
 local_index_t getLocalIndexCSR(vertex_t v, const csr_graph_t * const part) {
-  partition_t n = getOwnerCSR(v, part);
   vertex_t base = indexStartCSR(part->index, part);
   assert(base <= v);
   return (v - base);
@@ -362,8 +361,8 @@ int loadGraphNoWeight(const char* _file, arts_block_dist_t* _dist, bool _flip, b
     {
         // done loading edge -- sort them by source
         sortBySource(&vedges[k]);
-	printf("getBlockSizeForPartition(partIndex[k], _dist): %lu, vedges[k].used: %lu \n", getBlockSizeForPartition(partIndex[k], _dist), vedges[k].used);
-	initCSR(partIndex[k], getBlockSizeForPartition(partIndex[k], _dist), vedges[k].used, _dist, &vedges[k], true, _dist->graphGuid[partIndex[k]]);
+	    // PRINTF("getBlockSizeForPartition(partIndex[k], _dist): %lu, vedges[k].used: %lu \n", getBlockSizeForPartition(partIndex[k], _dist), vedges[k].used);
+	    initCSR(partIndex[k], getBlockSizeForPartition(partIndex[k], _dist), vedges[k].used, _dist, &vedges[k], true, _dist->graphGuid[partIndex[k]]);
 	
         freeEdgeVector(&vedges[k]);
     }

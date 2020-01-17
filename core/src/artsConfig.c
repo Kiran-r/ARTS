@@ -909,7 +909,7 @@ struct artsConfig * artsConfigLoad()
     if( (foundVariable = artsConfigFindVariable(&configVariables,"gpuMaxMemory")) != NULL)
         config->gpuMaxMemory = strtol( foundVariable->value, &end , 10);
     else
-        config->gpuMaxMemory = (size_t)-1;
+        config->gpuMaxMemory = (uint64_t)-1;
 
     if( (foundVariable = artsConfigFindVariable(&configVariables,"gpuP2P")) != NULL)
         config->gpuP2P = strtol( foundVariable->value, &end , 10) > 0;

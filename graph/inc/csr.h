@@ -69,6 +69,7 @@ void printCSR(csr_graph_t* _csr);
 void getNeighbors(csr_graph_t* _csr, vertex_t v, vertex_t ** _out, graph_sz_t* _neighborcount);
 csr_graph_t * getGraphFromGuid(artsGuid_t guid);
 csr_graph_t * getGraphFromPartition(partition_t partIndex, arts_block_dist_t * dist);
+local_index_t getLocalIndexCSR(vertex_t v, const csr_graph_t * const part);
 #ifdef __cplusplus
 }
 #endif

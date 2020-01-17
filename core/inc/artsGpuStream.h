@@ -79,6 +79,7 @@ typedef struct
     volatile unsigned int totalEdts;
     volatile unsigned int availableEdtSlots;
     volatile unsigned int runningEdts;
+    volatile unsigned int availableThreads;
     cudaStream_t stream;
 } artsGpu_t;
 

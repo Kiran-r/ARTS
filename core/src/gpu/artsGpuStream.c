@@ -61,11 +61,11 @@ int random(void * edtPacket);
 int allOrNothing(void * edtPacket);
 int atleastOne(void * edtPacket);
 int hashOnDBZero(void * edtPacket);
-int firstFit(uint64_t mask, uint64_t size);
-int bestFit(uint64_t mask, uint64_t size);
-int worstFit(uint64_t mask, uint64_t size);
-int roundRobinFit(uint64_t mask, uint64_t size);
-bool tryReserve(int gpu, uint64_t size);
+int firstFit(uint64_t mask, uint64_t size, unsigned int totalThreads);
+int bestFit(uint64_t mask, uint64_t size, unsigned int totalThreads);
+int worstFit(uint64_t mask, uint64_t size, unsigned int totalThreads);
+int roundRobinFit(uint64_t mask, uint64_t size, unsigned int totalThreads);
+bool tryReserve(int gpu, uint64_t size, unsigned int threads);
 
 volatile unsigned int hits = 0;
 volatile unsigned int misses = 0;
@@ -84,7 +84,7 @@ locality_t localityScheme[] = {
 
 locality_t locality; // Locality function ptr
 
-typedef int (*fit_t) (uint64_t mask, uint64_t size);
+typedef int (*fit_t) (uint64_t mask, uint64_t size, unsigned int totalThreads);
 
 fit_t fitScheme[] = {
     firstFit,
@@ -289,6 +289,9 @@ void CUDART_CB artsWrapUp(cudaStream_t stream, cudaError_t status, void * data)
     uint32_t       depc     = edt->wrapperEdt.depc;
     uint64_t     * paramv   = (uint64_t *)(edt + 1);
     artsEdtDep_t * depv     = (artsEdtDep_t *)(paramv + paramc);
+
+    unsigned int totalThreads = edt->grid.x * edt->block.x + edt->grid.y * edt->block.y + edt->grid.z * edt->block.z;
+    artsAtomicSub(&artsGpu->availableThreads, totalThreads);
 
     for(unsigned int i=0; i<depc; i++)
     {
@@ -549,26 +552,31 @@ void freeGpuItem(artsRouteItem_t * item)
     item->touched = 0;
 }
 
-bool tryReserve(int gpu, uint64_t size)
+bool tryReserve(int gpu, uint64_t size, unsigned int threads)
 {
     artsGpu_t * artsGpu = &artsGpus[gpu];
     DPRINTF("Trying to reserve %lu of available %lu on GPU[%d]\n", size, artsGpu->availGlobalMem, artsGpu->device);
-    if (artsAtomicFetchAdd(&artsGpu->availableEdtSlots, 1U) < artsNodeInfo.gpuMaxEdts)
+    // if(artsAtomicFetchAdd(&artsGpu->availableThreads, threads) < 1024)
     {
-        volatile uint64_t availSize = artsGpu->availGlobalMem;
-        while (availSize >= size)
+        if (artsAtomicFetchAdd(&artsGpu->availableEdtSlots, 1U) < artsNodeInfo.gpuMaxEdts)
         {
-            if (artsAtomicCswapU64(&artsGpu->availGlobalMem, availSize, availSize-size))
-                return true;
-            availSize = artsGpu->availGlobalMem;
+            volatile uint64_t availSize = artsGpu->availGlobalMem;
+            while (availSize >= size)
+            {
+                if (artsAtomicCswapU64(&artsGpu->availGlobalMem, availSize, availSize-size))
+                    return true;
+                availSize = artsGpu->availGlobalMem;
+            }
         }
+        artsAtomicSub(&artsGpu->availableEdtSlots, 1U);
     }
-    artsAtomicSub(&artsGpu->availableEdtSlots, 1U);
+    // artsAtomicSub(&artsGpu->availableThreads, threads);
+    DPRINTF("Failed Avail threads: %u + %u\n", artsGpu->availableThreads, threads);
     DPRINTF("Failed to reserve %lu of available %lu on GPU[%d]\n", size, artsGpu->availGlobalMem, artsGpu->device);
     return false;
 }
 
-int firstFit(uint64_t mask, uint64_t size)
+int firstFit(uint64_t mask, uint64_t size, unsigned int totalThreads)
 {
     int random = jrand48(artsThreadInfo.drand_buf);
     for (int i = 0; i < artsNodeInfo.gpu; i++)
@@ -576,7 +584,7 @@ int firstFit(uint64_t mask, uint64_t size)
         int index = (i+random) % artsNodeInfo.gpu;
         uint64_t checkMask = 1 << index;
         if (mask && checkMask)
-            if (tryReserve(index, size))
+            if (tryReserve(index, size, totalThreads))
             {
                 DPRINTF("Reserved Successfully on %u\n", index);
                 return index;
@@ -585,7 +593,7 @@ int firstFit(uint64_t mask, uint64_t size)
     return -1;
 }
 
-int roundRobinFit(uint64_t mask, uint64_t size)
+int roundRobinFit(uint64_t mask, uint64_t size, unsigned int totalThreads)
 {
     static volatile unsigned int next = 0;
     unsigned int start = artsAtomicFetchAdd(&next, 1U);
@@ -594,7 +602,7 @@ int roundRobinFit(uint64_t mask, uint64_t size)
         int index = (i+start) % artsNodeInfo.gpu;
         uint64_t checkMask = 1 << index;
         if (mask && checkMask)
-            if (tryReserve(index, size))
+            if (tryReserve(index, size, totalThreads))
             {
                 DPRINTF("Reserved Successfully on %u\n", index);
                 return index;
@@ -603,7 +611,7 @@ int roundRobinFit(uint64_t mask, uint64_t size)
     return -1;
 }
 
-int bestFit(uint64_t mask, uint64_t size)
+int bestFit(uint64_t mask, uint64_t size, unsigned int totalThreads)
 {
     int selectedGpu = -1;
     uint64_t selectedGpuAvailSize;
@@ -619,7 +627,7 @@ int bestFit(uint64_t mask, uint64_t size)
                 if (artsGpus[index].availGlobalMem-size > selectedGpuAvailSize)
                     continue;
             }
-            if (tryReserve(index, size))
+            if (tryReserve(index, size, totalThreads))
             {
                 // If successful relinquish previous allocation.
                 artsAtomicAddU64(&artsGpus[selectedGpu].availGlobalMem, size);
@@ -631,7 +639,7 @@ int bestFit(uint64_t mask, uint64_t size)
     return selectedGpu;
 }
 
-int worstFit(uint64_t mask, uint64_t size)
+int worstFit(uint64_t mask, uint64_t size, unsigned int totalThreads)
 {
     int selectedGpu = -1;
     uint64_t selectedGpuAvailSize;
@@ -647,7 +655,7 @@ int worstFit(uint64_t mask, uint64_t size)
                 if (artsGpus[index].availGlobalMem-size < selectedGpuAvailSize)
                     continue;
             }
-            if (tryReserve(index, size))
+            if (tryReserve(index, size, totalThreads))
             {
                 // If successful relinquish previous allocation.
                 artsAtomicAddU64(&artsGpus[selectedGpu].availGlobalMem, size);
@@ -672,6 +680,7 @@ uint64_t getDbSizeNeeded(uint32_t depc, artsEdtDep_t * depv)
                 size += db->header.size;
         }
     }
+    DPRINTF("DB SIZE NEEDED: %lu\n", size);
     return size;
 }
 
@@ -682,11 +691,12 @@ int random(void * edtPacket)
     uint32_t       depc   = edt->wrapperEdt.depc;
     uint64_t     * paramv = (uint64_t *)(edt + 1);
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
+    unsigned int totalThreads = edt->grid.x * edt->block.x + edt->grid.y * edt->block.y + edt->grid.z * edt->block.z;
 
     // Size to be allocated on the GPU
     uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc + getDbSizeNeeded(depc, depv);
     uint64_t mask = ~0;
-    return fit(mask, size);
+    return fit(mask, size, totalThreads);
 }
 
 int allOrNothing(void * edtPacket)
@@ -696,6 +706,7 @@ int allOrNothing(void * edtPacket)
     uint32_t       depc   = edt->wrapperEdt.depc;
     uint64_t     * paramv = (uint64_t *)(edt + 1);
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
+    unsigned int totalThreads = edt->grid.x * edt->block.x + edt->grid.y * edt->block.y + edt->grid.z * edt->block.z;
 
     // Size to be allocated on the GPU
     uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc + getDbSizeNeeded(depc, depv);
@@ -706,7 +717,7 @@ int allOrNothing(void * edtPacket)
     DPRINTF("Mask: %p\n", mask);
 
     if (mask) // All DBs in GPU
-        return fit(mask, size); // No need to fit since all Dbs are in a GPU
+        return fit(mask, size, totalThreads); // No need to fit since all Dbs are in a GPU
     else
         return random(edtPacket);
 }
@@ -718,6 +729,7 @@ int atleastOne(void * edtPacket)
     uint32_t       depc   = edt->wrapperEdt.depc;
     uint64_t     * paramv = (uint64_t *)(edt + 1);
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
+    unsigned int totalThreads = edt->grid.x * edt->block.x + edt->grid.y * edt->block.y + edt->grid.z * edt->block.z;
 
     // Size to be allocated on the GPU
     uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc + getDbSizeNeeded(depc, depv);
@@ -728,7 +740,7 @@ int atleastOne(void * edtPacket)
     DPRINTF("Mask: %p\n", mask);
 
     if (mask) // At least one DB in GPU
-        return fit(mask, size);
+        return fit(mask, size, totalThreads);
     else
         return random(edtPacket);
 }
@@ -740,6 +752,7 @@ int hashOnDBZero(void * edtPacket)
     uint32_t       depc   = edt->wrapperEdt.depc;
     uint64_t     * paramv = (uint64_t *)(edt + 1);
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
+    unsigned int totalThreads = edt->grid.x * edt->block.x + edt->grid.y * edt->block.y + edt->grid.z * edt->block.z;
 
     // Size to be allocated on the GPU
     uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc + getDbSizeNeeded(depc, depv);
@@ -750,7 +763,10 @@ int hashOnDBZero(void * edtPacket)
         PRINTF("WHATS WRONG WITH THE HASH %u\n", index);
         artsDebugGenerateSegFault();
     }
-    return tryReserve(index, size);
+    DPRINTF("HASH: %lu %u\n", depv[0].guid, index);
+    if(tryReserve(index, size, totalThreads))
+        return index;
+    return -1;
 }
 
 int artsReserveEdtRequiredGpu(int * gpu, void * edtPacket)
@@ -762,12 +778,13 @@ int artsReserveEdtRequiredGpu(int * gpu, void * edtPacket)
     uint32_t       depc   = edt->wrapperEdt.depc;
     uint64_t     * paramv = (uint64_t *)(edt + 1);
     artsEdtDep_t * depv   = (artsEdtDep_t *)(paramv + paramc);
+    unsigned int totalThreads = edt->grid.x * edt->block.x + edt->grid.y * edt->block.y + edt->grid.z * edt->block.z;
 
     if(edt->gpuToRunOn > -1)
     {
         // Size to be allocated on the GPU
         uint64_t size = sizeof(uint64_t) * paramc + sizeof(artsEdtDep_t) * depc + getDbSizeNeeded(depc, depv);
-        if(tryReserve(edt->gpuToRunOn, size))
+        if(tryReserve(edt->gpuToRunOn, size, totalThreads))
         {
             *gpu = edt->gpuToRunOn;
             ret = true;

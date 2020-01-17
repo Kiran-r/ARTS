@@ -110,7 +110,7 @@ struct artsConfig
     unsigned int gpuFit;
     unsigned int gpuLCSync;
     unsigned int gpuMaxEdts;
-    size_t gpuMaxMemory;
+    uint64_t gpuMaxMemory;
     bool gpuP2P;
     bool gpuBuffOn;
     unsigned int gpuRouteTableSize;

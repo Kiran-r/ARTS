@@ -64,6 +64,7 @@ void artsMemcpyGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev);
 void artsGetLatestGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev);
 void artsGetRandomGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev);
 void artsGetNonZerosUnsignedInt(artsLCMeta_t * host, artsLCMeta_t * dev);
+void artsGetMinDbUnsignedInt(artsLCMeta_t * host, artsLCMeta_t * dev);
 
 void artsSendTree(unsigned int mask);
 

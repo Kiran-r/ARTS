@@ -100,7 +100,7 @@ struct artsRuntimeShared
     unsigned int gpuP2P;
     unsigned int gpuRouteTableSize;
     unsigned int gpuRouteTableEntries;
-    size_t gpuMaxMemory;
+    uint64_t gpuMaxMemory;
     bool freeDbAfterGpuRun;
     bool runGpuGcIdle;
     bool runGpuGcPreEdt;
@@ -151,7 +151,7 @@ extern uint64_t artsGuidMax;
 #define MASTER_PRINTF(...) if (artsGlobalRankId==artsGlobalMasterRankId) PRINTF(__VA_ARGS__)
 #define ONCE_PRINTF(...) if(artsGlobalIWillPrint == true) PRINTF(__VA_ARGS__)
 
-#define artsLookUpConfig(name) artsNodeInfo. ## name
+#define artsLookUpConfig(name) artsNodeInfo.name
 
 #define artsTypeName const char * const _artsTypeName[] = { \
 "ARTS_NULL", \

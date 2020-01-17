@@ -47,7 +47,6 @@ __device__ vertex_t getVertexFromLocalGpu(local_index_t u, const csr_graph_t * c
     return (v+u);
 }
 __device__ local_index_t getLocalIndexGpu(vertex_t v, const csr_graph_t * const part) {
-  partition_t n = getOwnerGpu(v, part);
   vertex_t base = indexStartGpu(part->index, part);
   assert(base <= v);
   return (v - base);

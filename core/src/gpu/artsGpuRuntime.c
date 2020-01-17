@@ -371,7 +371,8 @@ artsLCSyncFunction_t lcSyncFunction[] = {
     artsMemcpyGpuDb,
     artsGetLatestGpuDb,
     artsGetRandomGpuDb,
-    artsGetNonZerosUnsignedInt
+    artsGetNonZerosUnsignedInt,
+    artsGetMinDbUnsignedInt
 };
 
 void internalLCSync(artsGuid_t acqGuid, struct artsDb * db)
@@ -403,10 +404,11 @@ void internalLCSync(artsGuid_t acqGuid, struct artsDb * db)
             {
                 unsigned int gpuVersion;
                 unsigned int timeStamp;
-                DPRINTF("acqGuid: %lu type: %u\n", acqGuid, artsGuidGetType(acqGuid));
+                DPRINTF("acqGuid: %lu type: %u i: %u\n", acqGuid, artsGuidGetType(acqGuid), i);
                 void * dataPtr = artsGpuRouteTableLookupDb(acqGuid, i, &gpuVersion, &timeStamp);
                 if(dataPtr)
                 {
+                    // PRINTF("i: %u %lu\n", i, acqGuid);
                     artsGpuInvalidateOnRouteTable(acqGuid, i);
                     if(i != currentDevice)
                     {
@@ -416,7 +418,7 @@ void internalLCSync(artsGuid_t acqGuid, struct artsDb * db)
                     
                     artsCudaMemCpyFromDev(tempSpace, dataPtr, size);
                     artsGpuRouteTableReturnDb(acqGuid, true, i);
-
+                    
                     dev.guid = acqGuid;
                     dev.data = (void*) (tempSpace+1);
                     dev.dataSize = tempSpace->header.size - sizeof(struct artsDb);

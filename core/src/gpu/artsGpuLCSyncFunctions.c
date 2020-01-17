@@ -99,8 +99,11 @@ void * makeLCShadowCopy(struct artsDb * db)
     struct artsDb * shadowCopy = (struct artsDb*) dest;
 
     unsigned int hostVersion = versionLock(&db->version);
-    if(hostVersion == shadowCopy->version)
+    if(!shadowCopy->version || hostVersion != shadowCopy->version)
+    {
+        DPRINTF("Shadow Copy\n");
         memcpy(dest, (void*)db, size);
+    }
     versionUnlockWithNew(&db->version, hostVersion);
     return dest;
 }
@@ -164,29 +167,40 @@ void artsGetRandomGpuDb(artsLCMeta_t * host, artsLCMeta_t * dev)
 void artsGetNonZerosUnsignedInt(artsLCMeta_t * host, artsLCMeta_t * dev)
 {
     unsigned int numElem = host->dataSize/sizeof(unsigned int);
-    unsigned int * dest = (unsigned int*) host->data;
+    unsigned int * dst = (unsigned int*) host->data;
     unsigned int * src = (unsigned int*) dev->data;
-    // unsigned int hostVersion = versionLock(host->hostVersion);
+    unsigned int hostVersion = versionLock(host->hostVersion);
     for(unsigned int i=0; i<numElem; i++)
     {
-        DPRINTF("src: %u dest: %u\n", src[i], dest[i]);
+        DPRINTF("src: %u dest: %u\n", src[i], dst[i]);
         if(src[i])
-            dest[i] = src[i];
+            dst[i] = src[i];
     }
-    // versionUnlock(host->hostVersion);
+    versionUnlock(host->hostVersion);
 }
 
-// void artsGetMinDb(artsLCMeta_t * host, artsLCMeta_t * dev)
-// {
-//     artsPrintDbMetaData(host);
-//     artsPrintDbMetaData(dev)
-    
-//     unsigned int numElements = host->dataSize / sizeof(unsigned int);
-//     for(unsigned int i=0; i<numElements; i++) 
-//     {
-
-//     }
-// }
+void artsGetMinDbUnsignedInt(artsLCMeta_t * host, artsLCMeta_t * dev)
+{
+    unsigned int count = 0;
+    unsigned int count2 = 0;
+    unsigned int numElem = host->dataSize / sizeof(unsigned int);
+    unsigned int * dst = (unsigned int*) host->data;
+    unsigned int * src = (unsigned int*) dev->data;
+    unsigned int hostVersion = versionLock(host->hostVersion);
+    for(unsigned int i=0; i<numElem; i++)
+    {
+        if(src[i]<dst[i])
+        {
+            DPRINTF("src: %u dst: %u\n", src[i], dst[i]);
+            dst[i] = src[i];
+            count++;
+        }
+        if(src[i] != (unsigned int)-1)
+            count2++;
+    }
+    DPRINTF("%lu %u %u\n", host->guid, count, count2);
+    versionUnlock(host->hostVersion);
+}
 
 #define GPUGROUPSIZE 4
 #define GPUNUMGROUP 2

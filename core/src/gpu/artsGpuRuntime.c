@@ -174,6 +174,11 @@ artsGuid_t artsEdtCreateGpu(artsEdt_t funcPtr, unsigned int route, uint32_t para
     return artsEdtCreateGpuDep(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, true);
 }
 
+artsGuid_t artsEdtCreateGpuWithGuid(artsEdt_t funcPtr, artsGuid_t guid, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid)
+{
+    return internalEdtCreateGpu(funcPtr, &guid, artsGuidGetRank(guid), paramc, paramv, depc, grid, block, endGuid, slot, dataGuid, true, false, false, -1);
+}
+
 artsGuid_t artsEdtCreateGpuPT(artsEdt_t funcPtr, unsigned int route, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot)
 {
     return artsEdtCreateGpuPTDep(funcPtr, route, paramc, paramv, depc, grid, block, endGuid, slot, passSlot, true);

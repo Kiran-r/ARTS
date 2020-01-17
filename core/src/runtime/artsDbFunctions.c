@@ -304,7 +304,7 @@ void acquireDbs(struct artsEdt * edt)
     edt->depcNeeded = edt->depc + 1;
     for(int i=0; i<edt->depc; i++)
     {
-        DPRINTF("MODE: %s\n", getTypeName(depv[i].mode));
+        PRINTF("MODE: %s\n", getTypeName(depv[i].mode));
         if(depv[i].guid && depv[i].ptr == NULL)
         {
             struct artsDb * dbFound = NULL;
@@ -412,7 +412,7 @@ void acquireDbs(struct artsEdt * edt)
                         }
                         else //The Db hasn't been created yet
                         {
-                            DPRINTF("%lu out of order request\n", depv[i].guid);
+                            PRINTF("%lu out of order request\n", depv[i].guid);
                             artsOutOfOrderHandleDbRequest(depv[i].guid, edt, i, true);
                         }
                     }

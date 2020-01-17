@@ -75,6 +75,7 @@ artsGuid_t artsEdtCreateGpuLib(artsEdt_t funcPtr, unsigned int route, uint32_t p
 artsGuid_t artsEdtCreateGpuPTWithGuid(artsEdt_t funcPtr, artsGuid_t guid, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, unsigned int passSlot);
 artsGuid_t artsEdtCreateGpuDirect(artsEdt_t funcPtr, unsigned int route, unsigned int gpu, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid, bool hasDepv);
 artsGuid_t artsEdtCreateGpuLibDirect(artsEdt_t funcPtr, unsigned int route, unsigned int gpu, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block);
+artsGuid_t artsEdtCreateGpuWithGuid(artsEdt_t funcPtr, artsGuid_t guid, uint32_t paramc, uint64_t * paramv, uint32_t depc, dim3 grid, dim3 block, artsGuid_t endGuid, uint32_t slot, artsGuid_t dataGuid);
 
 dim3 * artsGetGpuGrid();
 dim3 * artsGetGpuBlock();

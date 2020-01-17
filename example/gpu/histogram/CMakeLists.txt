@@ -39,12 +39,10 @@
 
 set(LIBS arts ${M_LIB} ${RT_LIB} ${PTHREAD_LIB} ${RDMACM_LIB} ${HWLOC_LIB} ${CUDA_LIBRARIES} ${CUBLAS_LIBRARIES})
 
-set_source_files_properties(fibGpu.cu PROPERTIES LANGUAGE CUDA)
-add_executable(fibGpu fibGpu.cu)
-target_link_libraries(fibGpu ${LIBS})
-
-add_subdirectory(mm)
-add_subdirectory(stream)
-# add_subdirectory(bfs)
-add_subdirectory(histogram)
-
+if(CUDA_FOUND)
+    if(CUBLAS_FOUND)
+        set_source_files_properties(histo.cu PROPERTIES LANGUAGE CUDA)
+        add_executable(gpuhisto histo.cu)
+        target_link_libraries(gpuhisto ${LIBS})
+    endif()
+endif()

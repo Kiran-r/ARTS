@@ -54,8 +54,8 @@
 #include "artsGpuLCSyncFunctions.h"
 #include "artsGuid.h"
 
-// #define DPRINTF( ... )
-#define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
+#define DPRINTF( ... )
+// #define DPRINTF( ... ) PRINTF( __VA_ARGS__ )
 
 int random(void * edtPacket);
 int allOrNothing(void * edtPacket);

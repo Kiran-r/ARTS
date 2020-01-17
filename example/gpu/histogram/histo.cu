@@ -114,7 +114,6 @@ __global__ void ReduceHistogram(uint32_t paramc, uint64_t * paramv, uint32_t dep
             finalHisto[index] += localHisto[index];
         }
     }
-    assert(1);
 }
 
 void finishHistogram(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
@@ -143,7 +142,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
     doneGuid = artsReserveGuidRoute(ARTS_EDT,            0);
     finalSumGuid = artsReserveGuidRoute(ARTS_GPU_EDT,    0);
     inputArrayGuid = artsReserveGuidRoute(ARTS_DB_READ,  0);
-    histoGuid = artsReserveGuidRoute(ARTS_DB_WRITE,      0);
+    histoGuid = artsReserveGuidRoute(ARTS_DB_GPU_WRITE,      0);
 
     inputTileGuids = artsNewGuidRangeNode(ARTS_DB_GPU_READ, numBlocks, 0);
     partialHistoGuids = artsNewGuidRangeNode(ARTS_DB_GPU_WRITE, numBlocks, 0);

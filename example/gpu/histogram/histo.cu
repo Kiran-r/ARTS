@@ -40,14 +40,11 @@
 #include <stdlib.h>
 #include "arts.h"
 #include "artsGpuRuntime.h"
-#include "cublas_v2.h"
-#include "cublas_api.h"
-#include <cuda_runtime.h>
-#include <assert.h>
 
 #define ARRAYSIZE 65536
 #define TILESIZE 8192
 #define VERIFY 1
+#define VERIFYONGPU 0
 #define SMTILE 32 // Hardcoded for Volta
 #define NUMBINS 10 // Make it a variable
 
@@ -71,55 +68,103 @@ artsGuidRange * partialHistoGuids = NULL;
 __global__ void privateHistogram(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     const int numElements = (int) paramv[0];
-    const int numBins = (int) paramv[1];
     int * tile = (int *) depv[0].ptr;
     int * localHisto = (int *) depv[1].ptr;
 
     // Compute histograms in every GPU
     int index = blockIdx.x * blockDim.x + threadIdx.x;
     int step = blockDim.x; //32
-    int id = threadIdx.x;
-    __shared__ unsigned int sbins[NUMBINS];
 
-    // for (int i = id; i < num_bins; i += step)
-    //     if (i < num_bins)
-    //         sbins[i] = 0;
-    // __syncthreads();
     step = blockDim.x * gridDim.x;// 0-8192 /32 => 0-31, 32-63... 
     for (int i = index; i < numElements; i += step)
         if (i < numElements)
-            atomicAdd(&sbins[tile[i]], 1);
+            atomicAdd(&localHisto[tile[i]], 1);
+#if VERIFYONGPU
     __syncthreads();
-    step = blockDim.x;
-    for (int i = id; i < numBins; i += step)
+    if (index == 0)
     {
-        if (i < numBins)
-            atomicAdd(&localHisto[i], sbins[i]);
+        for (int i = 0; i<numElements; i++)
+            printf("input[%d] = %d\n", i, tile[i]);
+        
+        for (int i=0; i<NUMBINS; i++)
+            printf("\thisto[%d] = %d\n", i, localHisto[i]);
     }
+    __syncthreads();
+#endif
 }
 
 __global__ void ReduceHistogram(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
-    // Reduce histograms from all GPUs into one.
-    const int numBins = (int) paramv[0];
+    // Reduce histograms from all GPUs.
     const int numLocalHistograms = depc - 1;
     int * finalHisto = (int *) depv[0].ptr;
     int index = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (index < numBins)
+    // TODO: This would work if localHisto is made private to blockIdx.x
+    // if (blockIdx.x < numLocalHistograms)
+    // {
+    //     int * localHisto = (int *) depv[1+blockIdx.x].ptr;
+    //     if (threadIdx.x < NUMBINS)
+    //         atomicAdd(&finalHisto[threadIdx.x], localHisto[threadIdx.x]);
+    // }
+
+    if (blockIdx.x == 0)
     {
-        for (int i = 0; i < numLocalHistograms; i++)
+        for (int i=0; i<numLocalHistograms; i++)
         {
             int * localHisto = (int *) depv[1+i].ptr;
-            finalHisto[index] += localHisto[index];
+            if (index < NUMBINS)
+                atomicAdd(&finalHisto[index], localHisto[index]);
         }
     }
+
+#if VERIFYONGPU
+    __syncthreads();
+    if (index == 0)
+    {
+        for (int i=0; i<numLocalHistograms; i++)
+        {
+            int * localHisto = (int *) depv[1+i].ptr;
+            printf("localHisto[%d]\n", i);
+            for (int j=0; j<NUMBINS; j++)
+                printf("\thisto[%d] = %d\n", j, localHisto[j]);
+        }
+    }
+#endif
 }
 
 void finishHistogram(uint32_t paramc, uint64_t * paramv, uint32_t depc, artsEdtDep_t depv[])
 {
     uint64_t time = artsGetTimeStamp() - start;
+#if VERIFY
+    int * histoObtained = (int *) depv[0].ptr;
+    int * histoExpected = (int *) artsCalloc(sizeof(int) * NUMBINS);
+
+    for(unsigned int i=0; i<inputArraySize; i++)
+        histoExpected[inputArray[i]]++;
+
+    for (unsigned int i = 0; i < NUMBINS; i++)
+        printf("histo[%u] = %d | finalHisto[%u] = %d\n", i, histoExpected[i], i, histoObtained[i]);
+    
+
+    for (unsigned int i=0; i<NUMBINS; i++)
+    {
+        if (histoExpected[i] != histoObtained[i])
+        {
+            PRINTF("Failed at histo[%lu]\n", i);
+            PRINTF("Expected: %d | Obtained: %d\n", histoExpected[i], histoObtained[i]);
+            artsFree(histoExpected);
+            artsShutdown();
+            return;
+        }
+    }
+    artsFree(histoExpected);
+    PRINTF("Success %lu\n", time);
+#else
+    PRINTF("Done %lu\n", time);
+#endif
     artsShutdown();
+    return;
 }
 
 extern "C"
@@ -138,11 +183,12 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
         inputArraySize = atoi(argv[1]);
         tileSize = atoi(argv[2]);
     }
+    PRINTF("ArraySize = %d | tileSize = %d \n", inputArraySize, tileSize);
     numBlocks = (inputArraySize+tileSize-1) / tileSize; // TODO: Fix if inputArraySize is < tileSize
     doneGuid = artsReserveGuidRoute(ARTS_EDT,            0);
     finalSumGuid = artsReserveGuidRoute(ARTS_GPU_EDT,    0);
     inputArrayGuid = artsReserveGuidRoute(ARTS_DB_READ,  0);
-    histoGuid = artsReserveGuidRoute(ARTS_DB_GPU_WRITE,      0);
+    histoGuid = artsReserveGuidRoute(ARTS_DB_GPU_WRITE,  0);
 
     inputTileGuids = artsNewGuidRangeNode(ARTS_DB_GPU_READ, numBlocks, 0);
     partialHistoGuids = artsNewGuidRangeNode(ARTS_DB_GPU_WRITE, numBlocks, 0);
@@ -152,6 +198,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
         inputArray = (int *) artsDbCreateWithGuid (inputArrayGuid, inputArraySize * sizeof(int));
         finalHistogram = (int *) artsDbCreateWithGuid (histoGuid, NUMBINS * sizeof(int));
 
+        printf("Loading input array\n");
         for (unsigned int elem = 0; elem < inputArraySize; elem++)
             inputArray[elem] = rand() % NUMBINS;
         
@@ -159,6 +206,7 @@ void initPerNode(unsigned int nodeId, int argc, char** argv)
             finalHistogram[elem] = 0;
         
         PRINTF("Starting...\n");
+        start = artsGetTimeStamp();
     }
 }
 
@@ -170,7 +218,6 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
 
     dim3 threads (SMTILE);
     dim3 grid((tileSize+SMTILE-1)/SMTILE);
-    // dim3 grid(((tileSize*tileSize)+(SMTILE*SMTILE)-1)/(SMTILE*SMTILE), 1);
 
     if (!nodeId && !workerId)
     {
@@ -183,9 +230,9 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
             int * partialHisto = (int *) artsDbCreateWithGuid(partialHistoGuid, sizeof(int) *  NUMBINS);
             memset(partialHisto, 0, tileSize * sizeof(int));
         }
-        uint64_t sumArgs[] = {tileSize};
-        artsEdtCreateWithGuid (finishHistogram, doneGuid, 0, NULL, 1);
-        artsEdtCreateGpuWithGuid (ReduceHistogram, finalSumGuid, 1, sumArgs, numBlocks+1, grid, threads, doneGuid, 0, histoGuid);
+        artsEdtCreateWithGuid (finishHistogram, doneGuid, 0, NULL, 2);
+        artsSignalEdt(doneGuid, 0, histoGuid);
+        artsEdtCreateGpuWithGuid (ReduceHistogram, finalSumGuid, 0, NULL, numBlocks+1, grid, threads, doneGuid, 0, histoGuid);
         artsSignalEdt(finalSumGuid, 0, histoGuid);
     }
 
@@ -196,7 +243,7 @@ void initPerWorker(unsigned int nodeId, unsigned int workerId, int argc, char** 
             if (tile % artsGetTotalNodes() == nodeId)
             {
                 artsGuid_t partialHistoGuid = artsGetGuid(partialHistoGuids, tile);
-                uint64_t args[] = {numBlocks, tile};
+                uint64_t args[] = {tileSize};
                 artsGuid_t privHistoGuid = artsEdtCreateGpu(privateHistogram, nodeId, 2, args, 2, grid, threads, finalSumGuid, 1+tile, partialHistoGuid);
                 artsSignalEdt(privHistoGuid, 0, artsGetGuid(inputTileGuids, tile));
                 artsSignalEdt(privHistoGuid, 1, partialHistoGuid);
